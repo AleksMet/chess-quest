@@ -1,20 +1,32 @@
+import { SafeAreaView, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { BattleScreen } from './src/components/battle/BattleScreen';
+import { HEROES } from './src/data/heroes';
+import { ARTIFACTS } from './src/data/artifacts';
+
+const [timmy] = HEROES;
+const starterArtifacts = ARTIFACTS.filter(a =>
+  ['pawn_march', 'center_defender', 'castle_fortress'].includes(a.id)
+);
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="light" />
+      <BattleScreen
+        hero={timmy}
+        artifacts={starterArtifacts}
+        playerColor="w"
+        opponentName="Гоблинский Король"
+        opponentElo={450}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#1a1a2e',
   },
 });

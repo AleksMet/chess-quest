@@ -24,6 +24,7 @@ export interface BattleContext {
   hero: Hero;
   moveNumber: number;
   playerColor: Color;
+  kingCheckedThisGame?: boolean;
 }
 
 export interface RewardResult {
