@@ -52,8 +52,8 @@ export function detectFork(chess: Chess, move: Move): ForkResult {
 }
 
 /**
- * Checks if a specific square attacks a target square for a given color.
- * We temporarily remove other pieces to isolate the attacker.
+ * Returns true if the piece on attackerSquare attacks targetSquare.
+ * Uses manual geometry so it's correct regardless of whose turn it is.
  */
 function isSquareAttackingTarget(
   chess: Chess,
@@ -64,9 +64,58 @@ function isSquareAttackingTarget(
   const piece = chess.get(attackerSquare);
   if (!piece || piece.color !== attackerColor) return false;
 
-  // Use chess.js moves to check if the attacker can reach the target
-  const moves = chess.moves({ square: attackerSquare, verbose: true });
-  return moves.some(m => m.to === targetSquare);
+  const fA = attackerSquare.charCodeAt(0) - 97;
+  const rA = parseInt(attackerSquare[1]) - 1;
+  const fT = targetSquare.charCodeAt(0) - 97;
+  const rT = parseInt(targetSquare[1]) - 1;
+  const df = fT - fA;
+  const dr = rT - rA;
+
+  switch (piece.type) {
+    case 'n':
+      return (Math.abs(df) === 1 && Math.abs(dr) === 2) ||
+             (Math.abs(df) === 2 && Math.abs(dr) === 1);
+    case 'p': {
+      const dir = attackerColor === 'w' ? 1 : -1;
+      return dr === dir && Math.abs(df) === 1;
+    }
+    case 'k':
+      return Math.abs(df) <= 1 && Math.abs(dr) <= 1 && (df !== 0 || dr !== 0);
+    case 'b':
+      if (Math.abs(df) !== Math.abs(dr) || df === 0) return false;
+      return !isRayBlocked(chess, fA, rA, fT, rT, df / Math.abs(df), dr / Math.abs(dr));
+    case 'r':
+      if (df !== 0 && dr !== 0) return false;
+      return !isRayBlocked(chess, fA, rA, fT, rT,
+        df === 0 ? 0 : df / Math.abs(df),
+        dr === 0 ? 0 : dr / Math.abs(dr));
+    case 'q':
+      if (Math.abs(df) === Math.abs(dr) && df !== 0)
+        return !isRayBlocked(chess, fA, rA, fT, rT, df / Math.abs(df), dr / Math.abs(dr));
+      if (df === 0 || dr === 0)
+        return !isRayBlocked(chess, fA, rA, fT, rT,
+          df === 0 ? 0 : df / Math.abs(df),
+          dr === 0 ? 0 : dr / Math.abs(dr));
+      return false;
+    default:
+      return false;
+  }
+}
+
+function isRayBlocked(
+  chess: Chess,
+  fA: number, rA: number,
+  fT: number, rT: number,
+  dFile: number, dRank: number
+): boolean {
+  let f = fA + dFile;
+  let r = rA + dRank;
+  while (f !== fT || r !== rT) {
+    if (chess.get(`${String.fromCharCode(97 + f)}${r + 1}` as Square)) return true;
+    f += dFile;
+    r += dRank;
+  }
+  return false;
 }
 
 /**
@@ -229,9 +278,25 @@ export function isCenterSquare(square: Square): boolean {
 
 /**
  * Counts how many squares a bishop on `square` controls (can see).
+ * Uses manual diagonal tracing — works regardless of whose turn it is.
  */
 export function countBishopControlledSquares(chess: Chess, square: Square): number {
   const piece = chess.get(square);
   if (!piece || piece.type !== 'b') return 0;
-  return chess.moves({ square, verbose: true }).length;
+
+  const fS = square.charCodeAt(0) - 97;
+  const rS = parseInt(square[1]) - 1;
+  let count = 0;
+
+  for (const [dFile, dRank] of [[-1, -1], [-1, 1], [1, -1], [1, 1]] as [number, number][]) {
+    let f = fS + dFile;
+    let r = rS + dRank;
+    while (f >= 0 && f < 8 && r >= 0 && r < 8) {
+      count++;
+      if (chess.get(`${String.fromCharCode(97 + f)}${r + 1}` as Square)) break;
+      f += dFile;
+      r += dRank;
+    }
+  }
+  return count;
 }
