@@ -29,6 +29,18 @@
     "experiments": {
       "typedRoutes": false
     },
-    "newArchEnabled": false
+    "newArchEnabled": false,
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "74eb13c9-bfbc-41d4-b8e7-e38878bd52ea"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/74eb13c9-bfbc-41d4-b8e7-e38878bd52ea"
+    }
   }
 }

@@ -16,7 +16,6 @@ module.exports = {
   },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^react-native-reanimated$': '<rootDir>/__mocks__/react-native-reanimated.js',
     '^react-native-svg$': '<rootDir>/__mocks__/react-native-svg.js',
   },
 };
