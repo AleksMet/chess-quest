@@ -1,6 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Chess } from 'chess.js';
 import type { Square, Color } from 'chess.js';
 import { getLegalMovesFrom, attemptMove } from '../../engine/chessLogic';
@@ -20,28 +19,15 @@ interface ChessBoardProps {
   disabled?: boolean;
 }
 
-interface AnimatedPieceProps {
+interface PieceViewProps {
   pieceKey: PieceKey;
-  animate: boolean;
 }
 
-function AnimatedPiece({ pieceKey, animate }: AnimatedPieceProps) {
-  const scale = useSharedValue(animate ? 0.6 : 1.0);
-
-  useEffect(() => {
-    if (animate) {
-      scale.value = withSpring(1.0, { damping: 10, stiffness: 200 });
-    }
-  }, []); // intentionally runs only on mount to trigger entry animation
-
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
+function PieceView({ pieceKey }: PieceViewProps) {
   return (
-    <Animated.View style={[styles.pieceContainer, animStyle]}>
+    <View style={styles.pieceContainer}>
       <ChessPieceSVG pieceKey={pieceKey} size={PIECE_SIZE} />
-    </Animated.View>
+    </View>
   );
 }
 
@@ -146,10 +132,9 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false 
                   />
                 )}
                 {pieceKey && (
-                  <AnimatedPiece
+                  <PieceView
                     key={isJustMoved ? `${square}-moved` : square}
                     pieceKey={pieceKey}
-                    animate={isJustMoved}
                   />
                 )}
               </TouchableOpacity>

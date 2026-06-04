@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { Chess } from 'chess.js';
 import type { Color, Move } from 'chess.js';
 import { ChessBoard } from '../chess/ChessBoard';
@@ -62,10 +61,6 @@ export function BattleScreen({
   // Fallback timer: fires when WebView engine doesn't respond in time
   const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const goldScale = useSharedValue(1);
-  const goldStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: goldScale.value }],
-  }));
 
   useEffect(() => {
     return () => {
@@ -187,10 +182,6 @@ export function BattleScreen({
 
       if (reward.gold > 0) {
         setGold(prev => prev + reward.gold);
-        goldScale.value = withSequence(
-          withSpring(1.4, { damping: 6 }),
-          withTiming(1.0, { duration: 300 }),
-        );
         setLog(prev => [...prev, ...reward.log].slice(-8));
       }
 
@@ -210,7 +201,7 @@ export function BattleScreen({
       // Opponent's turn — try engine, fallback handles silence automatically
       requestAIMove();
     },
-    [chess, gold, artifacts, hero, playerColor, goldScale, onGameEnd, requestAIMove],
+    [chess, gold, artifacts, hero, playerColor, onGameEnd, requestAIMove],
   );
 
   const boardDisabled = gameResult !== null || isAIThinking || chess.turn() !== playerColor;
@@ -240,10 +231,10 @@ export function BattleScreen({
       />
 
       <View style={[styles.hud, { backgroundColor: theme.surface + 'cc' }]} testID="hud">
-        <Animated.View style={[styles.goldContainer, { backgroundColor: theme.accentDark }, goldStyle]} testID="gold-display">
+        <View style={[styles.goldContainer, { backgroundColor: theme.accentDark }]} testID="gold-display">
           <Text style={styles.goldIcon}>💰</Text>
           <Text style={styles.goldAmount} testID="gold-amount">{gold}</Text>
-        </Animated.View>
+        </View>
 
         <ScrollView
           horizontal
