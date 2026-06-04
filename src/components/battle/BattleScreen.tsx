@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { Chess } from 'chess.js';
-import type { Color } from 'chess.js';
+import type { Color, Move } from 'chess.js';
 import { ChessBoard } from '../chess/ChessBoard';
 import { StockfishBridgeView } from '../engine/StockfishBridgeView';
 import type { StockfishBridgeRef } from '../engine/StockfishBridgeView';
@@ -17,6 +17,16 @@ const RARITY_COLORS: Record<string, string> = {
   legendary: '#ff9800',
   mythic:    '#f44336',
 };
+
+// Pick a random legal move, preferring captures ~60% of the time.
+function pickFallbackMove(chess: Chess): string | null {
+  const moves: Move[] = chess.moves({ verbose: true });
+  if (moves.length === 0) return null;
+  const captures = moves.filter(m => m.captured);
+  const pool = captures.length > 0 && Math.random() < 0.6 ? captures : moves;
+  const m = pool[Math.floor(Math.random() * pool.length)];
+  return `${m.from}${m.to}${m.promotion ?? ''}`;
+}
 
 interface BattleScreenProps {
   artifacts?:    Artifact[];
@@ -38,7 +48,7 @@ export function BattleScreen({
   onGameEnd,
 }: BattleScreenProps) {
   const [chess] = useState(() => new Chess());
-  const [boardKey, setBoardKey] = useState(0); // force ChessBoard re-render after AI move
+  const [boardKey, setBoardKey] = useState(0);
   const [gold, setGold] = useState(0);
   const [gameResult, setGameResult] = useState<'win' | 'lose' | 'draw' | null>(null);
   const [log, setLog] = useState<string[]>([]);
@@ -47,11 +57,19 @@ export function BattleScreen({
 
   const kingCheckedRef = useRef(false);
   const engineRef = useRef<StockfishBridgeRef>(null);
+  // Fallback timer: fires when WebView engine doesn't respond in time
+  const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const goldScale = useSharedValue(1);
   const goldStyle = useAnimatedStyle(() => ({
     transform: [{ scale: goldScale.value }],
   }));
+
+  useEffect(() => {
+    return () => {
+      if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
+    };
+  }, []);
 
   // ── Send UCI command to WebView engine ──────────────────────────────────────
   const sendToEngine = useCallback((cmd: string) => {
@@ -64,19 +82,15 @@ export function BattleScreen({
     sendToEngine(`setoption name Skill Level value ${skillLevel}`);
   }, [skillLevel, sendToEngine]);
 
-  // ── Handle bestmove response from engine ────────────────────────────────────
-  const handleEngineMessage = useCallback((line: string) => {
-    if (!line.startsWith('bestmove')) return;
-
-    const parts = line.split(' ');
-    const uci = parts[1];
-    if (!uci || uci === '0000') {
-      setIsAIThinking(false);
-      return;
+  // ── Shared: apply a UCI move string from engine or fallback ─────────────────
+  const applyAIMove = useCallback((uci: string) => {
+    if (aiTimeoutRef.current) {
+      clearTimeout(aiTimeoutRef.current);
+      aiTimeoutRef.current = null;
     }
 
     const from = uci.slice(0, 2);
-    const to = uci.slice(2, 4);
+    const to   = uci.slice(2, 4);
     const promotion = uci[4] as 'q' | 'r' | 'b' | 'n' | undefined;
 
     try {
@@ -100,6 +114,30 @@ export function BattleScreen({
     }
   }, [chess, playerColor, gold, onGameEnd]);
 
+  // ── Handle bestmove response from engine ────────────────────────────────────
+  const handleEngineMessage = useCallback((line: string) => {
+    if (!line.startsWith('bestmove')) return;
+
+    const uci = line.split(' ')[1];
+    if (!uci || uci === '0000') {
+      setIsAIThinking(false);
+      return;
+    }
+    applyAIMove(uci);
+  }, [applyAIMove]);
+
+  // ── Schedule fallback random move if engine silent for 1500 ms ──────────────
+  const scheduleFallback = useCallback(() => {
+    if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
+    aiTimeoutRef.current = setTimeout(() => {
+      aiTimeoutRef.current = null;
+      // Guard: might have already resolved via engine or player moved
+      if (chess.turn() === playerColor || chess.isGameOver()) return;
+      const uci = pickFallbackMove(chess);
+      if (uci) applyAIMove(uci);
+    }, 1500);
+  }, [chess, playerColor, applyAIMove]);
+
   // ── Request AI move ─────────────────────────────────────────────────────────
   const requestAIMove = useCallback(() => {
     if (chess.isGameOver()) return;
@@ -109,9 +147,11 @@ export function BattleScreen({
     if (legalMoves.length === 0) return;
 
     setIsAIThinking(true);
+    scheduleFallback();
+
     sendToEngine(`position fen ${chess.fen()} legal ${legalMoves.join(' ')}`);
     sendToEngine('go movetime 500');
-  }, [chess, playerColor, sendToEngine]);
+  }, [chess, playerColor, sendToEngine, scheduleFallback]);
 
   // ── Trigger AI immediately when engine becomes ready (if it's AI's turn) ───
   useEffect(() => {
@@ -165,12 +205,10 @@ export function BattleScreen({
         return;
       }
 
-      // Opponent's turn — ask the engine
-      if (engineReady) {
-        requestAIMove();
-      }
+      // Opponent's turn — try engine, fallback handles silence automatically
+      requestAIMove();
     },
-    [chess, gold, artifacts, hero, playerColor, goldScale, onGameEnd, engineReady, requestAIMove],
+    [chess, gold, artifacts, hero, playerColor, goldScale, onGameEnd, requestAIMove],
   );
 
   const boardDisabled = gameResult !== null || isAIThinking || chess.turn() !== playerColor;
