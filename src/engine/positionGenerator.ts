@@ -24,23 +24,133 @@ const QUICK_BATTLE_POSITIONS: string[] = [
   'r1bqr1k1/1pp2ppp/p1np1n2/2b1p3/2B1P3/P1NP1N2/1PP1QPPP/R1B2RK1 w - - 2 9',
 ];
 
-// Ambush positions: player (white) is down 2-3 pieces
-const AMBUSH_POSITIONS: string[] = [
-  'r1bq1rk1/ppp1bppp/2np1n2/4p3/4P3/2NP1N2/PPP1BPPP/R1BQK2R w KQ - 0 8',
-  'r2q1rk1/ppp1bppp/2np1n2/4p3/4P3/2NP1N2/PPP1BPPP/R1BQ1K1R w - - 0 9',
-  'r1bqr1k1/ppp2ppp/2np1n2/4p3/4P3/2NPbN2/PPP1BPPP/R1BQK2R w KQ - 0 8',
-  'r2qr1k1/pp2bppp/2np1n2/4p3/3PP3/2N2N2/PPP1BPPP/R1BQ1K1R w - - 0 10',
-  'r1bq1rk1/pp3ppp/2np1n2/4p3/4P3/2NP1N2/PPP1bPPP/R1BQK2R w KQ - 0 9',
-];
+// ── Dynamic ambush position generator ────────────────────────────────────────
+// Player (white): king + 4-5 pieces (n, b, p only — no queen, no rook)
+// Enemy (black):  king + 7-8 pieces (r, n, b, p — no queen)
+// Guarantees: valid FEN, white king not in check
+
+function boardToFen(board: (string | null)[][]): string {
+  return board.map(row => {
+    let s = '';
+    let empty = 0;
+    for (const cell of row) {
+      if (cell === null) {
+        empty++;
+      } else {
+        if (empty > 0) { s += empty; empty = 0; }
+        s += cell;
+      }
+    }
+    if (empty > 0) s += empty;
+    return s;
+  }).join('/');
+}
+
+export function generateAmbushPosition(): string {
+  const MAX_ATTEMPTS = 80;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    // board[0] = rank 8 (top), board[7] = rank 1 (bottom)
+    const board: (string | null)[][] = Array.from({ length: 8 }, () => Array(8).fill(null));
+    const used = new Set<number>(); // encoded as rank*8+file
+
+    function encode(rank: number, file: number) { return rank * 8 + file; }
+
+    function pickSquare(rankMin = 0, rankMax = 7): [number, number] | null {
+      for (let t = 0; t < 60; t++) {
+        const ri = rankMin + Math.floor(Math.random() * (rankMax - rankMin + 1));
+        const fi = Math.floor(Math.random() * 8);
+        if (!used.has(encode(ri, fi))) return [ri, fi];
+      }
+      return null;
+    }
+
+    function place(ri: number, fi: number, piece: string) {
+      board[ri][fi] = piece;
+      used.add(encode(ri, fi));
+    }
+
+    // board rank index → chess rank number (0 = rank8, 7 = rank1)
+    function rankNum(ri: number) { return 8 - ri; }
+
+    // Place white king (ranks 1-6 to avoid promotions, any file)
+    const wk = pickSquare(1, 6);
+    if (!wk) continue;
+    place(wk[0], wk[1], 'K');
+
+    // Place black king — must not be adjacent to white king
+    let bkPlaced = false;
+    for (let t = 0; t < 60; t++) {
+      const sq = pickSquare(1, 6);
+      if (!sq) break;
+      const [ri, fi] = sq;
+      if (Math.abs(ri - wk[0]) > 1 || Math.abs(fi - wk[1]) > 1) {
+        place(ri, fi, 'k');
+        bkPlaced = true;
+        break;
+      }
+    }
+    if (!bkPlaced) continue;
+
+    // Add 7-8 black pieces (r, n, b, p — no queen)
+    const bPieces = ['r', 'n', 'b', 'p'];
+    const bCount = 7 + Math.floor(Math.random() * 2);
+    let bAdded = 0;
+    for (let t = 0; t < bCount * 4 && bAdded < bCount; t++) {
+      const sq = pickSquare();
+      if (!sq) break;
+      const [ri, fi] = sq;
+      const type = bPieces[Math.floor(Math.random() * bPieces.length)];
+      const rank = rankNum(ri);
+      if (type === 'p' && (rank === 1 || rank === 8)) continue;
+      place(ri, fi, type);
+      bAdded++;
+    }
+
+    // Add 4-5 white pieces (n, b, p — no queen, no rook)
+    const wPieces = ['N', 'B', 'P'];
+    const wCount = 4 + Math.floor(Math.random() * 2);
+    let wAdded = 0;
+    for (let t = 0; t < wCount * 4 && wAdded < wCount; t++) {
+      const sq = pickSquare();
+      if (!sq) break;
+      const [ri, fi] = sq;
+      const type = wPieces[Math.floor(Math.random() * wPieces.length)];
+      const rank = rankNum(ri);
+      if (type === 'P' && (rank === 1 || rank === 8)) continue;
+      // Avoid putting a pawn on rank 7 giving illusion of promotion
+      if (type === 'P' && rank === 7) {
+        // Allow but skip rank 7 with 50% chance
+        if (Math.random() < 0.5) continue;
+      }
+      place(ri, fi, type);
+      wAdded++;
+    }
+
+    // Verify: white king must not be in check when it's white's turn
+    const fenBoard = boardToFen(board);
+    const fen = `${fenBoard} w - - 0 1`;
+    try {
+      const chess = new Chess(fen);
+      if (!chess.isCheck()) {
+        // Also verify that black king is not in check (would be illegal position)
+        // Swap turn to black and check
+        const blackTurnFen = `${fenBoard} b - - 0 1`;
+        const chessB = new Chess(blackTurnFen);
+        if (!chessB.isCheck()) return fen;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  // Fallback: a guaranteed unequal static position
+  return '2b1k3/rpp1pp2/2n5/8/8/2N5/PPP5/2B1K3 w - - 0 1';
+}
 
 export function generateQuickBattlePosition(): string {
   const idx = Math.floor(Math.random() * QUICK_BATTLE_POSITIONS.length);
   return QUICK_BATTLE_POSITIONS[idx];
-}
-
-export function generateAmbushPosition(): string {
-  const idx = Math.floor(Math.random() * AMBUSH_POSITIONS.length);
-  return AMBUSH_POSITIONS[idx];
 }
 
 /** Count material value for one side. Q=9 R=5 B=3 N=3 P=1 */

@@ -30,8 +30,15 @@ describe('positionGenerator', () => {
       expect(() => new Chess(fen)).not.toThrow();
     });
 
+    it('position has no check (white to move)', () => {
+      for (let i = 0; i < 10; i++) {
+        const fen = generateAmbushPosition();
+        const chess = new Chess(fen);
+        expect(chess.isCheck()).toBe(false);
+      }
+    });
+
     it('black has more material than white (player disadvantage)', () => {
-      // Run several times to cover all positions
       let foundDisadvantage = false;
       for (let i = 0; i < 20; i++) {
         const fen = generateAmbushPosition();
@@ -41,6 +48,53 @@ describe('positionGenerator', () => {
         if (blackMat > whiteMat) { foundDisadvantage = true; break; }
       }
       expect(foundDisadvantage).toBe(true);
+    });
+
+    it('white has no queen or rook (only k, n, b, p)', () => {
+      for (let i = 0; i < 10; i++) {
+        const fen = generateAmbushPosition();
+        const boardPart = fen.split(' ')[0];
+        // White pieces are uppercase — Q and R must be absent (only K, N, B, P)
+        expect(boardPart).not.toMatch(/Q/);
+        expect(boardPart).not.toMatch(/R/);
+      }
+    });
+
+    it('white has 5-6 total pieces (king + 4-5)', () => {
+      for (let i = 0; i < 15; i++) {
+        const fen = generateAmbushPosition();
+        const chess = new Chess(fen);
+        const board = chess.board();
+        let wCount = 0;
+        for (const row of board) {
+          for (const sq of row) {
+            if (sq && sq.color === 'w') wCount++;
+          }
+        }
+        expect(wCount).toBeGreaterThanOrEqual(5);
+        expect(wCount).toBeLessThanOrEqual(6);
+      }
+    });
+
+    it('black has 8-9 total pieces (king + 7-8)', () => {
+      for (let i = 0; i < 15; i++) {
+        const fen = generateAmbushPosition();
+        const chess = new Chess(fen);
+        const board = chess.board();
+        let bCount = 0;
+        for (const row of board) {
+          for (const sq of row) {
+            if (sq && sq.color === 'b') bCount++;
+          }
+        }
+        expect(bCount).toBeGreaterThanOrEqual(8);
+        expect(bCount).toBeLessThanOrEqual(9);
+      }
+    });
+
+    it('generates varied positions (not always the same)', () => {
+      const fens = new Set(Array.from({ length: 20 }, () => generateAmbushPosition()));
+      expect(fens.size).toBeGreaterThan(3);
     });
   });
 
