@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, Dimensions } from 'react-native';
+import { useState, useCallback, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Chess } from 'chess.js';
 import type { Square, Color } from 'chess.js';
 import { getLegalMovesFrom, attemptMove } from '../../engine/chessLogic';
@@ -20,6 +21,34 @@ interface ChessBoardProps {
   disabled?: boolean;
 }
 
+interface AnimatedPieceProps {
+  symbol: string;
+  isWhite: boolean;
+  animate: boolean;
+}
+
+function AnimatedPiece({ symbol, isWhite, animate }: AnimatedPieceProps) {
+  const scale = useSharedValue(animate ? 0.6 : 1.0);
+
+  useEffect(() => {
+    if (animate) {
+      scale.value = withSpring(1.0, { damping: 10, stiffness: 200 });
+    }
+  }, []); // intentionally runs only on mount to trigger entry animation
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View style={[styles.pieceContainer, animStyle]}>
+      <Text style={[styles.piece, isWhite ? styles.whitePiece : styles.blackPiece]}>
+        {symbol}
+      </Text>
+    </Animated.View>
+  );
+}
+
 export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false }: ChessBoardProps) {
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalTargets, setLegalTargets] = useState<Square[]>([]);
@@ -35,7 +64,6 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false 
 
       const piece = chess.get(square);
 
-      // If no square selected yet
       if (!selectedSquare) {
         if (piece && piece.color === playerColor && chess.turn() === playerColor) {
           setSelectedSquare(square);
@@ -45,14 +73,12 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false 
         return;
       }
 
-      // Square already selected — attempt the move
       if (selectedSquare === square) {
         setSelectedSquare(null);
         setLegalTargets([]);
         return;
       }
 
-      // If clicking another own piece, re-select
       if (piece && piece.color === playerColor) {
         setSelectedSquare(square);
         const moves = getLegalMovesFrom(chess, square);
@@ -60,8 +86,7 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false 
         return;
       }
 
-      // Attempt the move
-      const result = attemptMove(chess, selectedSquare, square, 'q'); // auto-promote to queen
+      const result = attemptMove(chess, selectedSquare, square, 'q');
       if (result.success && result.move) {
         setLastMove({ from: selectedSquare, to: square });
         onMove?.(result);
@@ -81,7 +106,7 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false 
         <View key={rank} style={styles.row}>
           {orderedFiles.map((file, fileIdx) => {
             const square = `${file}${rank}` as Square;
-            const rankIndex = 8 - rank; // 0-based rank for board array (0 = rank 8)
+            const rankIndex = 8 - rank;
             const fileIndex = files.indexOf(file);
             const cell = board[rankIndex]?.[fileIndex];
 
@@ -89,6 +114,7 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false 
             const isSelected = square === selectedSquare;
             const isLegalTarget = legalTargets.includes(square);
             const isLastMoveSquare = lastMove?.from === square || lastMove?.to === square;
+            const isJustMoved = square === lastMove?.to;
 
             const pieceKey = cell ? `${cell.color}${cell.type.toUpperCase()}` : null;
             const pieceSymbol = pieceKey ? PIECE_SYMBOLS[pieceKey] : null;
@@ -110,9 +136,12 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false 
                   <View style={[styles.legalDot, cell ? styles.legalCapture : styles.legalMove]} />
                 )}
                 {pieceSymbol && (
-                  <Text style={[styles.piece, cell?.color === 'b' ? styles.blackPiece : styles.whitePiece]}>
-                    {pieceSymbol}
-                  </Text>
+                  <AnimatedPiece
+                    key={isJustMoved ? `${square}-${lastMove?.from}` : square}
+                    symbol={pieceSymbol}
+                    isWhite={cell!.color === 'w'}
+                    animate={isJustMoved}
+                  />
                 )}
               </TouchableOpacity>
             );
@@ -167,6 +196,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 0, 0, 0.2)',
     backgroundColor: 'transparent',
     borderRadius: CELL_SIZE * 0.5,
+  },
+  pieceContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   piece: {
     fontSize: CELL_SIZE * 0.75,
