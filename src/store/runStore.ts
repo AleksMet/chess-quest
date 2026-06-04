@@ -75,6 +75,7 @@ export const useRunStore = create<RunStore>((set, get) => ({
   },
 
   earnGold: (amount: number) => {
+    console.log('[STORE] earnGold:', amount);
     set(s => ({ gold: s.gold + amount }));
   },
 

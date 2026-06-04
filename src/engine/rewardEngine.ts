@@ -12,6 +12,7 @@ const EMPTY: RewardResult = {
  * Returns the combined RewardResult for this move.
  */
 export function processMove(context: BattleContext): RewardResult {
+  console.log('[REWARD] called, artifacts:', context.artifacts.length, 'move:', context.move?.san);
   if (context.artifacts.length === 0) {
     return { ...EMPTY };
   }

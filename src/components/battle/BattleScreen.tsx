@@ -180,7 +180,9 @@ export function BattleScreen({
         kingCheckedThisGame: kingCheckedRef.current,
       };
 
+      console.log('[GOLD] move made, artifacts:', artifacts.length, 'gold before:', gold);
       const reward = processMove(context);
+      console.log('[GOLD] reward:', reward.gold, 'log:', reward.log);
 
       if (reward.gold > 0) {
         setGold(prev => prev + reward.gold);

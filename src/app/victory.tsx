@@ -18,7 +18,7 @@ export default function VictoryScreen() {
       resetRun();
       router.replace('/');
     } else {
-      router.replace('/map');
+      router.replace('/adventure');
     }
   }
 

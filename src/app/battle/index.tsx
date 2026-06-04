@@ -92,7 +92,7 @@ export default function BattlePage() {
         opponentElo={opponentElo}
         skillLevel={eloToSkillLevel(opponentElo)}
         onGameEnd={handleGameEnd}
-        onExit={() => router.replace('/map')}
+        onExit={() => router.replace('/adventure')}
       />
     </SafeAreaView>
   );
