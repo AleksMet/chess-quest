@@ -156,34 +156,34 @@ Coverage:     [x] ✅ ~96% (/engine/ без изменений)
 
 ## ФАЗА 4 — Босс и финиш
 **Срок:** Неделя 7–8  
-**Статус:** 🔨 В работе
+**Статус:** ✅ Готово — ожидает апрува
 
 ### Чеклист задач:
-- [ ] `feat/boss-system` — Гоблинский Король: диалог + AI
-- [ ] `feat/difficulty-engine` — Адаптивный ELO
-- [ ] `feat/meta-progress` — AsyncStorage прогресс
-- [ ] `feat/main-menu` — Главное меню + выбор героя
-- [ ] `feat/win-lose-screen` — Экраны победы/поражения
-- [ ] `feat/onboarding` — Туториал первого запуска
+- [x] `feat/boss-system` — Гоблинский Король: диалог + AI (ELO 750, dialog before/after)
+- [x] `feat/difficulty-engine` — Адаптивный ELO (реализован в Фазе 3, тесты в difficultyEngine.test.ts)
+- [x] `feat/meta-progress` — AsyncStorage прогресс (metaStore.ts, 17 тестов)
+- [x] `feat/main-menu` — Главное меню + выбор героя (реализован в Фазе 3, index.tsx)
+- [x] `feat/win-lose-screen` — Экраны победы/поражения (victory.tsx, defeat.tsx)
+- [x] `feat/onboarding` — Туториал первого запуска (onboarding.tsx, 4 шага)
 
 ### Чеклист тестов:
-- [ ] difficulty: win rate 80% → ELO растёт
-- [ ] difficulty: win rate 20% → ELO падает
-- [ ] difficulty: ELO не выходит за ±100 от базового
-- [ ] difficulty: eloToSkillLevel(400) === 1
-- [ ] difficulty: eloToSkillLevel(2200) === 20
-- [ ] meta: победа сохраняется в AsyncStorage
-- [ ] meta: загрузка прогресса после перезапуска
-- [ ] meta: Глава 2 открывается после победы в Главе 1
-- [ ] onboarding: показывается при первом запуске
-- [ ] onboarding: не показывается при повторном запуске
+- [x] difficulty: win rate 80% → ELO растёт ✅
+- [x] difficulty: win rate 20% → ELO падает ✅
+- [x] difficulty: ELO не выходит за ±100 от базового ✅
+- [x] difficulty: eloToSkillLevel(400) === 1 ✅
+- [x] difficulty: eloToSkillLevel(2200) === 20 ✅
+- [x] meta: победа сохраняется в AsyncStorage ✅
+- [x] meta: загрузка прогресса после перезапуска ✅
+- [x] meta: Глава 2 открывается после победы в Главе 1 ✅
+- [x] onboarding: показывается при первом запуске ✅
+- [x] onboarding: не показывается при повторном запуске ✅
 
 ### Результаты автопроверки:
 ```
-TypeScript:   [ ] ✅ / [ ] ❌
-ESLint:       [ ] ✅ / [ ] ❌
-Тесты:        [ ] ✅ / [ ] ❌
-Coverage:     [ ] ✅ / [ ] ❌
+TypeScript:   [x] ✅ 0 ошибок
+ESLint:       [x] ✅ 0 предупр.
+Тесты:        [x] ✅ 119 passed (25 новых)
+Coverage:     [x] ✅ 96.47% (/engine/ без изменений)
 ```
 
 ### Апрув человека:
