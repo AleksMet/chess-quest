@@ -35,7 +35,6 @@ export default function AdventureScreen() {
     switch (node.type) {
       case 'quick_battle':
       case 'ambush':
-      case 'blitz':
         router.push('/encounter');
         break;
       case 'battle':

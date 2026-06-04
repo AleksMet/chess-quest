@@ -88,7 +88,6 @@ export type NodeType =
   | 'challenge'
   | 'boss'
   | 'academy'
-  | 'blitz'
   | 'oracle';
 
 export interface MapNode {

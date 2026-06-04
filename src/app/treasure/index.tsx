@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { ArtifactCard } from '../../components/artifacts/ArtifactCard';
 import { useRunStore } from '../../store/runStore';
 import { ARTIFACTS } from '../../data/artifacts';
-import { countWhitePieceInFen } from '../../engine/stakesEngine';
+import { countWhitePieceInFen } from '../../engine/positionGenerator';
 import type { Artifact } from '../../types';
 import type { PieceSymbol } from 'chess.js';
 

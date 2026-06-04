@@ -7,25 +7,21 @@ import type { NodeType } from '../../types';
 const ENEMY_NAMES: Partial<Record<NodeType, string[]>> = {
   quick_battle: ['Гоблинский Патруль', 'Стражи Леса', 'Лесной Отряд', 'Разведчики Тьмы'],
   ambush:       ['Теневые Разбойники', 'Лесные Охотники', 'Ночные Засадники', 'Ловцы Добычи'],
-  blitz:        ['Молниеносный Дуэлянт', 'Быстрый Клинок', 'Азартный Игрок', 'Дуэлянт Ставок'],
 };
 
 const NODE_TITLE: Partial<Record<NodeType, string>> = {
   quick_battle: '⚔️ Быстрый бой',
   ambush:       '🕵️ Засада',
-  blitz:        '⚡ Блиц-ставка',
 };
 
 const NODE_DESCRIPTION: Partial<Record<NodeType, string>> = {
   quick_battle: 'Победи за 15 ходов\nи получи максимум золота',
   ambush:       'Продержись 10 ходов или поставь мат\n— враг сильнее тебя',
-  blitz:        'Поставь фигуру на кон\n— победи для умножения золота',
 };
 
 const BATTLE_ROUTE: Partial<Record<NodeType, string>> = {
   quick_battle: '/quick-battle',
   ambush:       '/ambush',
-  blitz:        '/battle-stakes',
 };
 
 function pickRandom<T>(arr: T[]): T {

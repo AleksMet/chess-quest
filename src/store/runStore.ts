@@ -4,7 +4,7 @@ import type { Artifact, HeroId, MapNode, NodeType, RunState } from '../types';
 const MAX_ARTIFACTS = 6;
 const STARTING_GOLD = 100;
 
-const BATTLE_POOL: NodeType[] = ['ambush', 'blitz', 'quick_battle'];
+const BATTLE_POOL: NodeType[] = ['ambush', 'quick_battle'];
 const PASSIVE_POOL: NodeType[] = ['shop', 'treasure'];
 
 function pickOne<T>(pool: T[]): T {

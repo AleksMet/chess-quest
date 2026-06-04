@@ -1,4 +1,12 @@
 import { Chess } from 'chess.js';
+import type { PieceSymbol } from 'chess.js';
+
+/** Count white pieces of a given type in a FEN string (falls back to starting FEN on null). */
+export function countWhitePieceInFen(fen: string | null, pieceType: PieceSymbol): number {
+  const STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  const boardPart = (fen ?? STARTING_FEN).split(' ')[0];
+  return (boardPart.match(new RegExp(pieceType.toUpperCase(), 'g')) ?? []).length;
+}
 
 // Curated middlegame FENs: 8-10 pieces per side, balanced material, no check
 const QUICK_BATTLE_POSITIONS: string[] = [

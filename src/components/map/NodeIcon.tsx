@@ -19,7 +19,6 @@ const ICON: Record<string, string> = {
   challenge:    '🎯',
   boss:         '👑',
   academy:      '🎓',
-  blitz:        '🌩️',
   oracle:       '🔮',
 };
 
@@ -35,7 +34,6 @@ const LABEL: Record<string, string> = {
   challenge:    'Испытание',
   boss:         'Босс',
   academy:      'Академия',
-  blitz:        'Молния',
   oracle:       'Оракул',
 };
 
