@@ -135,7 +135,10 @@ const styles = StyleSheet.create({
   },
   glowRing: {
     position: 'absolute',
-    inset: -1,
+    top: -1,
+    right: -1,
+    bottom: -1,
+    left: -1,
     borderRadius: 14,
     borderWidth: 1,
   },

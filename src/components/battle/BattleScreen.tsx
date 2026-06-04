@@ -9,6 +9,7 @@ import type { StockfishBridgeRef } from '../engine/StockfishBridgeView';
 import type { MoveResult } from '../../engine/chessLogic';
 import { processMove } from '../../engine/rewardEngine';
 import type { Artifact, BattleContext, Hero } from '../../types';
+import { useChapterTheme } from '../../contexts/ChapterThemeContext';
 
 const RARITY_COLORS: Record<string, string> = {
   common:    '#9e9e9e',
@@ -47,6 +48,7 @@ export function BattleScreen({
   skillLevel = 5,
   onGameEnd,
 }: BattleScreenProps) {
+  const { theme } = useChapterTheme();
   const [chess] = useState(() => new Chess());
   const [boardKey, setBoardKey] = useState(0);
   const [gold, setGold] = useState(0);
@@ -214,7 +216,7 @@ export function BattleScreen({
   const boardDisabled = gameResult !== null || isAIThinking || chess.turn() !== playerColor;
 
   return (
-    <View style={styles.container} testID="battle-screen">
+    <View style={[styles.container, { backgroundColor: theme.background }]} testID="battle-screen">
       {/* Hidden WebView engine — must be mounted inside the component tree */}
       <StockfishBridgeView
         ref={engineRef}
@@ -222,9 +224,9 @@ export function BattleScreen({
         onReady={handleEngineReady}
       />
 
-      <View style={styles.opponentBar} testID="opponent-bar">
-        <Text style={styles.opponentName}>{opponentName}</Text>
-        <Text style={styles.opponentElo}>
+      <View style={[styles.opponentBar, { backgroundColor: theme.surface }]} testID="opponent-bar">
+        <Text style={[styles.opponentName, { color: theme.textPrimary }]}>{opponentName}</Text>
+        <Text style={[styles.opponentElo, { color: theme.textMuted }]}>
           ELO {opponentElo}{isAIThinking ? '  ⏳' : ''}
         </Text>
       </View>
@@ -237,8 +239,8 @@ export function BattleScreen({
         disabled={boardDisabled}
       />
 
-      <View style={styles.hud} testID="hud">
-        <Animated.View style={[styles.goldContainer, goldStyle]} testID="gold-display">
+      <View style={[styles.hud, { backgroundColor: theme.surface + 'cc' }]} testID="hud">
+        <Animated.View style={[styles.goldContainer, { backgroundColor: theme.accentDark }, goldStyle]} testID="gold-display">
           <Text style={styles.goldIcon}>💰</Text>
           <Text style={styles.goldAmount} testID="gold-amount">{gold}</Text>
         </Animated.View>
