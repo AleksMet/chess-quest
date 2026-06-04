@@ -11,7 +11,7 @@ type DialogPhase = 'before' | 'battle' | 'after';
 
 export default function BattlePage() {
   const router = useRouter();
-  const { heroId, artifacts, nodes, currentNodeIndex, chapterIndex, earnGold, completeNode, isActive } =
+  const { heroId, artifacts, nodes, currentNodeIndex, chapterIndex, blessedPiece, earnGold, completeNode, isActive } =
     useRunStore();
 
   const hero = HEROES.find(h => h.id === heroId) ?? HEROES[0];
@@ -93,6 +93,7 @@ export default function BattlePage() {
         skillLevel={eloToSkillLevel(opponentElo)}
         onGameEnd={handleGameEnd}
         onExit={() => router.replace('/adventure')}
+        blessedPiece={blessedPiece}
       />
     </SafeAreaView>
   );

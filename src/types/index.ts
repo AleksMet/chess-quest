@@ -109,6 +109,7 @@ export interface RunState {
   chapterIndex: number;
   isActive: boolean;
   currentFen: string | null;
+  blessedPiece: PieceSymbol | null;
 }
 
 // ─── Battle ───────────────────────────────────────────────────────────────────

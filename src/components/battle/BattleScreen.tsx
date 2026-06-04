@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Alert, View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Chess } from 'chess.js';
-import type { Color, Move } from 'chess.js';
+import type { Color, Move, PieceSymbol } from 'chess.js';
 import { ChessBoard } from '../chess/ChessBoard';
 import { StockfishBridgeView } from '../engine/StockfishBridgeView';
 import type { StockfishBridgeRef } from '../engine/StockfishBridgeView';
@@ -12,6 +12,7 @@ import { useChapterTheme } from '../../contexts/ChapterThemeContext';
 import { GoldPopup } from '../ui/GoldPopup';
 
 const BASE_GOLD_PER_MOVE = 2;
+const BLESSED_BONUS = 15;
 
 const RARITY_COLORS: Record<string, string> = {
   common:    '#9e9e9e',
@@ -40,6 +41,7 @@ interface BattleScreenProps {
   skillLevel?:   number;
   onGameEnd?:    (result: 'win' | 'lose' | 'draw', gold: number) => void;
   onExit?:       () => void;
+  blessedPiece?: PieceSymbol | null;
 }
 
 export function BattleScreen({
@@ -51,6 +53,7 @@ export function BattleScreen({
   skillLevel = 5,
   onGameEnd,
   onExit,
+  blessedPiece = null,
 }: BattleScreenProps) {
   const { theme } = useChapterTheme();
   const [chess] = useState(() => new Chess());
@@ -185,13 +188,15 @@ export function BattleScreen({
       };
 
       const reward = processMove(context);
+      const blessBonus = blessedPiece && result.move?.piece === blessedPiece ? BLESSED_BONUS : 0;
 
-      const moveGold = BASE_GOLD_PER_MOVE + reward.gold;
+      const moveGold = BASE_GOLD_PER_MOVE + reward.gold + blessBonus;
       setGold(prev => prev + moveGold);
 
       const breakdown: RewardBreakdownItem[] = [
         { label: 'ход', value: BASE_GOLD_PER_MOVE, type: 'base' },
         ...reward.breakdown,
+        ...(blessBonus > 0 ? [{ label: '✨ благословение', value: blessBonus, type: 'artifact' as const }] : []),
       ];
       setPopup({ total: moveGold, breakdown });
 
