@@ -22,25 +22,18 @@ export default function AdventureScreen() {
     advanceToNode(nodes.indexOf(node));
 
     switch (node.type) {
+      case 'quick_battle':
+      case 'ambush':
+      case 'blitz':
+        router.push('/encounter');
+        break;
       case 'battle':
       case 'elite':
       case 'boss':
         router.push('/battle');
         break;
-      case 'quick_battle':
-        router.push('/quick-battle');
-        break;
-      case 'puzzle':
-        router.push('/puzzle');
-        break;
-      case 'ambush':
-        router.push('/ambush');
-        break;
-      case 'blitz':
-        router.push('/battle-stakes');
-        break;
       case 'treasure':
-        router.push('/artifact-selection');
+        router.push('/treasure');
         break;
       case 'shop':
         router.push('/shop');
