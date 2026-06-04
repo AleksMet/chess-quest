@@ -5,7 +5,7 @@ const MAX_ARTIFACTS = 6;
 const STARTING_GOLD = 100;
 
 function generateNodes(): MapNode[] {
-  const types: NodeType[] = ['battle', 'treasure', 'shop', 'battle', 'boss'];
+  const types: NodeType[] = ['quick_battle', 'puzzle', 'shop', 'ambush', 'boss'];
   const baseElo = 500;
   return types.map((type, i) => ({
     id: `node_${i}`,
@@ -25,6 +25,7 @@ interface RunStore extends RunState {
   earnGold: (amount: number) => void;
   completeNode: (nodeIndex: number) => void;
   advanceToNode: (nodeIndex: number) => void;
+  setCurrentFen: (fen: string | null) => void;
 }
 
 const INITIAL_STATE: RunState = {
@@ -36,6 +37,7 @@ const INITIAL_STATE: RunState = {
   masteryStars: 0,
   chapterIndex: 0,
   isActive: false,
+  currentFen: null,
 };
 
 export const useRunStore = create<RunStore>((set, get) => ({
@@ -92,5 +94,9 @@ export const useRunStore = create<RunStore>((set, get) => ({
 
   advanceToNode: (nodeIndex: number) => {
     set({ currentNodeIndex: nodeIndex });
+  },
+
+  setCurrentFen: (fen: string | null) => {
+    set({ currentFen: fen });
   },
 }));

@@ -27,6 +27,15 @@ export default function AdventureScreen() {
       case 'boss':
         router.push('/battle');
         break;
+      case 'quick_battle':
+        router.push('/quick-battle');
+        break;
+      case 'puzzle':
+        router.push('/puzzle');
+        break;
+      case 'ambush':
+        router.push('/ambush');
+        break;
       case 'treasure':
         router.push('/artifact-selection');
         break;
@@ -34,7 +43,6 @@ export default function AdventureScreen() {
         router.push('/shop');
         break;
       case 'event':
-        // Phase 4: event screen
         break;
     }
   }

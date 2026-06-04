@@ -71,6 +71,9 @@ export interface Hero {
 
 export type NodeType =
   | 'battle'
+  | 'quick_battle'
+  | 'puzzle'
+  | 'ambush'
   | 'elite'
   | 'treasure'
   | 'shop'
@@ -98,6 +101,7 @@ export interface RunState {
   masteryStars: number;
   chapterIndex: number;
   isActive: boolean;
+  currentFen: string | null;
 }
 
 // ─── Battle ───────────────────────────────────────────────────────────────────

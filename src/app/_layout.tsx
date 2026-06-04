@@ -18,6 +18,9 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="adventure/index" />
           <Stack.Screen name="battle/index" />
+          <Stack.Screen name="quick-battle/index" />
+          <Stack.Screen name="puzzle/index" />
+          <Stack.Screen name="ambush/index" />
           <Stack.Screen name="artifact-selection" />
           <Stack.Screen name="shop" />
           <Stack.Screen name="run-complete" />
