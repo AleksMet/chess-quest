@@ -17,6 +17,7 @@ interface ChessBoardProps {
   playerColor?: Color;
   onMove?: (result: MoveResult) => void;
   disabled?: boolean;
+  highlightSquare?: string;  // hint square, pulsed amber
 }
 
 interface PieceViewProps {
@@ -31,7 +32,7 @@ function PieceView({ pieceKey }: PieceViewProps) {
   );
 }
 
-export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false }: ChessBoardProps) {
+export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false, highlightSquare }: ChessBoardProps) {
   const { theme } = useChapterTheme();
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalTargets, setLegalTargets] = useState<Square[]>([]);
@@ -99,19 +100,22 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false 
             const isSelected = square === selectedSquare;
             const isLegalTarget = legalTargets.includes(square);
             const isLastMoveSquare = lastMove?.from === square || lastMove?.to === square;
+            const isHintSquare = square === highlightSquare;
             const isJustMoved = square === lastMove?.to;
 
             const pieceKey = cell
               ? (`${cell.color}${cell.type.toUpperCase()}` as PieceKey)
               : null;
 
-            const squareBg = isSelected
-              ? theme.selectedSquare
-              : isLastMoveSquare
-                ? theme.lastMoveSquare
-                : isLight
-                  ? theme.boardLight
-                  : theme.boardDark;
+            const squareBg = isHintSquare
+              ? '#d97706'
+              : isSelected
+                ? theme.selectedSquare
+                : isLastMoveSquare
+                  ? theme.lastMoveSquare
+                  : isLight
+                    ? theme.boardLight
+                    : theme.boardDark;
 
             return (
               <TouchableOpacity
