@@ -19,7 +19,7 @@ describe('runStore', () => {
     expect(s.gold).toBe(100);
     expect(s.artifacts).toHaveLength(0);
     expect(s.currentNodeIndex).toBe(0);
-    expect(s.nodes).toHaveLength(5);
+    expect(s.nodes).toHaveLength(6);
   });
 
   it('initial state before startRun is inactive', () => {

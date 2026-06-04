@@ -184,9 +184,7 @@ export function BattleScreen({
         kingCheckedThisGame: kingCheckedRef.current,
       };
 
-      console.log('[GOLD] move made, artifacts:', artifacts.length, 'gold before:', gold);
       const reward = processMove(context);
-      console.log('[GOLD] reward:', reward.gold, 'log:', reward.log);
 
       const moveGold = BASE_GOLD_PER_MOVE + reward.gold;
       setGold(prev => prev + moveGold);

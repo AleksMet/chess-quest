@@ -36,6 +36,9 @@ export default function AdventureScreen() {
       case 'ambush':
         router.push('/ambush');
         break;
+      case 'blitz':
+        router.push('/battle-stakes');
+        break;
       case 'treasure':
         router.push('/artifact-selection');
         break;
