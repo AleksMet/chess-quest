@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { SafeAreaView, View, Text, StyleSheet, Pressable } from 'react-native';
+import { Alert, SafeAreaView, View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Chess } from 'chess.js';
 import { ChessBoard } from '../../components/chess/ChessBoard';
@@ -130,6 +130,17 @@ export default function QuickBattlePage() {
     router.replace('/adventure');
   }
 
+  function handleExit() {
+    Alert.alert(
+      'Выйти из боя?',
+      'Прогресс потеряется.',
+      [
+        { text: 'Остаться', style: 'cancel' },
+        { text: 'Выйти', style: 'destructive', onPress: () => router.replace('/adventure') },
+      ],
+    );
+  }
+
   const movesLeft = PLAYER_MOVE_LIMIT - playerMoves;
   const boardDisabled = result !== null || isAIThinking || chess.turn() !== PLAYER_COLOR;
 
@@ -139,6 +150,9 @@ export default function QuickBattlePage() {
 
       <View style={styles.header}>
         <Text style={styles.title}>⚡ Быстрый бой</Text>
+        <Pressable style={styles.exitBtn} onPress={handleExit} testID="exit-battle-btn">
+          <Text style={styles.exitBtnText}>Выход</Text>
+        </Pressable>
         <View style={[styles.moveBadge, movesLeft <= 5 && styles.moveBadgeUrgent]}>
           <Text style={styles.moveCount}>{movesLeft}</Text>
           <Text style={styles.moveLabel}>ходов</Text>
@@ -183,6 +197,8 @@ const styles = StyleSheet.create({
   safe:              { flex: 1, backgroundColor: '#0d1117' },
   header:            { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
   title:             { flex: 1, color: '#f1f5f9', fontSize: 18, fontWeight: '700' },
+  exitBtn:           { backgroundColor: '#7f1d1d', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
+  exitBtnText:       { color: '#fca5a5', fontSize: 13, fontWeight: '600' },
   moveBadge:         { backgroundColor: '#1e3a5f', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4, alignItems: 'center', minWidth: 52 },
   moveBadgeUrgent:   { backgroundColor: '#7f1d1d' },
   moveCount:         { color: '#fff', fontSize: 20, fontWeight: '900', lineHeight: 24 },

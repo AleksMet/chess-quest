@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { SafeAreaView, View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { Alert, SafeAreaView, View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Chess } from 'chess.js';
 import { ChessBoard } from '../../components/chess/ChessBoard';
@@ -133,6 +133,17 @@ export default function BattleStakesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerMoves, chess, requestAIMove]);
 
+  function handleExit() {
+    Alert.alert(
+      'Выйти из боя?',
+      'Прогресс потеряется.',
+      [
+        { text: 'Остаться', style: 'cancel' },
+        { text: 'Выйти', style: 'destructive', onPress: () => router.replace('/adventure') },
+      ],
+    );
+  }
+
   function handleStartBattle() {
     const config = STAKE_CONFIGS.find(s => s.id === selectedId) ?? STAKE_CONFIGS[0];
     const amount = config.getAmount(gold);
@@ -164,6 +175,9 @@ export default function BattleStakesPage() {
           <View style={styles.selectHeader}>
             <Text style={styles.selectTitle}>🌩️ Молния — Ставки</Text>
             <Text style={styles.goldBadge}>💰 {gold}</Text>
+            <Pressable style={styles.exitBtn} onPress={handleExit} testID="exit-battle-btn">
+              <Text style={styles.exitBtnText}>Выход</Text>
+            </Pressable>
           </View>
           <Text style={styles.selectSubtitle}>Поставь золото. Выиграй больше.</Text>
           <ScrollView style={styles.optionsList} contentContainerStyle={styles.optionsContent}>
@@ -214,6 +228,9 @@ export default function BattleStakesPage() {
         <>
           <View style={styles.battleHeader}>
             <Text style={styles.battleTitle}>🌩️ Молния</Text>
+            <Pressable style={styles.exitBtn} onPress={handleExit} testID="exit-battle-btn">
+              <Text style={styles.exitBtnText}>Выход</Text>
+            </Pressable>
             <Text style={styles.stakeBadge}>
               {stakedRef.current > 0
                 ? `Ставка: ${stakedRef.current} 💰 ×${multiplierRef.current}`
@@ -297,6 +314,8 @@ const styles = StyleSheet.create({
   stakeWin:          { color: '#86efac', fontSize: 13 },
   dimText:           { color: '#475569', fontSize: 12 },
   checkMark:         { color: '#22c55e', fontSize: 20, fontWeight: '900' },
+  exitBtn:           { backgroundColor: '#7f1d1d', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
+  exitBtnText:       { color: '#fca5a5', fontSize: 13, fontWeight: '600' },
   startBtn:          { backgroundColor: '#7c3aed', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginVertical: 16 },
   startBtnText:      { color: '#fff', fontSize: 18, fontWeight: '800' },
 

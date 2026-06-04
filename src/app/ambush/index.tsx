@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { SafeAreaView, View, Text, StyleSheet, Pressable } from 'react-native';
+import { Alert, SafeAreaView, View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Chess } from 'chess.js';
 import { ChessBoard } from '../../components/chess/ChessBoard';
@@ -127,6 +127,17 @@ export default function AmbushPage() {
     router.replace('/adventure');
   }
 
+  function handleExit() {
+    Alert.alert(
+      'Выйти из боя?',
+      'Прогресс потеряется.',
+      [
+        { text: 'Остаться', style: 'cancel' },
+        { text: 'Выйти', style: 'destructive', onPress: () => router.replace('/adventure') },
+      ],
+    );
+  }
+
   const movesLeft = SURVIVE_MOVES - playerMoves;
   const boardDisabled = result !== null || isAIThinking || chess.turn() !== PLAYER_COLOR;
 
@@ -136,6 +147,9 @@ export default function AmbushPage() {
 
       <View style={styles.header}>
         <Text style={styles.title}>🕵️ Засада!</Text>
+        <Pressable style={styles.exitBtn} onPress={handleExit} testID="exit-battle-btn">
+          <Text style={styles.exitBtnText}>Выход</Text>
+        </Pressable>
         <View style={styles.materialBadge}>
           <Text style={styles.materialText}>⚪{materialInfo.player} vs ⚫{materialInfo.ai}</Text>
         </View>
@@ -189,6 +203,8 @@ const styles = StyleSheet.create({
   safe:              { flex: 1, backgroundColor: '#1a0a00' },
   header:            { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
   title:             { flex: 1, color: '#fca5a5', fontSize: 18, fontWeight: '700' },
+  exitBtn:           { backgroundColor: '#450a0a', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
+  exitBtnText:       { color: '#fca5a5', fontSize: 13, fontWeight: '600' },
   materialBadge:     { backgroundColor: '#1e293b', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
   materialText:      { color: '#e2e8f0', fontSize: 12 },
   thinking:          { fontSize: 18 },

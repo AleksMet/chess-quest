@@ -5,7 +5,7 @@ const MAX_ARTIFACTS = 6;
 const STARTING_GOLD = 100;
 
 function generateNodes(): MapNode[] {
-  const types: NodeType[] = ['quick_battle', 'puzzle', 'shop', 'blitz', 'ambush', 'boss'];
+  const types: NodeType[] = ['quick_battle', 'treasure', 'shop', 'blitz', 'ambush', 'boss'];
   const baseElo = 500;
   return types.map((type, i) => ({
     id: `node_${i}`,
