@@ -1,14 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useRunStore } from '../store/runStore';
+import { useMetaStore } from '../store/metaStore';
 import { HEROES } from '../data/heroes';
 import type { Hero, HeroId } from '../types';
 
 export default function MainMenuScreen() {
   const router = useRouter();
   const startRun = useRunStore(s => s.startRun);
+  const { isLoaded, loadMeta } = useMetaStore();
   const [selectedHeroId, setSelectedHeroId] = useState<HeroId>('timmy_pawn');
+
+  useEffect(() => {
+    loadMeta().then(() => {
+      if (!useMetaStore.getState().meta.onboardingCompleted) {
+        router.replace('/onboarding');
+      }
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedHero = HEROES.find(h => h.id === selectedHeroId) ?? HEROES[0];
 
@@ -16,6 +26,8 @@ export default function MainMenuScreen() {
     startRun(selectedHeroId);
     router.push('/adventure');
   }
+
+  if (!isLoaded) return null;
 
   return (
     <SafeAreaView style={styles.safe}>
