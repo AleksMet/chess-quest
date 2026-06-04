@@ -14,8 +14,12 @@ export default function VictoryScreen() {
 
   async function handleContinue() {
     await recordRunResult(chapterIndex, true, goldEarned);
-    resetRun();
-    router.replace('/');
+    if (isBoss) {
+      resetRun();
+      router.replace('/');
+    } else {
+      router.replace('/map');
+    }
   }
 
   return (

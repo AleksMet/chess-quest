@@ -34,8 +34,8 @@ export default function BattlePage() {
   function handleGameEnd(result: 'win' | 'lose' | 'draw', earnedGold: number) {
     if (result !== 'lose') {
       earnGold(earnedGold);
+      completeNode(currentNodeIndex);
     }
-    completeNode(currentNodeIndex);
 
     if (isBossNode && boss && result === 'win') {
       setBattleResult({ result, gold: earnedGold });
@@ -92,6 +92,7 @@ export default function BattlePage() {
         opponentElo={opponentElo}
         skillLevel={eloToSkillLevel(opponentElo)}
         onGameEnd={handleGameEnd}
+        onExit={() => router.replace('/map')}
       />
     </SafeAreaView>
   );

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { Alert, View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Chess } from 'chess.js';
 import type { Color, Move } from 'chess.js';
 import { ChessBoard } from '../chess/ChessBoard';
@@ -36,6 +36,7 @@ interface BattleScreenProps {
   opponentElo?:  number;
   skillLevel?:   number;
   onGameEnd?:    (result: 'win' | 'lose' | 'draw', gold: number) => void;
+  onExit?:       () => void;
 }
 
 export function BattleScreen({
@@ -46,6 +47,7 @@ export function BattleScreen({
   opponentElo = 500,
   skillLevel = 5,
   onGameEnd,
+  onExit,
 }: BattleScreenProps) {
   const { theme } = useChapterTheme();
   const [chess] = useState(() => new Chess());
@@ -231,9 +233,29 @@ export function BattleScreen({
       />
 
       <View style={[styles.hud, { backgroundColor: theme.surface + 'cc' }]} testID="hud">
-        <View style={[styles.goldContainer, { backgroundColor: theme.accentDark }]} testID="gold-display">
-          <Text style={styles.goldIcon}>💰</Text>
-          <Text style={styles.goldAmount} testID="gold-amount">{gold}</Text>
+        <View style={styles.hudTopRow}>
+          <View style={[styles.goldContainer, { backgroundColor: theme.accentDark }]} testID="gold-display">
+            <Text style={styles.goldIcon}>💰</Text>
+            <Text style={styles.goldAmount} testID="gold-amount">{gold}</Text>
+          </View>
+          {onExit && (
+            <Pressable
+              style={styles.exitButton}
+              onPress={() =>
+                Alert.alert(
+                  'Выйти из боя?',
+                  'Прогресс боя потеряется.',
+                  [
+                    { text: 'Остаться', style: 'cancel' },
+                    { text: 'Выйти', style: 'destructive', onPress: onExit },
+                  ],
+                )
+              }
+              testID="exit-battle-btn"
+            >
+              <Text style={styles.exitButtonText}>Выход</Text>
+            </Pressable>
+          )}
         </View>
 
         <ScrollView
@@ -286,7 +308,10 @@ const styles = StyleSheet.create({
   opponentName:    { color: '#e0e0e0', fontSize: 16, fontWeight: '600' },
   opponentElo:     { color: '#9e9e9e', fontSize: 13 },
   hud:             { width: '100%', paddingHorizontal: 12, paddingTop: 8, gap: 8 },
-  goldContainer:   { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', backgroundColor: '#0f3460', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, gap: 4 },
+  hudTopRow:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  goldContainer:   { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f3460', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, gap: 4 },
+  exitButton:      { backgroundColor: '#7f1d1d', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 6 },
+  exitButtonText:  { color: '#fca5a5', fontSize: 13, fontWeight: '600' },
   goldIcon:        { fontSize: 18 },
   goldAmount:      { color: '#ffd700', fontSize: 20, fontWeight: '700' },
   artifactRow:     { flexDirection: 'row' },
