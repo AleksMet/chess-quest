@@ -4,15 +4,29 @@ import type { Artifact, HeroId, MapNode, NodeType, RunState } from '../types';
 const MAX_ARTIFACTS = 6;
 const STARTING_GOLD = 100;
 
+const BATTLE_POOL: NodeType[] = ['ambush', 'blitz', 'quick_battle'];
+const PASSIVE_POOL: NodeType[] = ['shop', 'treasure'];
+
+function pickOne<T>(pool: T[]): T {
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 function generateNodes(): MapNode[] {
-  const types: NodeType[] = ['quick_battle', 'treasure', 'shop', 'blitz', 'ambush', 'boss'];
-  const baseElo = 500;
-  return types.map((type, i) => ({
+  const b0 = pickOne(BATTLE_POOL);
+  const p0 = pickOne(PASSIVE_POOL);
+  const b1 = pickOne(BATTLE_POOL.filter(t => t !== b0));
+  const p1 = pickOne(PASSIVE_POOL.filter(t => t !== p0));
+
+  const sequence: [NodeType, number][] = [
+    [b0, 500], [p0, 0], [b1, 550], [p1, 0], ['quick_battle', 600], ['boss', 750],
+  ];
+
+  return sequence.map(([type, elo], i) => ({
     id: `node_${i}`,
     type,
     completed: false,
     accessible: i === 0,
-    chapterElo: baseElo + i * 50,
+    chapterElo: elo,
   }));
 }
 

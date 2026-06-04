@@ -80,6 +80,33 @@ describe('runStore', () => {
     expect(useRunStore.getState().gold).toBe(150);
   });
 
+  // ── run structure ───────────────────────────────────────────────────────────
+
+  it('slot 4 is always quick_battle and slot 5 is always boss', () => {
+    for (let i = 0; i < 5; i++) {
+      act(() => { useRunStore.getState().startRun('timmy_pawn'); });
+      const s = useRunStore.getState();
+      expect(s.nodes[4].type).toBe('quick_battle');
+      expect(s.nodes[5].type).toBe('boss');
+    }
+  });
+
+  it('battle slots 0 and 2 are always different types', () => {
+    for (let i = 0; i < 10; i++) {
+      act(() => { useRunStore.getState().startRun('timmy_pawn'); });
+      const s = useRunStore.getState();
+      expect(s.nodes[0].type).not.toBe(s.nodes[2].type);
+    }
+  });
+
+  it('passive slots 1 and 3 are always different types', () => {
+    for (let i = 0; i < 10; i++) {
+      act(() => { useRunStore.getState().startRun('timmy_pawn'); });
+      const s = useRunStore.getState();
+      expect(s.nodes[1].type).not.toBe(s.nodes[3].type);
+    }
+  });
+
   // ── map navigation ──────────────────────────────────────────────────────────
 
   it('completeNode marks node completed and unlocks next', () => {
