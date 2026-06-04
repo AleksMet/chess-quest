@@ -8,10 +8,10 @@ interface GoldPopupProps {
   onDone: () => void;
 }
 
-const ROW_DELAY  = 150;
-const APPEAR_MS  = 200;
-const HOLD_MS    = 1400;
-const FADE_MS    = 300;
+const ROW_DELAY  = 90;
+const APPEAR_MS  = 150;
+const HOLD_MS    = 900;
+const FADE_MS    = 250;
 
 const TYPE_COLOR: Record<string, string> = {
   base:       '#94a3b8',
@@ -29,8 +29,8 @@ export function GoldPopup({ total, breakdown, onDone }: GoldPopupProps) {
     const totalDelay = APPEAR_MS + (breakdown.length + 1) * ROW_DELAY + HOLD_MS;
 
     Animated.parallel([
-      Animated.timing(opacity,    { toValue: 1, duration: APPEAR_MS, useNativeDriver: true }),
-      Animated.timing(translateY, { toValue: 0, duration: APPEAR_MS, useNativeDriver: true }),
+      Animated.timing(opacity,    { toValue: 0.85, duration: APPEAR_MS, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: 0,    duration: APPEAR_MS, useNativeDriver: true }),
     ]).start();
 
     const timer = setTimeout(() => {
@@ -109,14 +109,14 @@ function DelayedTotal({ total, delayMs }: { total: number; delayMs: number }) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: '30%',
-    alignSelf: 'center',
-    backgroundColor: 'rgba(15,23,42,0.92)',
-    borderRadius: 14,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    minWidth: 180,
-    gap: 4,
+    top: 52,
+    right: 8,
+    backgroundColor: 'rgba(15,23,42,0.88)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minWidth: 120,
+    gap: 3,
     zIndex: 100,
     borderWidth: 1,
     borderColor: '#334155',

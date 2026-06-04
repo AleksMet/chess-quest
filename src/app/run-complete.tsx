@@ -1,17 +1,10 @@
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useRunStore } from '../store/runStore';
-import { useMetaStore } from '../store/metaStore';
 
 export default function RunCompleteScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ gold?: string }>();
-  const battleGold = Number(params.gold ?? 0);
-
   const { artifacts, gold: totalGold, resetRun } = useRunStore();
-  const { meta } = useMetaStore();
-
-  const crystalsEarned = Math.max(1, Math.floor(battleGold / 100));
 
   function handleNewRun() {
     resetRun();
@@ -28,8 +21,6 @@ export default function RunCompleteScreen() {
         <View style={styles.card}>
           <Row icon="💰" label="Золото за забег" value={String(totalGold)} />
           <Row icon="🏺" label="Артефактов собрано" value={String(artifacts.length)} />
-          <Row icon="💎" label="Кристаллов получено" value={`+${crystalsEarned}`} highlight />
-          <Row icon="💎" label="Кристаллов всего" value={String(meta.crystals)} />
         </View>
 
         {artifacts.length > 0 && (

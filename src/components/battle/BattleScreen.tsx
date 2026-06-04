@@ -11,8 +11,9 @@ import type { Artifact, BattleContext, Hero, RewardBreakdownItem } from '../../t
 import { useChapterTheme } from '../../contexts/ChapterThemeContext';
 import { GoldPopup } from '../ui/GoldPopup';
 
-const BASE_GOLD_PER_MOVE = 2;
 const BLESSED_BONUS = 15;
+const CHECK_GOLD = 5;
+const CAPTURE_VALUES: Record<string, number> = { p: 10, n: 30, b: 30, r: 50, q: 90, k: 0 };
 
 const RARITY_COLORS: Record<string, string> = {
   common:    '#9e9e9e',
@@ -187,23 +188,27 @@ export function BattleScreen({
         kingCheckedThisGame: kingCheckedRef.current,
       };
 
+      const captureGold = result.move.captured ? (CAPTURE_VALUES[result.move.captured] ?? 0) : 0;
+      const checkGold = result.isCheck ? CHECK_GOLD : 0;
       const reward = processMove(context);
-      const blessBonus = blessedPiece && result.move?.piece === blessedPiece ? BLESSED_BONUS : 0;
+      const blessBonus = blessedPiece && result.move.piece === blessedPiece ? BLESSED_BONUS : 0;
 
-      const moveGold = BASE_GOLD_PER_MOVE + reward.gold + blessBonus;
+      const moveGold = captureGold + checkGold + reward.gold + blessBonus;
       setGold(prev => prev + moveGold);
 
-      const breakdown: RewardBreakdownItem[] = [
-        { label: 'ход', value: BASE_GOLD_PER_MOVE, type: 'base' },
-        ...reward.breakdown,
-        ...(blessBonus > 0 ? [{ label: '✨ благословение', value: blessBonus, type: 'artifact' as const }] : []),
-      ];
-      setPopup({ total: moveGold, breakdown });
+      // Only show popup for significant events (gold earned)
+      if (moveGold > 0) {
+        const breakdown: RewardBreakdownItem[] = [];
+        if (captureGold > 0) breakdown.push({ label: 'взятие', value: captureGold, type: 'base' });
+        if (checkGold > 0) breakdown.push({ label: '♔ шах!', value: checkGold, type: 'base' });
+        breakdown.push(...reward.breakdown);
+        if (blessBonus > 0) breakdown.push({ label: '✨ благословение', value: blessBonus, type: 'artifact' as const });
+        setPopup({ total: moveGold, breakdown });
+      }
 
-      const moveLog = reward.log.length > 0
-        ? reward.log
-        : [`+${BASE_GOLD_PER_MOVE} 💰`];
-      setLog(prev => [...prev, ...moveLog].slice(-8));
+      if (reward.log.length > 0) {
+        setLog(prev => [...prev, ...reward.log].slice(-8));
+      }
 
       if (result.isCheckmate) {
         const playerWon = chess.turn() !== playerColor;
