@@ -10,7 +10,12 @@ import { generateQuickBattlePosition, countMaterial } from '../../engine/positio
 import { useRunStore } from '../../store/runStore';
 import { eloToSkillLevel } from '../../engine/stockfish';
 import {
-  STAKE_CONFIGS, computeStakeGold, stakeIsAffordable,
+  PIECE_STAKE_CONFIGS,
+  computePieceStakeGold,
+  stakeIsPossible,
+  countWhitePieceInFen,
+  removePieceFromFen,
+  type PieceStakeConfig,
 } from '../../engine/stakesEngine';
 
 const BLITZ_MOVES = 10;
@@ -20,8 +25,10 @@ type Phase = 'select' | 'battle' | 'result';
 
 export default function BattleStakesPage() {
   const router = useRouter();
-  const { nodes, currentNodeIndex, gold, earnGold, spendGold, completeNode, setCurrentFen, isActive } =
-    useRunStore();
+  const {
+    nodes, currentNodeIndex, gold, currentFen,
+    earnGold, completeNode, setCurrentFen, isActive,
+  } = useRunStore();
 
   const currentNode = nodes[currentNodeIndex];
   const opponentElo = (currentNode?.chapterElo ?? 550) + 100;
@@ -44,8 +51,7 @@ export default function BattleStakesPage() {
   const engineRef = useRef<StockfishBridgeRef>(null);
   const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const doneRef = useRef(false);
-  const stakedRef = useRef(0);
-  const multiplierRef = useRef(0);
+  const stakeConfigRef = useRef<PieceStakeConfig>(PIECE_STAKE_CONFIGS[0]);
 
   if (!isActive) { router.replace('/'); return null; }
 
@@ -58,16 +64,35 @@ export default function BattleStakesPage() {
     sendToEngine(`setoption name Skill Level value ${skillLevel}`);
   }, [skillLevel, sendToEngine]);
 
+  function handleExit() {
+    Alert.alert(
+      'Выйти из боя?',
+      'Прогресс потеряется.',
+      [
+        { text: 'Остаться', style: 'cancel' },
+        { text: 'Выйти', style: 'destructive', onPress: () => router.replace('/adventure') },
+      ],
+    );
+  }
+
   function finishBattle(r: 'win' | 'lose' | 'draw', reason: string) {
     if (doneRef.current) return;
     doneRef.current = true;
     if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
-    setCurrentFen(chess.fen());
 
-    const earned = computeStakeGold(r, stakedRef.current, multiplierRef.current);
+    const cfg = stakeConfigRef.current;
+    const earned = computePieceStakeGold(r, cfg.multiplier);
     setGoldEarned(earned);
     setBattleResult(r);
     setResultReason(reason);
+
+    const endFen = chess.fen();
+    const finalFen =
+      r === 'lose' && cfg.pieceType
+        ? removePieceFromFen(endFen, cfg.pieceType)
+        : endFen;
+    setCurrentFen(finalFen);
+
     if (earned > 0) earnGold(earned);
     completeNode(currentNodeIndex);
     setPhase('result');
@@ -133,59 +158,47 @@ export default function BattleStakesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerMoves, chess, requestAIMove]);
 
-  function handleExit() {
-    Alert.alert(
-      'Выйти из боя?',
-      'Прогресс потеряется.',
-      [
-        { text: 'Остаться', style: 'cancel' },
-        { text: 'Выйти', style: 'destructive', onPress: () => router.replace('/adventure') },
-      ],
-    );
-  }
-
   function handleStartBattle() {
-    const config = STAKE_CONFIGS.find(s => s.id === selectedId) ?? STAKE_CONFIGS[0];
-    const amount = config.getAmount(gold);
-    if (amount > 0 && !spendGold(amount)) return;
-    stakedRef.current = amount;
-    multiplierRef.current = config.multiplier;
+    const config = PIECE_STAKE_CONFIGS.find(s => s.id === selectedId) ?? PIECE_STAKE_CONFIGS[0];
+    stakeConfigRef.current = config;
     doneRef.current = false;
     setPhase('battle');
   }
 
   const movesLeft = BLITZ_MOVES - playerMoves;
   const boardDisabled = phase === 'result' || isAIThinking || chess.turn() !== PLAYER_COLOR;
-  const selectedConfig = STAKE_CONFIGS.find(s => s.id === selectedId) ?? STAKE_CONFIGS[0];
+  const activeCfg = stakeConfigRef.current;
 
   const goldDisplay = (() => {
     if (!battleResult) return '';
-    if (battleResult === 'lose' && stakedRef.current > 0) return `-${stakedRef.current} 💰`;
+    if (battleResult === 'lose' && activeCfg.pieceType) {
+      return `${activeCfg.symbol} потеряна`;
+    }
     return `+${goldEarned} 💰`;
   })();
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Engine always mounted so it pre-warms during stake selection */}
+      {/* Pre-warm engine during stake selection */}
       <StockfishBridgeView ref={engineRef} onMessage={handleEngineMessage} onReady={handleEngineReady} />
 
-      {/* ── SELECT PHASE ── */}
+      {/* ── SELECT PHASE ─────────────────────────────────────────── */}
       {phase === 'select' && (
         <View style={styles.selectContainer}>
           <View style={styles.selectHeader}>
-            <Text style={styles.selectTitle}>🌩️ Молния — Ставки</Text>
+            <Text style={styles.selectTitle}>⚡ Блиц-ставка</Text>
             <Text style={styles.goldBadge}>💰 {gold}</Text>
             <Pressable style={styles.exitBtn} onPress={handleExit} testID="exit-battle-btn">
               <Text style={styles.exitBtnText}>Выход</Text>
             </Pressable>
           </View>
-          <Text style={styles.selectSubtitle}>Поставь золото. Выиграй больше.</Text>
+          <Text style={styles.selectSubtitle}>Поставь фигуру на кон:</Text>
           <ScrollView style={styles.optionsList} contentContainerStyle={styles.optionsContent}>
-            {STAKE_CONFIGS.map(config => {
-              const amount = config.getAmount(gold);
-              const affordable = stakeIsAffordable(config, gold);
+            {PIECE_STAKE_CONFIGS.map(config => {
+              const possible = stakeIsPossible(config, currentFen);
+              const count = config.pieceType ? countWhitePieceInFen(currentFen, config.pieceType) : 0;
+              const winGold = computePieceStakeGold('win', config.multiplier);
               const isSelected = selectedId === config.id;
-              const winGold = config.multiplier === 0 ? 40 : Math.round(amount * config.multiplier);
               return (
                 <Pressable
                   key={config.id}
@@ -194,46 +207,47 @@ export default function BattleStakesPage() {
                     styles.stakeCard,
                     { backgroundColor: config.color, borderColor: config.borderColor },
                     isSelected && styles.stakeCardSelected,
-                    !affordable && styles.stakeCardDisabled,
+                    !possible && styles.stakeCardDisabled,
                   ]}
-                  onPress={() => affordable && setSelectedId(config.id)}
+                  onPress={() => possible && setSelectedId(config.id)}
                 >
-                  <Text style={styles.stakeEmoji}>{config.emoji}</Text>
+                  <Text style={styles.stakeSymbol}>{config.symbol}</Text>
                   <View style={styles.stakeInfo}>
-                    <Text style={[styles.stakeLabel, !affordable && styles.dimText]}>
+                    <Text style={[styles.stakeLabel, !possible && styles.dimText]}>
                       {config.label}
                     </Text>
-                    <Text style={[styles.stakeWin, !affordable && styles.dimText]}>
-                      {config.multiplier === 0
-                        ? `Победа: +${winGold} 💰`
-                        : `Победа: +${winGold} 💰 (×${config.multiplier})`}
-                    </Text>
-                    {!affordable && (
-                      <Text style={styles.dimText}>Недостаточно золота</Text>
+                    {config.pieceType !== null && (
+                      <Text style={[styles.stakeCount, !possible && styles.dimText]}>
+                        {possible ? `Осталось: ${count}` : 'Нет такой фигуры'}
+                      </Text>
                     )}
+                    <Text style={[styles.stakeWin, !possible && styles.dimText]}>
+                      {`Победа: +${winGold} 💰 (×${config.multiplier})`}
+                    </Text>
                   </View>
                   {isSelected && <Text style={styles.checkMark}>✓</Text>}
                 </Pressable>
               );
             })}
           </ScrollView>
+          <Text style={styles.loseWarning}>Проигрыш = теряешь фигуру навсегда</Text>
           <Pressable testID="start-battle-btn" style={styles.startBtn} onPress={handleStartBattle}>
             <Text style={styles.startBtnText}>⚡ Начать бой!</Text>
           </Pressable>
         </View>
       )}
 
-      {/* ── BATTLE + RESULT PHASE ── */}
+      {/* ── BATTLE + RESULT PHASE ────────────────────────────────── */}
       {phase !== 'select' && (
         <>
           <View style={styles.battleHeader}>
-            <Text style={styles.battleTitle}>🌩️ Молния</Text>
+            <Text style={styles.battleTitle}>⚡ Блиц</Text>
             <Pressable style={styles.exitBtn} onPress={handleExit} testID="exit-battle-btn">
               <Text style={styles.exitBtnText}>Выход</Text>
             </Pressable>
             <Text style={styles.stakeBadge}>
-              {stakedRef.current > 0
-                ? `Ставка: ${stakedRef.current} 💰 ×${multiplierRef.current}`
+              {activeCfg.pieceType
+                ? `${activeCfg.symbol} ×${activeCfg.multiplier}`
                 : 'Без ставки'}
             </Text>
             <View style={[styles.moveBadge, movesLeft <= 3 && styles.moveBadgeUrgent]}>
@@ -264,18 +278,18 @@ export default function BattleStakesPage() {
                 {battleResult === 'win' ? 'Победа!' : battleResult === 'lose' ? 'Поражение' : 'Ничья'}
               </Text>
               <Text style={styles.resultReason}>{resultReason}</Text>
-              {stakedRef.current > 0 && (
+              {activeCfg.pieceType && (
                 <Text style={styles.stakeFormula}>
                   {battleResult === 'win'
-                    ? `${stakedRef.current} × ${selectedConfig.multiplier}`
+                    ? `${activeCfg.symbol} × ${activeCfg.multiplier}`
                     : battleResult === 'draw'
-                      ? `${stakedRef.current} × 0.5`
-                      : 'Ставка потеряна'}
+                      ? `${activeCfg.symbol} возвращена`
+                      : `${activeCfg.symbol} потеряна`}
                 </Text>
               )}
               <Text style={[
                 styles.goldEarned,
-                battleResult === 'lose' && stakedRef.current > 0 && styles.goldLost,
+                battleResult === 'lose' && activeCfg.pieceType != null && styles.goldLost,
               ]}>
                 {goldDisplay}
               </Text>
@@ -299,30 +313,32 @@ const styles = StyleSheet.create({
 
   // select phase
   selectContainer:   { flex: 1, paddingHorizontal: 16 },
-  selectHeader:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16 },
-  selectTitle:       { color: '#e2e8f0', fontSize: 20, fontWeight: '800' },
-  goldBadge:         { color: '#f59e0b', fontSize: 18, fontWeight: '700' },
+  selectHeader:      { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 8 },
+  selectTitle:       { flex: 1, color: '#e2e8f0', fontSize: 20, fontWeight: '800' },
+  goldBadge:         { color: '#f59e0b', fontSize: 16, fontWeight: '700' },
+  exitBtn:           { backgroundColor: '#7f1d1d', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
+  exitBtnText:       { color: '#fca5a5', fontSize: 13, fontWeight: '600' },
   selectSubtitle:    { color: '#64748b', fontSize: 13, marginBottom: 12 },
   optionsList:       { flex: 1 },
-  optionsContent:    { gap: 12, paddingBottom: 8 },
+  optionsContent:    { gap: 10, paddingBottom: 4 },
   stakeCard:         { flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 2, padding: 14, gap: 12 },
   stakeCardSelected: { borderWidth: 3 },
   stakeCardDisabled: { opacity: 0.4 },
-  stakeEmoji:        { fontSize: 28 },
+  stakeSymbol:       { fontSize: 30, width: 36, textAlign: 'center' },
   stakeInfo:         { flex: 1, gap: 2 },
   stakeLabel:        { color: '#e2e8f0', fontSize: 16, fontWeight: '700' },
+  stakeCount:        { color: '#94a3b8', fontSize: 12 },
   stakeWin:          { color: '#86efac', fontSize: 13 },
-  dimText:           { color: '#475569', fontSize: 12 },
+  dimText:           { color: '#475569' },
   checkMark:         { color: '#22c55e', fontSize: 20, fontWeight: '900' },
-  exitBtn:           { backgroundColor: '#7f1d1d', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
-  exitBtnText:       { color: '#fca5a5', fontSize: 13, fontWeight: '600' },
-  startBtn:          { backgroundColor: '#7c3aed', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginVertical: 16 },
+  loseWarning:       { color: '#ef4444', fontSize: 12, textAlign: 'center', marginTop: 4, marginBottom: 4 },
+  startBtn:          { backgroundColor: '#7c3aed', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginVertical: 12 },
   startBtnText:      { color: '#fff', fontSize: 18, fontWeight: '800' },
 
   // battle phase
   battleHeader:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
   battleTitle:       { flex: 1, color: '#e2e8f0', fontSize: 18, fontWeight: '700' },
-  stakeBadge:        { color: '#f59e0b', fontSize: 12, fontWeight: '600' },
+  stakeBadge:        { color: '#f59e0b', fontSize: 14, fontWeight: '700' },
   moveBadge:         { backgroundColor: '#1e3a5f', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4, alignItems: 'center', minWidth: 52 },
   moveBadgeUrgent:   { backgroundColor: '#7f1d1d' },
   moveCount:         { color: '#fff', fontSize: 20, fontWeight: '900', lineHeight: 24 },

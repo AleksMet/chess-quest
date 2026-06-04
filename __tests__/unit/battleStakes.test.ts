@@ -1,123 +1,151 @@
 import {
-  computeStakeGold,
-  stakeIsAffordable,
-  STAKE_CONFIGS,
+  computePieceStakeGold,
+  stakeIsPossible,
+  countWhitePieceInFen,
+  removePieceFromFen,
+  PIECE_STAKE_CONFIGS,
   BASE_WIN_GOLD,
   BASE_DRAW_GOLD,
   BASE_LOSE_GOLD,
 } from '../../src/engine/stakesEngine';
 
-describe('stakesEngine — computeStakeGold', () => {
-  describe('no stake (multiplier = 0)', () => {
+const STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+describe('computePieceStakeGold', () => {
+  describe('no stake (multiplier = 1.0)', () => {
     it('win returns BASE_WIN_GOLD', () => {
-      expect(computeStakeGold('win', 0, 0)).toBe(BASE_WIN_GOLD);
+      expect(computePieceStakeGold('win', 1.0)).toBe(BASE_WIN_GOLD);
     });
     it('draw returns BASE_DRAW_GOLD', () => {
-      expect(computeStakeGold('draw', 0, 0)).toBe(BASE_DRAW_GOLD);
+      expect(computePieceStakeGold('draw', 1.0)).toBe(BASE_DRAW_GOLD);
     });
     it('lose returns BASE_LOSE_GOLD', () => {
-      expect(computeStakeGold('lose', 0, 0)).toBe(BASE_LOSE_GOLD);
+      expect(computePieceStakeGold('lose', 1.0)).toBe(BASE_LOSE_GOLD);
     });
   });
 
-  describe('small stake ×2.0', () => {
-    it('win returns stake × 2.0', () => {
-      expect(computeStakeGold('win', 25, 2.0)).toBe(50);
+  describe('knight stake (×2.5)', () => {
+    it('win returns BASE_WIN_GOLD × 2.5', () => {
+      expect(computePieceStakeGold('win', 2.5)).toBe(Math.round(BASE_WIN_GOLD * 2.5));
     });
-    it('draw returns half stake', () => {
-      expect(computeStakeGold('draw', 25, 2.0)).toBe(13); // Math.round(12.5)
+    it('draw returns BASE_DRAW_GOLD (piece safe)', () => {
+      expect(computePieceStakeGold('draw', 2.5)).toBe(BASE_DRAW_GOLD);
     });
-    it('lose returns 0', () => {
-      expect(computeStakeGold('lose', 25, 2.0)).toBe(0);
-    });
-  });
-
-  describe('medium stake ×2.5', () => {
-    it('win returns stake × 2.5', () => {
-      expect(computeStakeGold('win', 50, 2.5)).toBe(125);
-    });
-    it('draw returns half stake', () => {
-      expect(computeStakeGold('draw', 50, 2.5)).toBe(25);
-    });
-    it('lose returns 0', () => {
-      expect(computeStakeGold('lose', 50, 2.5)).toBe(0);
+    it('lose returns 0 (piece removed by caller)', () => {
+      expect(computePieceStakeGold('lose', 2.5)).toBe(0);
     });
   });
 
-  describe('all-in stake ×3.0', () => {
-    it('win returns stake × 3.0', () => {
-      expect(computeStakeGold('win', 100, 3.0)).toBe(300);
-    });
-    it('win with odd amount rounds correctly', () => {
-      expect(computeStakeGold('win', 33, 3.0)).toBe(99);
-    });
-    it('draw returns half stake', () => {
-      expect(computeStakeGold('draw', 100, 3.0)).toBe(50);
+  describe('rook stake (×3.0)', () => {
+    it('win returns BASE_WIN_GOLD × 3.0', () => {
+      expect(computePieceStakeGold('win', 3.0)).toBe(BASE_WIN_GOLD * 3);
     });
     it('lose returns 0', () => {
-      expect(computeStakeGold('lose', 100, 3.0)).toBe(0);
+      expect(computePieceStakeGold('lose', 3.0)).toBe(0);
     });
-    it('win with zero gold (all-in on nothing) returns 0', () => {
-      expect(computeStakeGold('win', 0, 3.0)).toBe(0);
+  });
+
+  describe('queen stake (×4.0)', () => {
+    it('win returns BASE_WIN_GOLD × 4.0', () => {
+      expect(computePieceStakeGold('win', 4.0)).toBe(BASE_WIN_GOLD * 4);
+    });
+    it('lose returns 0', () => {
+      expect(computePieceStakeGold('lose', 4.0)).toBe(0);
     });
   });
 });
 
-describe('stakesEngine — stakeIsAffordable', () => {
-  const none   = STAKE_CONFIGS.find(c => c.id === 'none')!;
-  const small  = STAKE_CONFIGS.find(c => c.id === 'small')!;
-  const medium = STAKE_CONFIGS.find(c => c.id === 'medium')!;
-  const allIn  = STAKE_CONFIGS.find(c => c.id === 'all_in')!;
-
-  it('"none" is always affordable regardless of gold', () => {
-    expect(stakeIsAffordable(none, 0)).toBe(true);
-    expect(stakeIsAffordable(none, 1000)).toBe(true);
+describe('countWhitePieceInFen', () => {
+  it('counts 2 knights in starting FEN', () => {
+    expect(countWhitePieceInFen(STARTING_FEN, 'n')).toBe(2);
   });
-
-  it('"small" (25) is affordable with 25+ gold', () => {
-    expect(stakeIsAffordable(small, 25)).toBe(true);
-    expect(stakeIsAffordable(small, 100)).toBe(true);
+  it('counts 2 rooks in starting FEN', () => {
+    expect(countWhitePieceInFen(STARTING_FEN, 'r')).toBe(2);
   });
-
-  it('"small" is not affordable with less than 25 gold', () => {
-    expect(stakeIsAffordable(small, 0)).toBe(false);
-    expect(stakeIsAffordable(small, 24)).toBe(false);
+  it('counts 1 queen in starting FEN', () => {
+    expect(countWhitePieceInFen(STARTING_FEN, 'q')).toBe(1);
   });
-
-  it('"medium" (50) is affordable with 50+ gold', () => {
-    expect(stakeIsAffordable(medium, 50)).toBe(true);
-    expect(stakeIsAffordable(medium, 200)).toBe(true);
+  it('counts 8 pawns in starting FEN', () => {
+    expect(countWhitePieceInFen(STARTING_FEN, 'p')).toBe(8);
   });
-
-  it('"medium" is not affordable with less than 50 gold', () => {
-    expect(stakeIsAffordable(medium, 0)).toBe(false);
-    expect(stakeIsAffordable(medium, 49)).toBe(false);
+  it('falls back to starting FEN when fen is null', () => {
+    expect(countWhitePieceInFen(null, 'n')).toBe(2);
   });
-
-  it('"all_in" is affordable with any gold > 0', () => {
-    expect(stakeIsAffordable(allIn, 1)).toBe(true);
-    expect(stakeIsAffordable(allIn, 999)).toBe(true);
-  });
-
-  it('"all_in" is not affordable with 0 gold', () => {
-    expect(stakeIsAffordable(allIn, 0)).toBe(false);
+  it('returns 0 for a piece that does not exist', () => {
+    // Position with no white knights
+    const fen = '4k3/8/8/8/8/8/8/4K3 w - - 0 1';
+    expect(countWhitePieceInFen(fen, 'n')).toBe(0);
   });
 });
 
-describe('stakesEngine — STAKE_CONFIGS', () => {
+describe('removePieceFromFen', () => {
+  it('removes one white knight from starting FEN', () => {
+    const result = removePieceFromFen(STARTING_FEN, 'n');
+    expect(countWhitePieceInFen(result, 'n')).toBe(1);
+  });
+  it('removes one white rook from starting FEN', () => {
+    const result = removePieceFromFen(STARTING_FEN, 'r');
+    expect(countWhitePieceInFen(result, 'r')).toBe(1);
+  });
+  it('removes the white queen from starting FEN', () => {
+    const result = removePieceFromFen(STARTING_FEN, 'q');
+    expect(countWhitePieceInFen(result, 'q')).toBe(0);
+  });
+  it('returns original FEN if piece not present', () => {
+    const fen = '4k3/8/8/8/8/8/8/4K3 w - - 0 1';
+    expect(removePieceFromFen(fen, 'n')).toBe(fen);
+  });
+  it('falls back to starting FEN when null is passed', () => {
+    const result = removePieceFromFen(null, 'n');
+    expect(countWhitePieceInFen(result, 'n')).toBe(1);
+  });
+  it('does not remove black pieces', () => {
+    const result = removePieceFromFen(STARTING_FEN, 'n');
+    // Black knights should be untouched (still 2)
+    const boardPart = result.split(' ')[0];
+    const blackKnights = (boardPart.match(/n/g) ?? []).length;
+    expect(blackKnights).toBe(2);
+  });
+});
+
+describe('stakeIsPossible', () => {
+  const none   = PIECE_STAKE_CONFIGS.find(c => c.id === 'none')!;
+  const knight = PIECE_STAKE_CONFIGS.find(c => c.id === 'knight')!;
+  const rook   = PIECE_STAKE_CONFIGS.find(c => c.id === 'rook')!;
+  const queen  = PIECE_STAKE_CONFIGS.find(c => c.id === 'queen')!;
+
+  it('"none" is always possible', () => {
+    expect(stakeIsPossible(none, null)).toBe(true);
+    expect(stakeIsPossible(none, STARTING_FEN)).toBe(true);
+  });
+  it('knight is possible when knights exist in FEN', () => {
+    expect(stakeIsPossible(knight, STARTING_FEN)).toBe(true);
+  });
+  it('knight is not possible when no knights in FEN', () => {
+    const fen = '4k3/8/8/8/8/8/8/4K3 w - - 0 1';
+    expect(stakeIsPossible(knight, fen)).toBe(false);
+  });
+  it('queen is possible in starting FEN', () => {
+    expect(stakeIsPossible(queen, STARTING_FEN)).toBe(true);
+  });
+  it('queen is not possible after queen removed', () => {
+    const noQueenFen = removePieceFromFen(STARTING_FEN, 'q');
+    expect(stakeIsPossible(queen, noQueenFen)).toBe(false);
+  });
+  it('rook is possible in starting FEN', () => {
+    expect(stakeIsPossible(rook, STARTING_FEN)).toBe(true);
+  });
+});
+
+describe('PIECE_STAKE_CONFIGS', () => {
   it('has exactly 4 options', () => {
-    expect(STAKE_CONFIGS).toHaveLength(4);
+    expect(PIECE_STAKE_CONFIGS).toHaveLength(4);
   });
-
-  it('ids are none, small, medium, all_in', () => {
-    expect(STAKE_CONFIGS.map(c => c.id)).toEqual(['none', 'small', 'medium', 'all_in']);
+  it('ids are none, knight, rook, queen', () => {
+    expect(PIECE_STAKE_CONFIGS.map(c => c.id)).toEqual(['none', 'knight', 'rook', 'queen']);
   });
-
-  it('multipliers increase from 0 to 3.0', () => {
-    const mults = STAKE_CONFIGS.map(c => c.multiplier);
-    expect(mults[0]).toBe(0);
-    expect(mults[1]).toBe(2.0);
-    expect(mults[2]).toBe(2.5);
-    expect(mults[3]).toBe(3.0);
+  it('multipliers increase: 1.0 → 2.5 → 3.0 → 4.0', () => {
+    const mults = PIECE_STAKE_CONFIGS.map(c => c.multiplier);
+    expect(mults).toEqual([1.0, 2.5, 3.0, 4.0]);
   });
 });
