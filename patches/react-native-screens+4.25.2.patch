@@ -114,3 +114,61 @@ index 9f4bb00..8c1eaca 100644
  }
  //# sourceMappingURL=utils.js.map
 \ No newline at end of file
+diff --git a/node_modules/react-native-screens/src/components/helpers/DelayedFreeze.tsx b/node_modules/react-native-screens/src/components/helpers/DelayedFreeze.tsx
+index 443da63..7dcdf4f 100644
+--- a/node_modules/react-native-screens/src/components/helpers/DelayedFreeze.tsx
++++ b/node_modules/react-native-screens/src/components/helpers/DelayedFreeze.tsx
+@@ -1,27 +1,7 @@
+ import React from 'react';
+-import { Freeze } from 'react-freeze';
+ 
+-interface FreezeWrapperProps {
+-  freeze: boolean;
+-  children: React.ReactNode;
+-}
+-
+-// This component allows one more render before freezing the screen.
+-// Allows activityState to reach the native side and useIsFocused to work correctly.
+-function DelayedFreeze({ freeze, children }: FreezeWrapperProps) {
+-  // flag used for determining whether freeze should be enabled
+-  const [freezeState, setFreezeState] = React.useState(false);
+-
+-  React.useEffect(() => {
+-    const id = setTimeout(() => {
+-      setFreezeState(freeze);
+-    }, 0);
+-    return () => {
+-      clearTimeout(id);
+-    };
+-  }, [freeze]);
+-
+-  return <Freeze freeze={freeze ? freezeState : false}>{children}</Freeze>;
++function DelayedFreeze({ children }: { children: React.ReactNode }) {
++  return <>{children}</>;
+ }
+ 
+ export default DelayedFreeze;
+diff --git a/node_modules/react-native-screens/src/utils.ts b/node_modules/react-native-screens/src/utils.ts
+index 02ad04e..7f746d7 100644
+--- a/node_modules/react-native-screens/src/utils.ts
++++ b/node_modules/react-native-screens/src/utils.ts
+@@ -14,16 +14,9 @@ export function executeNativeBackPress() {
+   return true;
+ }
+ 
+-type OptionalBoolean = 'undefined' | 'false' | 'true';
+ export function parseBooleanToOptionalBooleanNativeProp(
+   prop: boolean | undefined,
+-): OptionalBoolean {
+-  switch (prop) {
+-    case undefined:
+-      return 'undefined';
+-    case true:
+-      return 'true';
+-    case false:
+-      return 'false';
+-  }
++): boolean | undefined {
++  if (prop === undefined) return undefined;
++  return prop === true;
+ }
