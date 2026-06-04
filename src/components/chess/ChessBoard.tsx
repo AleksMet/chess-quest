@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Chess } from 'chess.js';
 import type { Square, Color } from 'chess.js';
@@ -41,15 +41,11 @@ function AnimatedPiece({ symbol, isWhite, animate }: AnimatedPieceProps) {
   }));
 
   return (
-    <Animated.Text
-      style={[
-        styles.piece,
-        isWhite ? styles.whitePiece : styles.blackPiece,
-        animStyle,
-      ]}
-    >
-      {symbol}
-    </Animated.Text>
+    <Animated.View style={[styles.pieceContainer, animStyle]}>
+      <Text style={[styles.piece, isWhite ? styles.whitePiece : styles.blackPiece]}>
+        {symbol}
+      </Text>
+    </Animated.View>
   );
 }
 
@@ -200,6 +196,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 0, 0, 0.2)',
     backgroundColor: 'transparent',
     borderRadius: CELL_SIZE * 0.5,
+  },
+  pieceContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   piece: {
     fontSize: CELL_SIZE * 0.75,

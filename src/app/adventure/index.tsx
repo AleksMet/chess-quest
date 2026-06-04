@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AdventureMap } from '../../components/map/AdventureMap';
@@ -6,7 +7,15 @@ import type { MapNode } from '../../types';
 
 export default function AdventureScreen() {
   const router = useRouter();
-  const { nodes, currentNodeIndex, heroId, gold, advanceToNode } = useRunStore();
+  const { nodes, currentNodeIndex, heroId, gold, advanceToNode, isActive } = useRunStore();
+
+  useEffect(() => {
+    if (!isActive) {
+      router.replace('/');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!isActive) return null;
 
   function handleNodePress(node: MapNode) {
     if (!node.accessible || node.completed) return;

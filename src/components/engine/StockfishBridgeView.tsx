@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { WebView as WebViewType } from 'react-native-webview';
@@ -127,71 +127,65 @@ const ENGINE_HTML = `<!DOCTYPE html>
 
 export type BridgeMessageHandler = (line: string) => void;
 
+export interface StockfishBridgeRef {
+  send: (cmd: string) => void;
+}
+
 interface Props {
   onMessage: BridgeMessageHandler;
   onReady: () => void;
 }
 
-export function StockfishBridgeView({ onMessage, onReady }: Props) {
-  const webViewRef = useRef<WebViewType>(null);
-  const readyRef = useRef(false);
+export const StockfishBridgeView = forwardRef<StockfishBridgeRef, Props>(
+  function StockfishBridgeView({ onMessage, onReady }, ref) {
+    const webViewRef = useRef<WebViewType>(null);
+    const readyRef = useRef(false);
 
-  const handleMessage = useCallback(
-    (event: { nativeEvent: { data: string } }) => {
-      const line = event.nativeEvent.data;
-
-      if (!readyRef.current) {
-        if (line === 'readyok') {
-          readyRef.current = true;
-          onReady();
-        }
-      }
-      onMessage(line);
-    },
-    [onMessage, onReady],
-  );
-
-  const handleLoad = useCallback(() => {
-    // Start UCI handshake once page is loaded
-    send('uci');
-    send('isready');
-  }, []);
-
-  function send(cmd: string) {
-    webViewRef.current?.injectJavaScript(
-      `(function(){ processCommand && processCommand(${JSON.stringify(cmd)}); })(); true;`,
-    );
-  }
-
-  return (
-    <View style={styles.hidden} pointerEvents="none">
-      <WebView
-        ref={webViewRef}
-        source={{ html: ENGINE_HTML }}
-        onMessage={handleMessage}
-        onLoad={handleLoad}
-        javaScriptEnabled
-        // Allow injectJavaScript to reach window scope
-        injectedJavaScript=""
-        originWhitelist={['*']}
-      />
-    </View>
-  );
-}
-
-// Expose send via ref so BattleScreen can call engine commands
-export function useSendToEngine(ref: React.RefObject<WebViewType | null>) {
-  return useCallback(
-    (cmd: string) => {
-      ref.current?.injectJavaScript(
+    const send = useCallback((cmd: string) => {
+      webViewRef.current?.injectJavaScript(
         `(function(){ try{ processCommand(${JSON.stringify(cmd)}); } catch(e){} })(); true;`,
       );
-    },
-    [ref],
-  );
-}
+    }, []);
+
+    useImperativeHandle(ref, () => ({ send }), [send]);
+
+    const handleMessage = useCallback(
+      (event: { nativeEvent: { data: string } }) => {
+        const line = event.nativeEvent.data;
+
+        if (!readyRef.current) {
+          if (line === 'readyok') {
+            readyRef.current = true;
+            onReady();
+          }
+        }
+        onMessage(line);
+      },
+      [onMessage, onReady],
+    );
+
+    const handleLoad = useCallback(() => {
+      send('uci');
+      send('isready');
+    }, [send]);
+
+    return (
+      <View style={styles.hidden}>
+        <WebView
+          ref={webViewRef}
+          source={{ html: ENGINE_HTML }}
+          onMessage={handleMessage}
+          onLoad={handleLoad}
+          javaScriptEnabled={true}
+          originWhitelist={['*']}
+        />
+      </View>
+    );
+  },
+);
 
 const styles = StyleSheet.create({
   // Zero-size hidden view — present in tree but invisible
-  hidden: { width: 0, height: 0, overflow: 'hidden' },
+  // pointerEvents in style (not as prop) is required for Fabric / new architecture
+  hidden: { width: 0, height: 0, overflow: 'hidden', pointerEvents: 'none' },
 });

@@ -5,6 +5,7 @@ import { Chess } from 'chess.js';
 import type { Color } from 'chess.js';
 import { ChessBoard } from '../chess/ChessBoard';
 import { StockfishBridgeView } from '../engine/StockfishBridgeView';
+import type { StockfishBridgeRef } from '../engine/StockfishBridgeView';
 import type { MoveResult } from '../../engine/chessLogic';
 import { processMove } from '../../engine/rewardEngine';
 import type { Artifact, BattleContext, Hero } from '../../types';
@@ -45,7 +46,7 @@ export function BattleScreen({
   const [engineReady, setEngineReady] = useState(false);
 
   const kingCheckedRef = useRef(false);
-  const webViewRef = useRef<import('react-native-webview').WebView | null>(null);
+  const engineRef = useRef<StockfishBridgeRef>(null);
 
   const goldScale = useSharedValue(1);
   const goldStyle = useAnimatedStyle(() => ({
@@ -54,9 +55,7 @@ export function BattleScreen({
 
   // ── Send UCI command to WebView engine ──────────────────────────────────────
   const sendToEngine = useCallback((cmd: string) => {
-    webViewRef.current?.injectJavaScript(
-      `(function(){ try{ processCommand(${JSON.stringify(cmd)}); } catch(e){} })(); true;`,
-    );
+    engineRef.current?.send(cmd);
   }, []);
 
   // ── Handle engine ready ─────────────────────────────────────────────────────
@@ -180,6 +179,7 @@ export function BattleScreen({
     <View style={styles.container} testID="battle-screen">
       {/* Hidden WebView engine — must be mounted inside the component tree */}
       <StockfishBridgeView
+        ref={engineRef}
         onMessage={handleEngineMessage}
         onReady={handleEngineReady}
       />

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { SafeAreaView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BattleScreen } from '../../components/battle/BattleScreen';
@@ -7,7 +8,15 @@ import { eloToSkillLevel } from '../../engine/stockfish';
 
 export default function BattlePage() {
   const router = useRouter();
-  const { heroId, artifacts, nodes, currentNodeIndex, earnGold, completeNode } = useRunStore();
+  const { heroId, artifacts, nodes, currentNodeIndex, earnGold, completeNode, isActive } = useRunStore();
+
+  useEffect(() => {
+    if (!isActive) {
+      router.replace('/');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!isActive) return null;
   const hero = HEROES.find(h => h.id === heroId) ?? HEROES[0];
   const currentNode = nodes[currentNodeIndex];
   const opponentElo = currentNode?.chapterElo ?? 500;
