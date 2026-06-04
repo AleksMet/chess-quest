@@ -1,14 +1,15 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { ChapterThemeProvider } from '../contexts/ChapterThemeContext';
 
 export default function RootLayout() {
   return (
-    <>
+    <ChapterThemeProvider>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: '#0f172a' },
+          contentStyle: { backgroundColor: '#0a1a0b' },
           animation: 'slide_from_right',
         }}
       >
@@ -18,6 +19,6 @@ export default function RootLayout() {
         <Stack.Screen name="artifact-selection" />
         <Stack.Screen name="shop" />
       </Stack>
-    </>
+    </ChapterThemeProvider>
   );
 }

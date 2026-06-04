@@ -1,18 +1,17 @@
 import { useState, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Chess } from 'chess.js';
 import type { Square, Color } from 'chess.js';
 import { getLegalMovesFrom, attemptMove } from '../../engine/chessLogic';
 import type { MoveResult } from '../../engine/chessLogic';
+import { ChessPieceSVG } from './ChessPieceSVG';
+import type { PieceKey } from './ChessPieceSVG';
+import { useChapterTheme } from '../../contexts/ChapterThemeContext';
 
 const BOARD_SIZE = Math.min(Dimensions.get('window').width, Dimensions.get('window').height) * 0.9;
 const CELL_SIZE = BOARD_SIZE / 8;
-
-const PIECE_SYMBOLS: Record<string, string> = {
-  wK: '♔', wQ: '♕', wR: '♖', wB: '♗', wN: '♘', wP: '♙',
-  bK: '♚', bQ: '♛', bR: '♜', bB: '♝', bN: '♞', bP: '♟',
-};
+const PIECE_SIZE = CELL_SIZE * 0.88;
 
 interface ChessBoardProps {
   chess: Chess;
@@ -22,12 +21,11 @@ interface ChessBoardProps {
 }
 
 interface AnimatedPieceProps {
-  symbol: string;
-  isWhite: boolean;
+  pieceKey: PieceKey;
   animate: boolean;
 }
 
-function AnimatedPiece({ symbol, isWhite, animate }: AnimatedPieceProps) {
+function AnimatedPiece({ pieceKey, animate }: AnimatedPieceProps) {
   const scale = useSharedValue(animate ? 0.6 : 1.0);
 
   useEffect(() => {
@@ -42,14 +40,13 @@ function AnimatedPiece({ symbol, isWhite, animate }: AnimatedPieceProps) {
 
   return (
     <Animated.View style={[styles.pieceContainer, animStyle]}>
-      <Text style={[styles.piece, isWhite ? styles.whitePiece : styles.blackPiece]}>
-        {symbol}
-      </Text>
+      <ChessPieceSVG pieceKey={pieceKey} size={PIECE_SIZE} />
     </Animated.View>
   );
 }
 
 export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false }: ChessBoardProps) {
+  const { theme } = useChapterTheme();
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalTargets, setLegalTargets] = useState<Square[]>([]);
   const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(null);
@@ -61,7 +58,6 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false 
   const handleSquarePress = useCallback(
     (square: Square) => {
       if (disabled) return;
-
       const piece = chess.get(square);
 
       if (!selectedSquare) {
@@ -101,7 +97,10 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false 
   const board = chess.board();
 
   return (
-    <View style={styles.container} testID="chess-board">
+    <View
+      style={[styles.container, { borderColor: theme.boardBorder }]}
+      testID="chess-board"
+    >
       {ranks.map((rank, rankIdx) => (
         <View key={rank} style={styles.row}>
           {orderedFiles.map((file, fileIdx) => {
@@ -116,30 +115,40 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false 
             const isLastMoveSquare = lastMove?.from === square || lastMove?.to === square;
             const isJustMoved = square === lastMove?.to;
 
-            const pieceKey = cell ? `${cell.color}${cell.type.toUpperCase()}` : null;
-            const pieceSymbol = pieceKey ? PIECE_SYMBOLS[pieceKey] : null;
+            const pieceKey = cell
+              ? (`${cell.color}${cell.type.toUpperCase()}` as PieceKey)
+              : null;
+
+            const squareBg = isSelected
+              ? theme.selectedSquare
+              : isLastMoveSquare
+                ? theme.lastMoveSquare
+                : isLight
+                  ? theme.boardLight
+                  : theme.boardDark;
 
             return (
               <TouchableOpacity
                 key={square}
                 testID={`square-${square}`}
-                style={[
-                  styles.cell,
-                  isLight ? styles.lightCell : styles.darkCell,
-                  isSelected && styles.selectedCell,
-                  isLastMoveSquare && !isSelected && styles.lastMoveCell,
-                ]}
+                style={[styles.cell, { backgroundColor: squareBg }]}
                 onPress={() => handleSquarePress(square)}
                 activeOpacity={0.7}
               >
                 {isLegalTarget && (
-                  <View style={[styles.legalDot, cell ? styles.legalCapture : styles.legalMove]} />
+                  <View
+                    style={[
+                      styles.legalDot,
+                      cell ? styles.legalCapture : styles.legalMove,
+                      { backgroundColor: cell ? 'transparent' : theme.legalDot },
+                      cell ? { borderColor: theme.legalDot } : undefined,
+                    ]}
+                  />
                 )}
-                {pieceSymbol && (
+                {pieceKey && (
                   <AnimatedPiece
-                    key={isJustMoved ? `${square}-${lastMove?.from}` : square}
-                    symbol={pieceSymbol}
-                    isWhite={cell!.color === 'w'}
+                    key={isJustMoved ? `${square}-moved` : square}
+                    pieceKey={pieceKey}
                     animate={isJustMoved}
                   />
                 )}
@@ -157,7 +166,6 @@ const styles = StyleSheet.create({
     width: BOARD_SIZE,
     height: BOARD_SIZE,
     borderWidth: 2,
-    borderColor: '#4a3728',
   },
   row: {
     flexDirection: 'row',
@@ -168,18 +176,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  lightCell: {
-    backgroundColor: '#f0d9b5',
-  },
-  darkCell: {
-    backgroundColor: '#b58863',
-  },
-  selectedCell: {
-    backgroundColor: '#7fc97f',
-  },
-  lastMoveCell: {
-    backgroundColor: '#cdd16f',
-  },
   legalDot: {
     position: 'absolute',
     borderRadius: 50,
@@ -187,34 +183,16 @@ const styles = StyleSheet.create({
   legalMove: {
     width: CELL_SIZE * 0.3,
     height: CELL_SIZE * 0.3,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   legalCapture: {
     width: CELL_SIZE * 0.9,
     height: CELL_SIZE * 0.9,
     borderWidth: CELL_SIZE * 0.1,
-    borderColor: 'rgba(0, 0, 0, 0.2)',
     backgroundColor: 'transparent',
     borderRadius: CELL_SIZE * 0.5,
   },
   pieceContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  piece: {
-    fontSize: CELL_SIZE * 0.75,
-    lineHeight: CELL_SIZE * 0.85,
-  },
-  whitePiece: {
-    color: '#fff',
-    textShadowColor: '#000',
-    textShadowOffset: { width: 0.5, height: 0.5 },
-    textShadowRadius: 1,
-  },
-  blackPiece: {
-    color: '#1a1a1a',
-    textShadowColor: '#888',
-    textShadowOffset: { width: 0.3, height: 0.3 },
-    textShadowRadius: 0.5,
   },
 });
