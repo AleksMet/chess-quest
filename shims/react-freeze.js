@@ -7,4 +7,8 @@ function Freeze({ children }) {
   return React.createElement(React.Fragment, null, children);
 }
 
-module.exports = { Freeze };
+function DelayedFreeze({ children }) {
+  return React.createElement(React.Fragment, null, children);
+}
+
+module.exports = { Freeze, DelayedFreeze };
