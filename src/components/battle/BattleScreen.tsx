@@ -10,6 +10,8 @@ import { processMove } from '../../engine/rewardEngine';
 import type { Artifact, BattleContext, Hero } from '../../types';
 import { useChapterTheme } from '../../contexts/ChapterThemeContext';
 
+const BASE_GOLD_PER_MOVE = 2;
+
 const RARITY_COLORS: Record<string, string> = {
   common:    '#9e9e9e',
   rare:      '#2196f3',
@@ -184,21 +186,23 @@ export function BattleScreen({
       const reward = processMove(context);
       console.log('[GOLD] reward:', reward.gold, 'log:', reward.log);
 
-      if (reward.gold > 0) {
-        setGold(prev => prev + reward.gold);
-        setLog(prev => [...prev, ...reward.log].slice(-8));
-      }
+      const moveGold = BASE_GOLD_PER_MOVE + reward.gold;
+      setGold(prev => prev + moveGold);
+      const moveLog = reward.log.length > 0
+        ? reward.log
+        : [`+${BASE_GOLD_PER_MOVE} 💰`];
+      setLog(prev => [...prev, ...moveLog].slice(-8));
 
       if (result.isCheckmate) {
         const playerWon = chess.turn() !== playerColor;
         const finalResult = playerWon ? 'win' : 'lose';
         setGameResult(finalResult);
-        onGameEnd?.(finalResult, gold + reward.gold);
+        onGameEnd?.(finalResult, gold + moveGold);
         return;
       }
       if (result.isDraw || result.isStalemate) {
         setGameResult('draw');
-        onGameEnd?.('draw', gold + reward.gold);
+        onGameEnd?.('draw', gold + moveGold);
         return;
       }
 

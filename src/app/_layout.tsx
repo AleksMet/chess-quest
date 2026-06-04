@@ -20,6 +20,7 @@ export default function RootLayout() {
           <Stack.Screen name="battle/index" />
           <Stack.Screen name="artifact-selection" />
           <Stack.Screen name="shop" />
+          <Stack.Screen name="run-complete" />
         </Stack>
       </ChapterThemeProvider>
     </AccessibilityProvider>

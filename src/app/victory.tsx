@@ -9,14 +9,14 @@ export default function VictoryScreen() {
   const goldEarned = Number(params.gold ?? 0);
   const isBoss = params.isBoss === 'true';
 
-  const { chapterIndex, resetRun } = useRunStore();
+  const { chapterIndex } = useRunStore();
   const recordRunResult = useMetaStore(s => s.recordRunResult);
 
   async function handleContinue() {
     await recordRunResult(chapterIndex, true, goldEarned);
     if (isBoss) {
-      resetRun();
-      router.replace('/');
+      // Don't resetRun here — run-complete screen reads store data, then resets
+      router.replace({ pathname: '/run-complete', params: { gold: String(goldEarned) } });
     } else {
       router.replace('/adventure');
     }

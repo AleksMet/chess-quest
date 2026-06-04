@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { View, Text, SafeAreaView, StyleSheet, Alert } from 'react-native';
+import { View, Text, SafeAreaView, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArtifactCard } from '../components/artifacts/ArtifactCard';
 import { useRunStore } from '../store/runStore';
@@ -32,25 +32,47 @@ export default function ArtifactSelectionScreen() {
       return;
     }
     completeNode(currentNodeIndex);
-    router.back();
+    router.replace('/adventure');
+  }
+
+  function handleSkip() {
+    completeNode(currentNodeIndex);
+    router.replace('/adventure');
+  }
+
+  if (choices.length === 0) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <Text style={styles.title}>Сокровищница пуста</Text>
+        <Text style={styles.sub}>Все артефакты уже получены</Text>
+        <TouchableOpacity style={styles.skipBtn} onPress={handleSkip}>
+          <Text style={styles.skipText}>Продолжить</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
   }
 
   return (
     <SafeAreaView style={styles.safe}>
       <Text style={styles.title}>Выбери артефакт</Text>
-      <Text style={styles.sub}>Слотов занято: {artifacts.length}/6</Text>
+      <Text style={styles.sub}>Слотов занято: {artifacts.length}/6  •  Бесплатно</Text>
       <View style={styles.list} testID="artifact-selection-list">
         {choices.map(a => (
           <ArtifactCard key={a.id} artifact={a} onPress={handlePick} testID={`choice-${a.id}`} />
         ))}
       </View>
+      <TouchableOpacity style={styles.skipBtn} onPress={handleSkip} testID="skip-artifact-btn">
+        <Text style={styles.skipText}>Пропустить</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe:  { flex: 1, backgroundColor: '#0f172a', padding: 16 },
-  title: { color: '#f1f5f9', fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 4 },
-  sub:   { color: '#94a3b8', fontSize: 14, textAlign: 'center', marginBottom: 20 },
-  list:  { flex: 1 },
+  safe:     { flex: 1, backgroundColor: '#0f172a', padding: 16 },
+  title:    { color: '#f1f5f9', fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 4 },
+  sub:      { color: '#94a3b8', fontSize: 14, textAlign: 'center', marginBottom: 20 },
+  list:     { flex: 1 },
+  skipBtn:  { alignSelf: 'center', marginTop: 12, paddingVertical: 10, paddingHorizontal: 32, borderRadius: 12, backgroundColor: '#1e293b' },
+  skipText: { color: '#64748b', fontSize: 14 },
 });

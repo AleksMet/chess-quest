@@ -82,11 +82,14 @@ export const useMetaStore = create<MetaStore>((set, get) => ({
         }
       }
 
+      const crystalsEarned = won ? Math.max(1, Math.floor(goldEarned / 100)) : 0;
+
       return {
         meta: {
           ...state.meta,
           chapters,
           totalRuns: state.meta.totalRuns + 1,
+          crystals: state.meta.crystals + crystalsEarned,
         },
       };
     });
