@@ -7,8 +7,9 @@ import { StockfishBridgeView } from '../engine/StockfishBridgeView';
 import type { StockfishBridgeRef } from '../engine/StockfishBridgeView';
 import type { MoveResult } from '../../engine/chessLogic';
 import { processMove } from '../../engine/rewardEngine';
-import type { Artifact, BattleContext, Hero } from '../../types';
+import type { Artifact, BattleContext, Hero, RewardBreakdownItem } from '../../types';
 import { useChapterTheme } from '../../contexts/ChapterThemeContext';
+import { GoldPopup } from '../ui/GoldPopup';
 
 const BASE_GOLD_PER_MOVE = 2;
 
@@ -59,6 +60,7 @@ export function BattleScreen({
   const [log, setLog] = useState<string[]>([]);
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [engineReady, setEngineReady] = useState(false);
+  const [popup, setPopup] = useState<{ total: number; breakdown: RewardBreakdownItem[] } | null>(null);
 
   const kingCheckedRef = useRef(false);
   const engineRef = useRef<StockfishBridgeRef>(null);
@@ -188,6 +190,13 @@ export function BattleScreen({
 
       const moveGold = BASE_GOLD_PER_MOVE + reward.gold;
       setGold(prev => prev + moveGold);
+
+      const breakdown: RewardBreakdownItem[] = [
+        { label: 'ход', value: BASE_GOLD_PER_MOVE, type: 'base' },
+        ...reward.breakdown,
+      ];
+      setPopup({ total: moveGold, breakdown });
+
       const moveLog = reward.log.length > 0
         ? reward.log
         : [`+${BASE_GOLD_PER_MOVE} 💰`];
@@ -284,6 +293,14 @@ export function BattleScreen({
           ))}
         </ScrollView>
       </View>
+
+      {popup && (
+        <GoldPopup
+          total={popup.total}
+          breakdown={popup.breakdown}
+          onDone={() => setPopup(null)}
+        />
+      )}
 
       {log.length > 0 && (
         <View style={styles.logContainer} testID="reward-log">

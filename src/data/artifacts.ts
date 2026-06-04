@@ -12,11 +12,11 @@ import {
 } from '../utils/chessHelpers';
 
 function empty(): RewardResult {
-  return { gold: 0, masteryStars: 0, triggeredArtifactIds: [], log: [] };
+  return { gold: 0, masteryStars: 0, triggeredArtifactIds: [], log: [], breakdown: [] };
 }
 
 function reward(id: string, gold: number, msg: string): RewardResult {
-  return { gold, masteryStars: 0, triggeredArtifactIds: [id], log: [msg] };
+  return { gold, masteryStars: 0, triggeredArtifactIds: [id], log: [msg], breakdown: [] };
 }
 
 function playerHasQueen(chess: Chess, color: Color): boolean {

@@ -27,11 +27,18 @@ export interface BattleContext {
   kingCheckedThisGame?: boolean;
 }
 
+export interface RewardBreakdownItem {
+  label: string;
+  value: number;
+  type: 'base' | 'multiplier' | 'hero' | 'artifact';
+}
+
 export interface RewardResult {
   gold: number;
   masteryStars: number;
   triggeredArtifactIds: string[];
   log: string[];
+  breakdown: RewardBreakdownItem[];
 }
 
 // ─── Artifact ─────────────────────────────────────────────────────────────────
