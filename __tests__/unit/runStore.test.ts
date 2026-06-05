@@ -17,7 +17,8 @@ describe('runStore', () => {
     expect(s.heroId).toBe('timmy_pawn');
     expect(s.score).toBe(0);
     expect(s.currentNodeIndex).toBe(0);
-    expect(s.nodes).toHaveLength(6);
+    expect(s.nodes).toHaveLength(7);
+    expect(s.floorTypes).toHaveLength(7);
   });
 
   it('initial state before startRun is inactive', () => {
@@ -43,29 +44,23 @@ describe('runStore', () => {
 
   // ── run structure ───────────────────────────────────────────────────────────
 
-  it('slot 4 is always quick_battle and slot 5 is always boss', () => {
+  it('last node (index 6) is always boss', () => {
     for (let i = 0; i < 5; i++) {
       act(() => { useRunStore.getState().startRun('timmy_pawn'); });
       const s = useRunStore.getState();
-      expect(s.nodes[4].type).toBe('quick_battle');
-      expect(s.nodes[5].type).toBe('boss');
+      expect(s.nodes[6].type).toBe('boss');
+      expect(s.floorTypes[6]).toBe('boss');
     }
   });
 
-  it('battle slots 0 and 2 are always different types', () => {
-    for (let i = 0; i < 10; i++) {
-      act(() => { useRunStore.getState().startRun('timmy_pawn'); });
-      const s = useRunStore.getState();
-      expect(s.nodes[0].type).not.toBe(s.nodes[2].type);
-    }
-  });
-
-  it('passive slots 1 and 3 are always treasure', () => {
+  it('first 6 floors are battle types (not boss)', () => {
+    const BOSS_TYPE = 'boss';
     for (let i = 0; i < 5; i++) {
       act(() => { useRunStore.getState().startRun('timmy_pawn'); });
       const s = useRunStore.getState();
-      expect(s.nodes[1].type).toBe('treasure');
-      expect(s.nodes[3].type).toBe('treasure');
+      for (let f = 0; f < 6; f++) {
+        expect(s.nodes[f].type).not.toBe(BOSS_TYPE);
+      }
     }
   });
 
@@ -85,27 +80,26 @@ describe('runStore', () => {
     act(() => { useRunStore.getState().startRun('timmy_pawn', 0); });
     const s = useRunStore.getState();
     expect(s.chapterIndex).toBe(0);
-    expect(s.nodes[5].chapterElo).toBe(750);
+    expect(s.nodes[6].chapterElo).toBe(750);
   });
 
   it('startRun chapter 1: boss ELO is 900', () => {
     act(() => { useRunStore.getState().startRun('timmy_pawn', 1); });
     const s = useRunStore.getState();
     expect(s.chapterIndex).toBe(1);
-    expect(s.nodes[5].chapterElo).toBe(900);
+    expect(s.nodes[6].chapterElo).toBe(900);
   });
 
-  it('startRun chapter 1: floor 1 ELO is 600', () => {
+  it('startRun chapter 1: floor 0 ELO is 600', () => {
     act(() => { useRunStore.getState().startRun('finn_knight', 1); });
     const s = useRunStore.getState();
     expect(s.nodes[0].chapterElo).toBe(600);
   });
 
-  it('startRun chapter 1: pre-boss quick_battle ELO is 800', () => {
+  it('startRun chapter 1: floor 5 (pre-boss) ELO is 800', () => {
     act(() => { useRunStore.getState().startRun('timmy_pawn', 1); });
     const s = useRunStore.getState();
-    expect(s.nodes[4].type).toBe('quick_battle');
-    expect(s.nodes[4].chapterElo).toBe(800);
+    expect(s.nodes[5].chapterElo).toBe(800);
   });
 
   it('startRun resets FEN and blessedPiece on new chapter run', () => {

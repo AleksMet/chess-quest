@@ -3,11 +3,12 @@ import { View, Text, StyleSheet, SafeAreaView, Alert, Pressable } from 'react-na
 import { useRouter } from 'expo-router';
 import { AdventureMap, CHAPTER_NAMES } from '../../components/map/AdventureMap';
 import { useRunStore } from '../../store/runStore';
+import { FLOOR_DEFS } from '../../data/towerConfig';
 import type { NodeType } from '../../types';
 
 export default function AdventureScreen() {
   const router = useRouter();
-  const { nodes, currentNodeIndex, heroId, score, chapterIndex, advanceToNode, isActive, resetRun } = useRunStore();
+  const { nodes, currentNodeIndex, heroId, score, chapterIndex, floorTypes, advanceToNode, isActive, resetRun } = useRunStore();
   const chapterName = CHAPTER_NAMES[chapterIndex] ?? 'Приключение';
 
   useEffect(() => {
@@ -32,20 +33,16 @@ export default function AdventureScreen() {
 
   function navigateToNode(type: NodeType) {
     switch (type) {
-      case 'quick_battle':
-      case 'ambush':
-        router.push('/encounter');
-        break;
-      case 'battle':
-      case 'elite':
       case 'boss':
         router.push('/battle');
         break;
-      case 'treasure':
-        router.push('/treasure');
-        break;
-      case 'shop':
-        router.push('/shop');
+      // TODO: СНАЙПЕР/ВЫЖИВАНИЕ/ФЛАГ screens not yet built — route to quick-battle
+      case 'sniper' as NodeType:
+      case 'survival' as NodeType:
+      case 'flag' as NodeType:
+      case 'quick_battle':
+      case 'ambush':
+        router.push('/quick-battle');
         break;
       default:
         break;
@@ -58,9 +55,14 @@ export default function AdventureScreen() {
     navigateToNode(nextNode.type);
   }
 
+  const nextFloorDef = nextNode ? FLOOR_DEFS[nextNode.type as keyof typeof FLOOR_DEFS] : null;
   const nextLabel = nextNode
-    ? ({ quick_battle: 'Быстрый бой', ambush: 'Засада', battle: 'Бой', elite: 'Элита', boss: 'БОСС!', treasure: 'Сокровище', shop: 'Магазин', event: 'Событие', puzzle: 'Задача', challenge: 'Испытание', academy: 'Академия', oracle: 'Оракул' } as Record<string, string>)[nextNode.type] ?? 'Вперёд'
+    ? nextFloorDef ? `${nextFloorDef.icon} ${nextFloorDef.label}` : 'Вперёд'
     : 'Глава завершена';
+
+  // Current floor label for header
+  const currentFloorType = floorTypes[currentNodeIndex];
+  const currentFloorDef = currentFloorType ? FLOOR_DEFS[currentFloorType] : null;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -68,7 +70,9 @@ export default function AdventureScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.chapterName}>{chapterName}</Text>
-          <Text style={styles.hero}>{heroId.replace(/_/g, ' ')}</Text>
+          <Text style={styles.hero}>
+            {currentFloorDef ? `${currentFloorDef.icon} ${currentFloorDef.label} · ` : ''}{heroId.replace(/_/g, ' ')}
+          </Text>
         </View>
         <Text style={styles.gold}>🎯 {score}</Text>
       </View>

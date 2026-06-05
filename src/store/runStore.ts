@@ -1,39 +1,29 @@
 import { create } from 'zustand';
 import type { HeroId, MapNode, NodeType, RunState } from '../types';
+import { generateFloorTypes } from '../data/towerConfig';
+import type { FloorType } from '../data/towerConfig';
 
-// TODO: ХАОС режим — restore PASSIVE_POOL = ['shop', 'treasure'] when Chaos mode is added
-const BATTLE_POOL: NodeType[] = ['ambush', 'quick_battle'];
-
-// ELO progression per chapter: [floor1, floor3, floor5_preBoss, boss]
-const CHAPTER_ELOS: [number, number, number, number][] = [
-  [400, 500, 550, 750], // Chapter 0: Forest of Pawns
-  [600, 700, 800, 900], // Chapter 1: Valley of Knights
+// ELO progression per chapter: 7 floors [f0..f5, boss]
+const CHAPTER_ELOS: number[][] = [
+  [400, 450, 500, 520, 540, 550, 750], // Chapter 0: Forest of Pawns
+  [600, 650, 700, 720, 760, 800, 900], // Chapter 1: Valley of Knights
 ];
 
-function pickOne<T>(pool: T[]): T {
-  return pool[Math.floor(Math.random() * pool.length)];
-}
+// Tower of 7 floors: 6 battle floors (types from floorTypes) + 1 boss
+function generateNodes(chapterIndex: number, floorTypes: FloorType[]): MapNode[] {
+  const elos = CHAPTER_ELOS[chapterIndex] ?? CHAPTER_ELOS[0];
 
-// Tower of 6 floors: battle, treasure, battle, treasure, quick_battle, boss
-function generateNodes(chapterIndex: number): MapNode[] {
-  const [elo0, elo1, elo2, eloBoss] = CHAPTER_ELOS[chapterIndex] ?? CHAPTER_ELOS[0];
-  const b0 = pickOne(BATTLE_POOL);
-  const b1 = pickOne(BATTLE_POOL.filter(t => t !== b0));
-
-  const sequence: [NodeType, number][] = [
-    [b0, elo0], ['treasure', 0], [b1, elo1], ['treasure', 0], ['quick_battle', elo2], ['boss', eloBoss],
-  ];
-
-  return sequence.map(([type, elo], i) => ({
+  return floorTypes.map((ft, i) => ({
     id: `node_${i}`,
-    type,
+    type: ft as NodeType,
     completed: false,
     accessible: i === 0,
-    chapterElo: elo,
+    chapterElo: elos[i] ?? elos[elos.length - 1],
   }));
 }
 
 interface RunStore extends RunState {
+  floorTypes: FloorType[];
   startRun: (heroId: HeroId, chapterIndex?: number) => void;
   resetRun: () => void;
   addScore: (points: number) => void;
@@ -59,12 +49,15 @@ const INITIAL_STATE: RunState = {
 
 export const useRunStore = create<RunStore>((set) => ({
   ...INITIAL_STATE,
+  floorTypes: [],
 
   startRun: (heroId: HeroId, chapterIndex = 0) => {
+    const floorTypes = generateFloorTypes();
     set({
       heroId,
       currentNodeIndex: 0,
-      nodes: generateNodes(chapterIndex),
+      nodes: generateNodes(chapterIndex, floorTypes),
+      floorTypes,
       score: 0,
       masteryStars: 0,
       chapterIndex,
