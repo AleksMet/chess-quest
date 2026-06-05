@@ -13,7 +13,7 @@ import { GoldPopup } from '../ui/GoldPopup';
 
 const BLESSED_BONUS = 15;
 const CHECK_GOLD = 5;
-const CAPTURE_VALUES: Record<string, number> = { p: 10, n: 30, b: 30, r: 50, q: 90, k: 0 };
+const CAPTURE_VALUES: Record<string, number> = { p: 8, n: 25, b: 25, r: 40, q: 70, k: 0 };
 
 const RARITY_COLORS: Record<string, string> = {
   common:    '#9e9e9e',
@@ -34,15 +34,16 @@ function pickFallbackMove(chess: Chess): string | null {
 }
 
 interface BattleScreenProps {
-  artifacts?:    Artifact[];
-  hero:          Hero;
-  playerColor?:  Color;
-  opponentName?: string;
-  opponentElo?:  number;
-  skillLevel?:   number;
-  onGameEnd?:    (result: 'win' | 'lose' | 'draw', gold: number) => void;
-  onExit?:       () => void;
-  blessedPiece?: PieceSymbol | null;
+  artifacts?:     Artifact[];
+  hero:           Hero;
+  playerColor?:   Color;
+  opponentName?:  string;
+  opponentElo?:   number;
+  skillLevel?:    number;
+  onGameEnd?:     (result: 'win' | 'lose' | 'draw', gold: number) => void;
+  onExit?:        () => void;
+  blessedPiece?:  PieceSymbol | null;
+  onKingChecked?: () => void;
 }
 
 export function BattleScreen({
@@ -55,6 +56,7 @@ export function BattleScreen({
   onGameEnd,
   onExit,
   blessedPiece = null,
+  onKingChecked,
 }: BattleScreenProps) {
   const { theme } = useChapterTheme();
   const [chess] = useState(() => new Chess());
@@ -107,6 +109,11 @@ export function BattleScreen({
       setBoardKey(k => k + 1);
       setIsAIThinking(false);
 
+      // Notify if AI just gave check to the player's king
+      if (chess.isCheck() && chess.turn() === playerColor) {
+        onKingChecked?.();
+      }
+
       if (chess.isCheckmate()) {
         const playerWon = chess.turn() === playerColor;
         const result = playerWon ? 'win' : 'lose';
@@ -119,7 +126,7 @@ export function BattleScreen({
     } catch {
       setIsAIThinking(false);
     }
-  }, [chess, playerColor, gold, onGameEnd]);
+  }, [chess, playerColor, gold, onGameEnd, onKingChecked]);
 
   // ── Handle bestmove response from engine ────────────────────────────────────
   const handleEngineMessage = useCallback((line: string) => {

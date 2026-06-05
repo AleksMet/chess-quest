@@ -109,6 +109,7 @@ export interface RunState {
   isActive: boolean;
   currentFen: string | null;
   blessedPiece: PieceSymbol | null;
+  kingWasCheckedInRun: boolean;
 }
 
 // ─── Battle ───────────────────────────────────────────────────────────────────
@@ -169,6 +170,7 @@ export interface ChapterProgress {
   wins: number;
   losses: number;
   bestGold: number;
+  bestScore: number;
 }
 
 export interface MetaProgress {

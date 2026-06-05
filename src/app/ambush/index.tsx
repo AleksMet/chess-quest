@@ -7,18 +7,24 @@ import { StockfishBridgeView } from '../../components/engine/StockfishBridgeView
 import type { StockfishBridgeRef } from '../../components/engine/StockfishBridgeView';
 import type { MoveResult } from '../../engine/chessLogic';
 import { generateAmbushPosition, countMaterial } from '../../engine/positionGenerator';
+import { processMove } from '../../engine/rewardEngine';
+import { GoldPopup } from '../../components/ui/GoldPopup';
 import { useRunStore } from '../../store/runStore';
+import { HEROES } from '../../data/heroes';
 import { eloToSkillLevel } from '../../engine/stockfish';
+import type { RewardBreakdownItem } from '../../types';
 
 const PLAYER_COLOR = 'w' as const;
 const SURVIVE_MOVES = 10;
 const GOLD_SURVIVE = 60;
 const GOLD_SURVIVE_MULTIPLIER = 1.5;
 const GOLD_CHECKMATE = 200;
+const CAPTURE_VALUES: Record<string, number> = { p: 8, n: 25, b: 25, r: 40, q: 70, k: 0 };
 
 export default function AmbushPage() {
   const router = useRouter();
-  const { nodes, currentNodeIndex, earnGold, completeNode, setCurrentFen, isActive } = useRunStore();
+  const { nodes, currentNodeIndex, heroId, artifacts, earnGold, completeNode, setCurrentFen, markKingChecked, isActive } = useRunStore();
+  const hero = HEROES.find(h => h.id === heroId) ?? HEROES[0];
 
   const currentNode = nodes[currentNodeIndex];
   const opponentElo = currentNode?.chapterElo ?? 550;
@@ -35,7 +41,9 @@ export default function AmbushPage() {
     const c = new Chess(startFen);
     return { player: countMaterial(c, 'w'), ai: countMaterial(c, 'b') };
   });
+  const [popup, setPopup] = useState<{ total: number; breakdown: RewardBreakdownItem[] } | null>(null);
 
+  const moveGoldRef = useRef(0);
   const engineRef = useRef<StockfishBridgeRef>(null);
   const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -55,15 +63,14 @@ export default function AmbushPage() {
     setResult(r);
     setCurrentFen(chess.fen());
 
-    if (r === 'checkmate') {
-      earnGold(GOLD_CHECKMATE);
+    const bonusGold = r === 'checkmate' ? GOLD_CHECKMATE : r === 'survive' ? Math.round(GOLD_SURVIVE * GOLD_SURVIVE_MULTIPLIER) : 0;
+    if (bonusGold > 0 || r !== 'lose') {
+      earnGold(moveGoldRef.current + bonusGold);
       completeNode(currentNodeIndex);
-    } else if (r === 'survive') {
-      earnGold(Math.round(GOLD_SURVIVE * GOLD_SURVIVE_MULTIPLIER));
+    } else {
+      // lose: still advance the node so run continues
       completeNode(currentNodeIndex);
     }
-    // lose: player is allowed to continue (GDD: "идёшь дальше но теряешь фигуру")
-    // currentFen already saved with the last position; completeNode NOT called on lose
   }
 
   const applyAIMove = useCallback((uci: string) => {
@@ -74,11 +81,13 @@ export default function AmbushPage() {
       setBoardKey(k => k + 1);
       setIsAIThinking(false);
       setMaterialInfo({ player: countMaterial(chess, 'w'), ai: countMaterial(chess, 'b') });
+      // Check if AI gave check to player
+      if (chess.isCheck() && chess.turn() === PLAYER_COLOR) markKingChecked();
       if (chess.isCheckmate()) finishGame('lose');
       else if (chess.isDraw() || chess.isStalemate()) finishGame('survive');
     } catch { setIsAIThinking(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chess]);
+  }, [chess, markKingChecked]);
 
   const requestAIMove = useCallback(() => {
     if (chess.isGameOver() || chess.turn() === PLAYER_COLOR) return;
@@ -113,33 +122,52 @@ export default function AmbushPage() {
     setPlayerMoves(newCount);
     setMaterialInfo({ player: countMaterial(chess, 'w'), ai: countMaterial(chess, 'b') });
 
+    // Reward engine
+    const captureGold = moveResult.move?.captured ? (CAPTURE_VALUES[moveResult.move.captured] ?? 0) : 0;
+    if (moveResult.move) {
+      const reward = processMove({
+        chess,
+        move: moveResult.move,
+        positionFenBefore: chess.fen(),
+        goldBalance: moveGoldRef.current,
+        artifacts,
+        hero,
+        moveNumber: newCount,
+        playerColor: PLAYER_COLOR,
+      });
+      const moveGold = captureGold + reward.gold;
+      if (moveGold > 0) {
+        moveGoldRef.current += moveGold;
+        const breakdown: RewardBreakdownItem[] = [];
+        if (captureGold > 0) breakdown.push({ label: 'взятие', value: captureGold, type: 'base' });
+        breakdown.push(...reward.breakdown);
+        setPopup({ total: moveGold, breakdown });
+      }
+    }
+
     if (moveResult.isCheckmate) { finishGame('checkmate'); return; }
     if (moveResult.isDraw || moveResult.isStalemate) { finishGame('survive'); return; }
     if (newCount >= SURVIVE_MOVES) { finishGame('survive'); return; }
 
     requestAIMove();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerMoves, chess, result, requestAIMove]);
-
-  function handleContinue() {
-    // On lose: node stays incomplete, player continues but loses a "piece" from state
-    if (result === 'lose') completeNode(currentNodeIndex); // still advance in run
-    router.replace('/adventure');
-  }
+  }, [playerMoves, chess, result, requestAIMove, artifacts, hero]);
 
   function handleExit() {
-    Alert.alert(
-      'Выйти из боя?',
-      'Прогресс потеряется.',
-      [
-        { text: 'Остаться', style: 'cancel' },
-        { text: 'Выйти', style: 'destructive', onPress: () => router.replace('/adventure') },
-      ],
-    );
+    Alert.alert('Выйти из боя?', 'Прогресс потеряется.', [
+      { text: 'Остаться', style: 'cancel' },
+      { text: 'Выйти', style: 'destructive', onPress: () => router.replace('/adventure') },
+    ]);
   }
 
   const movesLeft = SURVIVE_MOVES - playerMoves;
   const boardDisabled = result !== null || isAIThinking || chess.turn() !== PLAYER_COLOR;
+
+  const resultGoldText = result === 'checkmate'
+    ? `+${GOLD_CHECKMATE + moveGoldRef.current} 💰`
+    : result === 'survive'
+      ? `+${Math.round(GOLD_SURVIVE * GOLD_SURVIVE_MULTIPLIER) + moveGoldRef.current} 💰`
+      : moveGoldRef.current > 0 ? `+${moveGoldRef.current} 💰` : 'Продолжаешь путь...';
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -167,13 +195,23 @@ export default function AmbushPage() {
         </View>
       </View>
 
-      <ChessBoard
-        key={boardKey}
-        chess={chess}
-        playerColor={PLAYER_COLOR}
-        onMove={handleMove}
-        disabled={boardDisabled}
-      />
+      <View style={styles.boardWrap}>
+        <ChessBoard
+          key={boardKey}
+          chess={chess}
+          playerColor={PLAYER_COLOR}
+          onMove={handleMove}
+          disabled={boardDisabled}
+        />
+        {popup && (
+          <GoldPopup
+            key={`popup_${moveGoldRef.current}`}
+            total={popup.total}
+            breakdown={popup.breakdown}
+            onDone={() => setPopup(null)}
+          />
+        )}
+      </View>
 
       {result && (
         <View style={styles.overlay}>
@@ -183,14 +221,8 @@ export default function AmbushPage() {
           <Text style={styles.resultTitle}>
             {result === 'checkmate' ? 'Невозможный мат!' : result === 'survive' ? 'Выжил!' : 'Поражение'}
           </Text>
-          <Text style={styles.resultGold}>
-            {result === 'checkmate'
-              ? `+${GOLD_CHECKMATE} 💰`
-              : result === 'survive'
-                ? `+${Math.round(GOLD_SURVIVE * GOLD_SURVIVE_MULTIPLIER)} 💰`
-                : 'Продолжаешь путь...'}
-          </Text>
-          <Pressable style={styles.continueBtn} onPress={handleContinue} testID="ambush-continue">
+          <Text style={styles.resultGold}>{resultGoldText}</Text>
+          <Pressable style={styles.continueBtn} onPress={() => router.replace('/adventure')} testID="ambush-continue">
             <Text style={styles.continueBtnText}>Продолжить</Text>
           </Pressable>
         </View>
@@ -200,24 +232,25 @@ export default function AmbushPage() {
 }
 
 const styles = StyleSheet.create({
-  safe:              { flex: 1, backgroundColor: '#1a0a00' },
-  header:            { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
-  title:             { flex: 1, color: '#fca5a5', fontSize: 18, fontWeight: '700' },
-  exitBtn:           { backgroundColor: '#450a0a', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
-  exitBtnText:       { color: '#fca5a5', fontSize: 13, fontWeight: '600' },
-  materialBadge:     { backgroundColor: '#1e293b', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
-  materialText:      { color: '#e2e8f0', fontSize: 12 },
-  thinking:          { fontSize: 18 },
-  subheader:         { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 6, gap: 8 },
-  goal:              { flex: 1, color: '#f97316', fontSize: 12 },
-  moveBadge:         { backgroundColor: '#7c2d12', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4, alignItems: 'center', minWidth: 48 },
-  moveBadgeUrgent:   { backgroundColor: '#dc2626' },
-  moveCount:         { color: '#fff', fontSize: 18, fontWeight: '900', lineHeight: 22 },
-  moveLabel:         { color: '#fca5a5', fontSize: 9 },
-  overlay:           { position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.87)', alignItems: 'center', justifyContent: 'center', gap: 12 },
-  resultEmoji:       { fontSize: 72 },
-  resultTitle:       { color: '#fff', fontSize: 32, fontWeight: '900' },
-  resultGold:        { color: '#ffd700', fontSize: 24, fontWeight: '800' },
-  continueBtn:       { marginTop: 16, backgroundColor: '#ea580c', paddingVertical: 14, paddingHorizontal: 48, borderRadius: 14 },
-  continueBtnText:   { color: '#fff', fontSize: 17, fontWeight: '800' },
+  safe:             { flex: 1, backgroundColor: '#1a0a00' },
+  header:           { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
+  title:            { flex: 1, color: '#fca5a5', fontSize: 18, fontWeight: '700' },
+  exitBtn:          { backgroundColor: '#450a0a', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
+  exitBtnText:      { color: '#fca5a5', fontSize: 13, fontWeight: '600' },
+  materialBadge:    { backgroundColor: '#1e293b', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
+  materialText:     { color: '#e2e8f0', fontSize: 12 },
+  thinking:         { fontSize: 18 },
+  subheader:        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 6, gap: 8 },
+  goal:             { flex: 1, color: '#f97316', fontSize: 12 },
+  moveBadge:        { backgroundColor: '#7c2d12', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4, alignItems: 'center', minWidth: 48 },
+  moveBadgeUrgent:  { backgroundColor: '#dc2626' },
+  moveCount:        { color: '#fff', fontSize: 18, fontWeight: '900', lineHeight: 22 },
+  moveLabel:        { color: '#fca5a5', fontSize: 9 },
+  boardWrap:        { position: 'relative', flex: 1 },
+  overlay:          { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.87)', alignItems: 'center', justifyContent: 'center', gap: 12 },
+  resultEmoji:      { fontSize: 72 },
+  resultTitle:      { color: '#fff', fontSize: 32, fontWeight: '900' },
+  resultGold:       { color: '#ffd700', fontSize: 24, fontWeight: '800' },
+  continueBtn:      { marginTop: 16, backgroundColor: '#ea580c', paddingVertical: 14, paddingHorizontal: 48, borderRadius: 14 },
+  continueBtnText:  { color: '#fff', fontSize: 17, fontWeight: '800' },
 });

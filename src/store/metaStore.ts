@@ -12,6 +12,7 @@ function buildInitialChapters(): ChapterProgress[] {
     wins: 0,
     losses: 0,
     bestGold: 0,
+    bestScore: 0,
   }));
 }
 
@@ -32,6 +33,7 @@ interface MetaStore {
   loadMeta: () => Promise<void>;
   saveMeta: () => Promise<void>;
   recordRunResult: (chapterIndex: number, won: boolean, goldEarned: number) => Promise<void>;
+  recordBestScore: (chapterIndex: number, score: number) => Promise<void>;
   completeOnboarding: () => void;
   resetMeta: () => void;
 }
@@ -94,6 +96,17 @@ export const useMetaStore = create<MetaStore>((set, get) => ({
       };
     });
 
+    await get().saveMeta();
+  },
+
+  recordBestScore: async (chapterIndex: number, score: number) => {
+    set(state => {
+      const chapters = state.meta.chapters.map(ch => {
+        if (ch.chapterIndex !== chapterIndex) return ch;
+        return { ...ch, bestScore: Math.max(ch.bestScore ?? 0, score) };
+      });
+      return { meta: { ...state.meta, chapters } };
+    });
     await get().saveMeta();
   },
 

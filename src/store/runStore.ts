@@ -50,6 +50,7 @@ interface RunStore extends RunState {
   advanceToNode: (nodeIndex: number) => void;
   setCurrentFen: (fen: string | null) => void;
   blessPiece: (piece: import('chess.js').PieceSymbol) => void;
+  markKingChecked: () => void;
 }
 
 const INITIAL_STATE: RunState = {
@@ -63,6 +64,7 @@ const INITIAL_STATE: RunState = {
   isActive: false,
   currentFen: null,
   blessedPiece: null,
+  kingWasCheckedInRun: false,
 };
 
 export const useRunStore = create<RunStore>((set, get) => ({
@@ -126,5 +128,9 @@ export const useRunStore = create<RunStore>((set, get) => ({
 
   blessPiece: (piece) => {
     set({ blessedPiece: piece });
+  },
+
+  markKingChecked: () => {
+    set({ kingWasCheckedInRun: true });
   },
 }));

@@ -1,10 +1,10 @@
-import { Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useRef, useEffect } from 'react';
+import { Text, Animated, StyleSheet } from 'react-native';
 import type { MapNode } from '../../types';
 
 interface Props {
   node: MapNode;
   isCurrent: boolean;
-  onPress: (node: MapNode) => void;
 }
 
 const ICON: Record<string, string> = {
@@ -37,28 +37,41 @@ const LABEL: Record<string, string> = {
   oracle:       'Оракул',
 };
 
-export function NodeIcon({ node, isCurrent, onPress }: Props) {
-  const disabled = !node.accessible;
+export function NodeIcon({ node, isCurrent }: Props) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (isCurrent && !node.completed) {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(scale, { toValue: 1.08, duration: 600, useNativeDriver: true }),
+          Animated.timing(scale, { toValue: 1.0,  duration: 600, useNativeDriver: true }),
+        ]),
+      );
+      loop.start();
+      return () => loop.stop();
+    } else {
+      scale.setValue(1);
+      return undefined;
+    }
+  }, [isCurrent, node.completed, scale]);
 
   return (
-    <TouchableOpacity
-      testID={`node-${node.id}`}
+    <Animated.View
       style={[
         styles.container,
         node.completed && styles.completed,
-        isCurrent && styles.current,
-        disabled && styles.locked,
+        isCurrent && !node.completed && styles.current,
+        !node.accessible && styles.locked,
+        { transform: [{ scale }] },
       ]}
-      onPress={() => !disabled && onPress(node)}
-      disabled={disabled}
-      activeOpacity={0.7}
     >
       <Text style={styles.icon}>{ICON[node.type] ?? '❓'}</Text>
-      <Text style={[styles.label, disabled && styles.labelLocked]}>
+      <Text style={[styles.label, !node.accessible && styles.labelLocked]}>
         {LABEL[node.type] ?? node.type}
       </Text>
       {node.completed && <Text style={styles.check}>✓</Text>}
-    </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -72,11 +85,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#334155',
   },
-  completed:  { borderColor: '#22c55e', backgroundColor: '#14532d' },
-  current:    { borderColor: '#f59e0b', backgroundColor: '#292524' },
-  locked:     { opacity: 0.35 },
-  icon:       { fontSize: 28 },
-  label:      { fontSize: 10, color: '#e2e8f0', marginTop: 4, textAlign: 'center' },
-  labelLocked:{ color: '#64748b' },
-  check:      { position: 'absolute', top: 4, right: 6, color: '#22c55e', fontSize: 12, fontWeight: 'bold' },
+  completed:   { borderColor: '#22c55e', backgroundColor: '#14532d' },
+  current:     { borderColor: '#f59e0b', backgroundColor: '#292524' },
+  locked:      { opacity: 0.35 },
+  icon:        { fontSize: 28 },
+  label:       { fontSize: 10, color: '#e2e8f0', marginTop: 4, textAlign: 'center' },
+  labelLocked: { color: '#64748b' },
+  check:       { position: 'absolute', top: 4, right: 6, color: '#22c55e', fontSize: 12, fontWeight: 'bold' },
 });

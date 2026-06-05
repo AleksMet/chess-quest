@@ -22,6 +22,15 @@ const QUICK_BATTLE_POSITIONS: string[] = [
   'r2qr1k1/ppp1bppp/2n2n2/4p3/2B1P3/2N2N2/PPP1QPPP/R1B2RK1 w - - 4 10',
   '2rq1rk1/pp2bppp/2np1n2/4p3/4P3/2NP1NB1/PPP1BPPP/R2Q1RK1 w - - 0 11',
   'r1bqr1k1/1pp2ppp/p1np1n2/2b1p3/2B1P3/P1NP1N2/1PP1QPPP/R1B2RK1 w - - 2 9',
+  // additional positions to reduce repeats
+  'r2q1rk1/pp2bppp/2n1pn2/3p4/3P1B2/2NB1N2/PPP1QPPP/R4RK1 w - - 2 11',
+  'r1bq1rk1/1pp2ppp/p1np1n2/4p3/2B1P3/2NP1N2/PPP2PPP/R1BQ1RK1 w - - 0 8',
+  'r2qrbk1/ppp2ppp/2n2n2/4p3/2B1P3/2N1BN2/PPP2PPP/R2Q1RK1 w - - 6 10',
+  'r1bqr1k1/pp3ppp/2n1pn2/2pp4/2PP4/2NBPN2/PP3PPP/R1BQR1K1 w - - 2 9',
+  '2rqr1k1/pp1nbppp/2p1pn2/3p4/3P1B2/2NBPN2/PPP2PPP/R2QR1K1 w - - 4 10',
+  'r2q1rk1/ppp1nppp/1bn1p3/3pN3/3P1B2/2N1P3/PPP2PPP/R2QKB1R w KQ - 4 9',
+  'r1b2rk1/pp1qbppp/2nppn2/8/3NP3/2N1BP2/PPP1BPPP/R2Q1RK1 w - - 2 10',
+  'r2r2k1/pp1qbppp/2n1pn2/2pp4/3P1B2/2PBPN2/PP3PPP/R2QR1K1 w - - 0 11',
 ];
 
 // ── Dynamic ambush position generator ────────────────────────────────────────
