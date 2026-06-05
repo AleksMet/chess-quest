@@ -71,6 +71,8 @@ export function BattleScreen({
   const [popup, setPopup] = useState<{ total: number; breakdown: RewardBreakdownItem[] } | null>(null);
 
   const kingCheckedRef = useRef(false);
+  const drawOfferedRef = useRef(false);
+  const goldRef = useRef(0);
   const engineRef = useRef<StockfishBridgeRef>(null);
   // Fallback timer: fires when WebView engine doesn't respond in time
   const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -120,15 +122,36 @@ export function BattleScreen({
         const playerWon = chess.turn() === playerColor;
         const result = playerWon ? 'win' : 'lose';
         setGameResult(result);
-        onGameEnd?.(result, gold);
+        onGameEnd?.(result, goldRef.current);
       } else if (chess.isDraw() || chess.isStalemate()) {
         setGameResult('draw');
-        onGameEnd?.('draw', gold);
+        onGameEnd?.('draw', goldRef.current);
+      } else {
+        // Occasionally offer a draw after 20+ half-moves when not yet offered
+        const halfMoves = chess.history().length;
+        if (!drawOfferedRef.current && halfMoves >= 20 && Math.random() < 0.15) {
+          drawOfferedRef.current = true;
+          const currentGold = goldRef.current;
+          Alert.alert(
+            'Противник предлагает ничью',
+            '',
+            [
+              { text: 'Отклонить', style: 'cancel' },
+              {
+                text: 'Принять',
+                onPress: () => {
+                  setGameResult('draw');
+                  onGameEnd?.('draw', currentGold);
+                },
+              },
+            ],
+          );
+        }
       }
     } catch {
       setIsAIThinking(false);
     }
-  }, [chess, playerColor, gold, onGameEnd, onKingChecked]);
+  }, [chess, playerColor, onGameEnd, onKingChecked]);
 
   // ── Handle bestmove response from engine ────────────────────────────────────
   const handleEngineMessage = useCallback((line: string) => {
@@ -228,7 +251,7 @@ export function BattleScreen({
       }
       if (result.isDraw || result.isStalemate) {
         setGameResult('draw');
-        onGameEnd?.('draw', gold + moveGold);
+        onGameEnd?.('draw', gold + moveGold);  // player just moved so gold is fresh
         return;
       }
 
@@ -238,6 +261,7 @@ export function BattleScreen({
     [chess, gold, artifacts, hero, playerColor, onGameEnd, requestAIMove],
   );
 
+  goldRef.current = gold;
   const boardDisabled = gameResult !== null || isAIThinking || chess.turn() !== playerColor;
 
   return (

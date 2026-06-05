@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { SafeAreaView, StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { SafeAreaView, StyleSheet, View, Text, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Chess } from 'chess.js';
 import { BattleScreen } from '../../components/battle/BattleScreen';
@@ -79,14 +79,22 @@ export default function BattlePage() {
   }
 
   function handleGameEnd(result: 'win' | 'lose' | 'draw', earnedGold: number) {
-    if (result !== 'lose') {
+    if (result === 'win') {
       earnGold(earnedGold);
+      completeNode(currentNodeIndex);
+    } else if (result === 'draw') {
       completeNode(currentNodeIndex);
     }
 
     if (isBossNode && boss && result === 'win') {
       setBattleResult({ result, gold: earnedGold });
       setDialogPhase('after');
+    } else if (result === 'draw') {
+      Alert.alert(
+        'Ничья',
+        'Ничья — золото не начислено',
+        [{ text: 'Продолжить', onPress: () => router.replace('/adventure') }],
+      );
     } else {
       navigate(result, earnedGold);
     }
