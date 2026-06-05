@@ -73,13 +73,13 @@ export default function AdventureScreen() {
         <Text style={styles.gold}>💰 {gold}</Text>
       </View>
 
-      {/* Map — tappable to advance */}
-      <Pressable style={styles.mapArea} onPress={handleForward} testID="map-area">
+      {/* Map area — not tappable, use ВПЕРЁД button */}
+      <View style={styles.mapArea} testID="map-area">
         <AdventureMap
           nodes={nodes}
           currentNodeIndex={currentNodeIndex}
         />
-      </Pressable>
+      </View>
 
       {/* Footer — ВПЕРЁД + В меню */}
       <View style={styles.footer}>
