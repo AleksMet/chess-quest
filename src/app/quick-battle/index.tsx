@@ -60,7 +60,6 @@ export default function QuickBattlePage() {
     if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
     setResult(r);
     setResultReason(reason);
-    console.log('[FEN] saving after quick battle:', chess.fen());
     setCurrentFen(chess.fen());
   }
 

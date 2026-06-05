@@ -89,6 +89,12 @@ export default function BattlePage() {
     if (isBossNode && boss && result === 'win') {
       setBattleResult({ result, gold: earnedGold });
       setDialogPhase('after');
+    } else if (isBossNode && result === 'draw') {
+      Alert.alert(
+        'Ничья с боссом',
+        'Ничья — золото не начислено. Забег завершён.',
+        [{ text: 'Продолжить', onPress: () => router.replace('/run-complete') }],
+      );
     } else if (result === 'draw') {
       Alert.alert(
         'Ничья',
@@ -124,10 +130,7 @@ export default function BattlePage() {
     );
   }
 
-  const bossFen = isBossNode ? (() => {
-    console.log('[FEN] loading for boss:', currentFen);
-    return buildBossFen(currentFen);
-  })() : undefined;
+  const bossFen = isBossNode ? buildBossFen(currentFen) : undefined;
 
   if (dialogPhase === 'after' && boss && battleResult) {
     return (
