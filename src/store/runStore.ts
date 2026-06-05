@@ -11,6 +11,15 @@ function pickOne<T>(pool: T[]): T {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+/**
+ * Tower of 6 floors (index 0 = floor 1, index 5 = floor 6/boss):
+ *   Floor 1 (idx 0): ambush or quick_battle   ELO 400
+ *   Floor 2 (idx 1): shop or treasure
+ *   Floor 3 (idx 2): ambush or quick_battle   ELO 500 (different from floor 1)
+ *   Floor 4 (idx 3): shop or treasure         (different from floor 2)
+ *   Floor 5 (idx 4): quick_battle             ELO 550  ← last before boss
+ *   Floor 6 (idx 5): boss                     ELO 750
+ */
 function generateNodes(): MapNode[] {
   const b0 = pickOne(BATTLE_POOL);
   const p0 = pickOne(PASSIVE_POOL);
@@ -18,7 +27,7 @@ function generateNodes(): MapNode[] {
   const p1 = pickOne(PASSIVE_POOL.filter(t => t !== p0));
 
   const sequence: [NodeType, number][] = [
-    [b0, 500], [p0, 0], [b1, 550], [p1, 0], ['quick_battle', 600], ['boss', 750],
+    [b0, 400], [p0, 0], [b1, 500], [p1, 0], ['quick_battle', 550], ['boss', 750],
   ];
 
   return sequence.map(([type, elo], i) => ({
