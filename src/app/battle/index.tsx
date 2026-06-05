@@ -58,7 +58,7 @@ type DialogPhase = 'before' | 'battle' | 'after';
 
 export default function BattlePage() {
   const router = useRouter();
-  const { heroId, artifacts, nodes, currentNodeIndex, chapterIndex, blessedPiece, currentFen, earnGold, completeNode, markKingChecked, isActive } =
+  const { heroId, artifacts, nodes, currentNodeIndex, chapterIndex, blessedPiece, currentFen, earnGold, completeNode, markKingChecked, setCurrentFen, isActive } =
     useRunStore();
 
   const hero = HEROES.find(h => h.id === heroId) ?? HEROES[0];
@@ -78,8 +78,9 @@ export default function BattlePage() {
     return null;
   }
 
-  function handleGameEnd(result: 'win' | 'lose' | 'draw', earnedGold: number) {
+  function handleGameEnd(result: 'win' | 'lose' | 'draw', earnedGold: number, fen: string) {
     if (result === 'win') {
+      setCurrentFen(fen);
       earnGold(earnedGold);
       completeNode(currentNodeIndex);
     } else if (result === 'draw') {

@@ -40,7 +40,7 @@ interface BattleScreenProps {
   opponentName?:  string;
   opponentElo?:   number;
   skillLevel?:    number;
-  onGameEnd?:     (result: 'win' | 'lose' | 'draw', gold: number) => void;
+  onGameEnd?:     (result: 'win' | 'lose' | 'draw', gold: number, fen: string) => void;
   onExit?:        () => void;
   blessedPiece?:  PieceSymbol | null;
   onKingChecked?: () => void;
@@ -122,16 +122,17 @@ export function BattleScreen({
         const playerWon = chess.turn() === playerColor;
         const result = playerWon ? 'win' : 'lose';
         setGameResult(result);
-        onGameEnd?.(result, goldRef.current);
+        onGameEnd?.(result, goldRef.current, chess.fen());
       } else if (chess.isDraw() || chess.isStalemate()) {
         setGameResult('draw');
-        onGameEnd?.('draw', goldRef.current);
+        onGameEnd?.('draw', goldRef.current, chess.fen());
       } else {
         // Occasionally offer a draw after 20+ half-moves when not yet offered
         const halfMoves = chess.history().length;
         if (!drawOfferedRef.current && halfMoves >= 20 && Math.random() < 0.15) {
           drawOfferedRef.current = true;
           const currentGold = goldRef.current;
+          const drawFen = chess.fen();
           Alert.alert(
             'Противник предлагает ничью',
             '',
@@ -141,7 +142,7 @@ export function BattleScreen({
                 text: 'Принять',
                 onPress: () => {
                   setGameResult('draw');
-                  onGameEnd?.('draw', currentGold);
+                  onGameEnd?.('draw', currentGold, drawFen);
                 },
               },
             ],
@@ -246,12 +247,12 @@ export function BattleScreen({
         const playerWon = chess.turn() !== playerColor;
         const finalResult = playerWon ? 'win' : 'lose';
         setGameResult(finalResult);
-        onGameEnd?.(finalResult, gold + moveGold);
+        onGameEnd?.(finalResult, gold + moveGold, chess.fen());
         return;
       }
       if (result.isDraw || result.isStalemate) {
         setGameResult('draw');
-        onGameEnd?.('draw', gold + moveGold);  // player just moved so gold is fresh
+        onGameEnd?.('draw', gold + moveGold, chess.fen());
         return;
       }
 
@@ -357,7 +358,7 @@ export function BattleScreen({
             {gameResult === 'win' ? '🏆 Победа!' : gameResult === 'lose' ? '💀 Поражение' : '🤝 Ничья'}
           </Text>
           <Text style={styles.resultGold}>Золото: {gold}</Text>
-          <Pressable style={styles.resultButton} onPress={() => onGameEnd?.(gameResult, gold)}>
+          <Pressable style={styles.resultButton} onPress={() => onGameEnd?.(gameResult, gold, chess.fen())}>
             <Text style={styles.resultButtonText}>Продолжить</Text>
           </Pressable>
         </View>
