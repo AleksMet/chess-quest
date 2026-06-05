@@ -10,11 +10,34 @@
 ## ТЕКУЩИЙ СТАТУС
 
 ```
-Активная фаза:    MVP Завершён
-Статус:           ✅ Все фазы завершены
-Последнее обновление: 2026-06-04
+Активная фаза:    Post-MVP Полировка
+Статус:           ✅ fix/shop-battle-improvements завершён (6 исправлений)
+                  ✅ feat/chapter-2 завершён (Глава 2 + выбор главы)
+Последнее обновление: 2026-06-05
 Ожидает апрува:   НЕТ
 ```
+
+## POST-MVP ИСПРАВЛЕНИЯ (2026-06-05)
+
+### fix/shop-battle-improvements — 6 изменений
+- [x] Магазин: 5 рандомных артефактов (Fisher-Yates) из полного пула
+- [x] Блокировка покупки дубля + Alert + кнопка "Уже есть" (opacity 0.5)
+- [x] Ничья по лимиту ходов = 0 золота (убран checkMaterialResult)
+- [x] Подсветка последнего хода противника (ChessBoard.opponentLastMove prop, #FFD700 opacity 0.4)
+- [x] Позиции разделены: battlePositions.ts (QUICK_BATTLE_POSITIONS + PRE_BOSS_POSITIONS); generateQuickBattlePosition(isPreBoss)
+- [x] buildBossFen вынесен в engine/chessHelpers.ts: стандартные позиции по составу фигур
+
+```
+TypeScript:   ✅ 0 ошибок
+ESLint:       ✅ 0 предупреждений
+Тесты:        ✅ 162 passed (+9 buildBossFen тестов)
+```
+
+### feat/chapter-2 — Глава 2 (Долина Коней)
+- [x] Босс Двуглавый Рыцарь Кастор (ELO 900, диалоги)
+- [x] startRun(heroId, chapterIndex?) + динамические ELO по главам
+- [x] Выбор главы в главном меню (показывается при 2+ разблокированных)
+- [x] victory.tsx: динамическое имя босса
 
 ---
 
