@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { View, Text, SafeAreaView, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, SafeAreaView, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArtifactCard } from '../components/artifacts/ArtifactCard';
 import { useRunStore } from '../store/runStore';
@@ -7,6 +7,7 @@ import { ARTIFACTS } from '../data/artifacts';
 import type { Artifact } from '../types';
 
 const SELECTION_COUNT = 3;
+const MAX_ARTIFACTS = 6;
 
 function pickThreeArtifacts(owned: Artifact[]): Artifact[] {
   const ownedIds = new Set(owned.map(a => a.id));
@@ -20,17 +21,10 @@ export default function ArtifactSelectionScreen() {
   const { artifacts, addArtifact, currentNodeIndex, completeNode } = useRunStore();
 
   const choices = useMemo(() => pickThreeArtifacts(artifacts), []);
+  const slotsFull = artifacts.length >= MAX_ARTIFACTS;
 
   function handlePick(artifact: Artifact) {
-    const added = addArtifact(artifact);
-    if (!added) {
-      Alert.alert(
-        'Слоты заполнены',
-        'У тебя уже 6 артефактов. Продай один в магазине.',
-        [{ text: 'OK' }],
-      );
-      return;
-    }
+    addArtifact(artifact);
     completeNode(currentNodeIndex);
     router.replace('/adventure');
   }
@@ -38,6 +32,18 @@ export default function ArtifactSelectionScreen() {
   function handleSkip() {
     completeNode(currentNodeIndex);
     router.replace('/adventure');
+  }
+
+  if (slotsFull) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <Text style={styles.title}>Слоты заполнены</Text>
+        <Text style={styles.sub}>У тебя уже 6 артефактов.{'\n'}Продай один в магазине чтобы освободить место.</Text>
+        <TouchableOpacity style={styles.skipBtn} onPress={handleSkip} testID="skip-artifact-btn">
+          <Text style={styles.skipText}>Продолжить</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
   }
 
   if (choices.length === 0) {

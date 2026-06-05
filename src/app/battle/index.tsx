@@ -102,17 +102,17 @@ export default function BattlePage() {
         [{ text: 'Продолжить', onPress: () => router.replace('/adventure') }],
       );
     } else {
-      navigate(result, earnedGold);
+      navigate(result);
     }
   }
 
-  function navigate(result: 'win' | 'lose' | 'draw', gold: number) {
+  function navigate(result: 'win' | 'lose' | 'draw') {
     if (result === 'lose') {
-      router.replace({ pathname: '/defeat', params: { gold: String(gold) } });
+      router.replace('/defeat');
     } else {
       router.replace({
         pathname: '/victory',
-        params: { gold: String(gold), isBoss: isBossNode ? 'true' : 'false' },
+        params: { isBoss: isBossNode ? 'true' : 'false' },
       });
     }
   }
@@ -140,7 +140,7 @@ export default function BattlePage() {
           text={boss.dialogAfter}
           onContinue={() => {
             earnGold(boss.rewardGold);
-            navigate(battleResult.result, battleResult.gold + boss.rewardGold);
+            navigate(battleResult.result);
           }}
           isBefore={false}
         />

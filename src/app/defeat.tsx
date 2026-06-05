@@ -1,18 +1,15 @@
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useRunStore } from '../store/runStore';
 import { useMetaStore } from '../store/metaStore';
 
 export default function DefeatScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ gold?: string }>();
-  const goldEarned = Number(params.gold ?? 0);
-
-  const { chapterIndex, resetRun } = useRunStore();
+  const { chapterIndex, gold, resetRun } = useRunStore();
   const recordRunResult = useMetaStore(s => s.recordRunResult);
 
   async function handleRetry() {
-    await recordRunResult(chapterIndex, false, goldEarned);
+    await recordRunResult(chapterIndex, false, gold);
     resetRun();
     router.replace('/');
   }
@@ -26,7 +23,7 @@ export default function DefeatScreen() {
 
         <View style={styles.rewardBox}>
           <Text style={styles.rewardLabel}>Собрано золота за забег</Text>
-          <Text style={styles.rewardGold}>💰 {goldEarned}</Text>
+          <Text style={styles.rewardGold}>💰 {gold}</Text>
         </View>
 
         <TouchableOpacity style={styles.btn} onPress={handleRetry} testID="defeat-retry-btn">

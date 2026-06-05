@@ -5,18 +5,17 @@ import { useMetaStore } from '../store/metaStore';
 
 export default function VictoryScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ gold?: string; isBoss?: string }>();
-  const goldEarned = Number(params.gold ?? 0);
+  const params = useLocalSearchParams<{ isBoss?: string }>();
   const isBoss = params.isBoss === 'true';
 
-  const { chapterIndex } = useRunStore();
+  const { chapterIndex, gold } = useRunStore();
   const recordRunResult = useMetaStore(s => s.recordRunResult);
 
   async function handleContinue() {
-    await recordRunResult(chapterIndex, true, goldEarned);
+    await recordRunResult(chapterIndex, true, gold);
     if (isBoss) {
       // Don't resetRun here — run-complete screen reads store data, then resets
-      router.replace({ pathname: '/run-complete', params: { gold: String(goldEarned) } });
+      router.replace('/run-complete');
     } else {
       router.replace('/adventure');
     }
@@ -34,8 +33,8 @@ export default function VictoryScreen() {
         </Text>
 
         <View style={styles.rewardBox}>
-          <Text style={styles.rewardLabel}>Заработано золота</Text>
-          <Text style={styles.rewardGold}>💰 {goldEarned}</Text>
+          <Text style={styles.rewardLabel}>Золото за забег</Text>
+          <Text style={styles.rewardGold}>💰 {gold}</Text>
         </View>
 
         <TouchableOpacity style={styles.btn} onPress={handleContinue} testID="victory-continue-btn">
