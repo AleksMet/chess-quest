@@ -14,6 +14,19 @@ export const BOSSES: Boss[] = [
     rewardGold: 200,
     rewardArtifactId: 'goblin_crown',
   },
+  {
+    id: 'knight_castor',
+    name: 'Двуглавый Рыцарь Кастор',
+    chapterIndex: 1,
+    elo: 900,
+    dialogBefore:
+      'Кха-ха! Ты добрался до Долины Коней? Мои кони прыгают выше твоего понимания! Я атакую сразу с двух сторон — как ты это остановишь?',
+    dialogAfter:
+      'Невероятно... Ты видел все мои вилки! Мастерство связок победило мою ярость. Что ж, Долина признаёт тебя достойным соперником.',
+    weakness: 'Боится связок слоном — свяжи его коней и он потеряет атаку!',
+    rewardGold: 250,
+    rewardArtifactId: 'castor_saddle',
+  },
 ];
 
 export function getBossForChapter(chapterIndex: number): Boss | null {

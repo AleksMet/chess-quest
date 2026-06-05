@@ -42,6 +42,24 @@ describe('bossSystem', () => {
     expect(boss).toBeNull();
   });
 
+  it('returns Knight Castor for chapter 1', () => {
+    const boss = getBossForChapter(1);
+    expect(boss).not.toBeNull();
+    expect(boss?.id).toBe('knight_castor');
+  });
+
+  it('Knight Castor has ELO between 850 and 950', () => {
+    const boss = getBossForChapter(1);
+    expect(boss?.elo).toBeGreaterThanOrEqual(850);
+    expect(boss?.elo).toBeLessThanOrEqual(950);
+  });
+
+  it('Knight Castor gives more reward gold than Goblin King', () => {
+    const castor = getBossForChapter(1);
+    const goblin = getBossForChapter(0);
+    expect(castor?.rewardGold).toBeGreaterThanOrEqual(goblin?.rewardGold ?? 0);
+  });
+
   it('all bosses have required fields', () => {
     BOSSES.forEach(boss => {
       expect(boss.id).toBeTruthy();

@@ -116,4 +116,45 @@ describe('runStore', () => {
     expect(s.nodes[0].completed).toBe(true);
     expect(s.nodes[1].accessible).toBe(true);
   });
+
+  // ── chapter support ─────────────────────────────────────────────────────────
+
+  it('startRun chapter 0: boss ELO is 750', () => {
+    act(() => { useRunStore.getState().startRun('timmy_pawn', 0); });
+    const s = useRunStore.getState();
+    expect(s.chapterIndex).toBe(0);
+    expect(s.nodes[5].chapterElo).toBe(750);
+  });
+
+  it('startRun chapter 1: boss ELO is 900', () => {
+    act(() => { useRunStore.getState().startRun('timmy_pawn', 1); });
+    const s = useRunStore.getState();
+    expect(s.chapterIndex).toBe(1);
+    expect(s.nodes[5].chapterElo).toBe(900);
+  });
+
+  it('startRun chapter 1: floor 1 ELO is 600', () => {
+    act(() => { useRunStore.getState().startRun('finn_knight', 1); });
+    const s = useRunStore.getState();
+    expect(s.nodes[0].chapterElo).toBe(600);
+  });
+
+  it('startRun chapter 1: pre-boss quick_battle ELO is 800', () => {
+    act(() => { useRunStore.getState().startRun('timmy_pawn', 1); });
+    const s = useRunStore.getState();
+    expect(s.nodes[4].type).toBe('quick_battle');
+    expect(s.nodes[4].chapterElo).toBe(800);
+  });
+
+  it('startRun resets FEN and blessedPiece on new chapter run', () => {
+    act(() => {
+      useRunStore.getState().startRun('timmy_pawn', 0);
+      useRunStore.getState().setCurrentFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+    });
+    act(() => { useRunStore.getState().startRun('timmy_pawn', 1); });
+    const s = useRunStore.getState();
+    expect(s.currentFen).toBeNull();
+    expect(s.blessedPiece).toBeNull();
+    expect(s.kingWasCheckedInRun).toBe(false);
+  });
 });

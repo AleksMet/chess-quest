@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-na
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useRunStore } from '../store/runStore';
 import { useMetaStore } from '../store/metaStore';
+import { getBossForChapter } from '../data/bosses';
 
 export default function VictoryScreen() {
   const router = useRouter();
@@ -10,6 +11,7 @@ export default function VictoryScreen() {
 
   const { chapterIndex, gold } = useRunStore();
   const recordRunResult = useMetaStore(s => s.recordRunResult);
+  const boss = getBossForChapter(chapterIndex);
 
   async function handleContinue() {
     await recordRunResult(chapterIndex, true, gold);
@@ -28,7 +30,7 @@ export default function VictoryScreen() {
         <Text style={styles.title}>{isBoss ? 'Босс повержен!' : 'Победа!'}</Text>
         <Text style={styles.subtitle}>
           {isBoss
-            ? 'Ты одолел Гоблинского Короля!'
+            ? `Ты одолел ${boss?.name ?? 'босса'}!`
             : 'Противник сдался перед твоим мастерством'}
         </Text>
 

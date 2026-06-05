@@ -7,27 +7,26 @@ const STARTING_GOLD = 100;
 const BATTLE_POOL: NodeType[] = ['ambush', 'quick_battle'];
 const PASSIVE_POOL: NodeType[] = ['shop', 'treasure'];
 
+// ELO progression per chapter: [floor1, floor3, floor5_preBoss, boss]
+const CHAPTER_ELOS: [number, number, number, number][] = [
+  [400, 500, 550, 750], // Chapter 0: Forest of Pawns
+  [600, 700, 800, 900], // Chapter 1: Valley of Knights
+];
+
 function pickOne<T>(pool: T[]): T {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-/**
- * Tower of 6 floors (index 0 = floor 1, index 5 = floor 6/boss):
- *   Floor 1 (idx 0): ambush or quick_battle   ELO 400
- *   Floor 2 (idx 1): shop or treasure
- *   Floor 3 (idx 2): ambush or quick_battle   ELO 500 (different from floor 1)
- *   Floor 4 (idx 3): shop or treasure         (different from floor 2)
- *   Floor 5 (idx 4): quick_battle             ELO 550  ← last before boss
- *   Floor 6 (idx 5): boss                     ELO 750
- */
-function generateNodes(): MapNode[] {
+// Tower of 6 floors: battle, passive, battle, passive, quick_battle, boss
+function generateNodes(chapterIndex: number): MapNode[] {
+  const [elo0, elo1, elo2, eloBoss] = CHAPTER_ELOS[chapterIndex] ?? CHAPTER_ELOS[0];
   const b0 = pickOne(BATTLE_POOL);
   const p0 = pickOne(PASSIVE_POOL);
   const b1 = pickOne(BATTLE_POOL.filter(t => t !== b0));
   const p1 = pickOne(PASSIVE_POOL.filter(t => t !== p0));
 
   const sequence: [NodeType, number][] = [
-    [b0, 400], [p0, 0], [b1, 500], [p1, 0], ['quick_battle', 550], ['boss', 750],
+    [b0, elo0], [p0, 0], [b1, elo1], [p1, 0], ['quick_battle', elo2], ['boss', eloBoss],
   ];
 
   return sequence.map(([type, elo], i) => ({
@@ -40,7 +39,7 @@ function generateNodes(): MapNode[] {
 }
 
 interface RunStore extends RunState {
-  startRun: (heroId: HeroId) => void;
+  startRun: (heroId: HeroId, chapterIndex?: number) => void;
   resetRun: () => void;
   addArtifact: (artifact: Artifact) => boolean;
   removeArtifact: (artifactId: string) => void;
@@ -70,16 +69,19 @@ const INITIAL_STATE: RunState = {
 export const useRunStore = create<RunStore>((set, get) => ({
   ...INITIAL_STATE,
 
-  startRun: (heroId: HeroId) => {
+  startRun: (heroId: HeroId, chapterIndex = 0) => {
     set({
       heroId,
       currentNodeIndex: 0,
-      nodes: generateNodes(),
+      nodes: generateNodes(chapterIndex),
       artifacts: [],
       gold: STARTING_GOLD,
       masteryStars: 0,
-      chapterIndex: 0,
+      chapterIndex,
       isActive: true,
+      currentFen: null,
+      blessedPiece: null,
+      kingWasCheckedInRun: false,
     });
   },
 
