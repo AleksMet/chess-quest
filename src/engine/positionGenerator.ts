@@ -158,7 +158,8 @@ export function generateAmbushPosition(): string {
 }
 
 export function generateQuickBattlePosition(): string {
-  const idx = Math.floor(Math.random() * QUICK_BATTLE_POSITIONS.length);
+  const entropy = (Date.now() + Math.random() * 1e9) >>> 0;
+  const idx = entropy % QUICK_BATTLE_POSITIONS.length;
   return QUICK_BATTLE_POSITIONS[idx];
 }
 
