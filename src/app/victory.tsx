@@ -3,6 +3,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useRunStore } from '../store/runStore';
 import { useMetaStore } from '../store/metaStore';
 import { getBossForChapter } from '../data/bosses';
+import { calcChapterStars } from '../engine/scoreEngine';
 
 export default function VictoryScreen() {
   const router = useRouter();
@@ -10,13 +11,17 @@ export default function VictoryScreen() {
   const isBoss = params.isBoss === 'true';
 
   const { chapterIndex, score } = useRunStore();
-  const recordRunResult = useMetaStore(s => s.recordRunResult);
+  const { meta, recordRunResult } = useMetaStore();
   const boss = getBossForChapter(chapterIndex);
+
+  const stars = calcChapterStars(score);
+  const chapterMeta = meta.chapters.find(c => c.chapterIndex === chapterIndex);
+  const prevBest = chapterMeta?.bestScore ?? 0;
+  const isNewBest = isBoss && score > prevBest;
 
   async function handleContinue() {
     await recordRunResult(chapterIndex, true, score);
     if (isBoss) {
-      // Don't resetRun here — run-complete screen reads store data, then resets
       router.replace('/run-complete');
     } else {
       router.replace('/adventure');
@@ -34,9 +39,21 @@ export default function VictoryScreen() {
             : 'Противник сдался перед твоим мастерством'}
         </Text>
 
+        {/* Score display */}
         <View style={styles.rewardBox}>
           <Text style={styles.rewardLabel}>Очки за забег</Text>
-          <Text style={styles.rewardGold}>🎯 {score}</Text>
+          <Text style={styles.rewardScore}>🎯 {score}</Text>
+
+          {/* Star rating */}
+          <View style={styles.starsRow}>
+            {([1, 2, 3] as const).map(s => (
+              <Text key={s} style={[styles.star, s <= stars ? styles.starOn : styles.starOff]}>★</Text>
+            ))}
+          </View>
+
+          {isNewBest && (
+            <Text style={styles.newBest}>🎉 Новый рекорд!</Text>
+          )}
         </View>
 
         <TouchableOpacity style={styles.btn} onPress={handleContinue} testID="victory-continue-btn">
@@ -53,9 +70,14 @@ const styles = StyleSheet.create({
   emoji:       { fontSize: 72, marginBottom: 16 },
   title:       { color: '#fbbf24', fontSize: 36, fontWeight: '900', textAlign: 'center' },
   subtitle:    { color: '#94a3b8', fontSize: 16, textAlign: 'center', marginTop: 8, marginBottom: 32 },
-  rewardBox:   { backgroundColor: '#1e293b', borderRadius: 16, padding: 24, alignItems: 'center', marginBottom: 32, width: '100%' },
-  rewardLabel: { color: '#64748b', fontSize: 13, marginBottom: 8 },
-  rewardGold:  { color: '#f59e0b', fontSize: 32, fontWeight: '900' },
+  rewardBox:   { backgroundColor: '#1e293b', borderRadius: 16, padding: 24, alignItems: 'center', marginBottom: 32, width: '100%', gap: 8 },
+  rewardLabel: { color: '#64748b', fontSize: 13 },
+  rewardScore: { color: '#f59e0b', fontSize: 36, fontWeight: '900' },
+  starsRow:    { flexDirection: 'row', gap: 8, marginTop: 4 },
+  star:        { fontSize: 28, fontWeight: '900' },
+  starOn:      { color: '#f59e0b' },
+  starOff:     { color: '#334155' },
+  newBest:     { color: '#22c55e', fontSize: 14, fontWeight: '700', marginTop: 4 },
   btn:         { backgroundColor: '#22c55e', paddingVertical: 16, paddingHorizontal: 48, borderRadius: 14 },
   btnText:     { color: '#fff', fontSize: 18, fontWeight: '800' },
 });

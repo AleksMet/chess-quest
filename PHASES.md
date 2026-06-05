@@ -13,9 +13,29 @@
 Активная фаза:    Post-MVP Полировка
 Статус:           ✅ fix/shop-battle-improvements завершён (6 исправлений)
                   ✅ feat/chapter-2 завершён (Глава 2 + выбор главы)
+                  ✅ feat/classic-mode завершён (7 задач)
 Последнее обновление: 2026-06-05
 Ожидает апрува:   НЕТ
 ```
+
+## feat/classic-mode — Классический режим (2026-06-05)
+
+### 7 задач
+- [x] Задача 1: Убраны артефакты и магазин; gold→score в runStore; shop/artifact-selection отключены с TODO: ХАОС режим
+- [x] Задача 2: scoreEngine.ts — calcMateScore, calcCaptureScore, calcFlagHoldScore, calcSurvivalScore, calcChapterStars (23 теста)
+- [x] Задача 3: sniperMode.ts — selectSniperTarget(fen, floorIndex), getSniperMoveLimit
+- [x] Задача 4: survivalMode.ts — addPieceToBoard(fen, moveIndex), SURVIVAL_START_FEN, SURVIVAL_MOVE_LIMIT
+- [x] Задача 5: flagMode.ts — selectFlagSquare(), isFlagCaptured(fen, square, color), FLAG_HOLD_REQUIRED
+- [x] Задача 6: towerConfig.ts — FloorType/FLOOR_DEFS/generateFloorTypes(); башня 7 этажей; иконки в adventure
+- [x] Задача 7: victory.tsx — звёзды (★★★), крупный счёт, "Новый рекорд!" при победе над боссом
+
+```
+TypeScript:   ✅ 0 ошибок
+ESLint:       ✅ 0 предупреждений
+Тесты:        ✅ 180 passed (+18 новых: scoreEngine×23, runStore обновлены)
+```
+
+---
 
 ## POST-MVP ИСПРАВЛЕНИЯ (2026-06-05)
 
