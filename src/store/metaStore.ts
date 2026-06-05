@@ -114,6 +114,7 @@ export const useMetaStore = create<MetaStore>((set, get) => ({
     set(state => ({
       meta: { ...state.meta, onboardingCompleted: true },
     }));
+    void get().saveMeta();
   },
 
   resetMeta: () => {
