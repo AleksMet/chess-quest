@@ -102,8 +102,7 @@ export interface RunState {
   heroId: HeroId;
   currentNodeIndex: number;
   nodes: MapNode[];
-  artifacts: Artifact[];
-  gold: number;
+  score: number;
   masteryStars: number;
   chapterIndex: number;
   isActive: boolean;

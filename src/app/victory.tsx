@@ -9,12 +9,12 @@ export default function VictoryScreen() {
   const params = useLocalSearchParams<{ isBoss?: string }>();
   const isBoss = params.isBoss === 'true';
 
-  const { chapterIndex, gold } = useRunStore();
+  const { chapterIndex, score } = useRunStore();
   const recordRunResult = useMetaStore(s => s.recordRunResult);
   const boss = getBossForChapter(chapterIndex);
 
   async function handleContinue() {
-    await recordRunResult(chapterIndex, true, gold);
+    await recordRunResult(chapterIndex, true, score);
     if (isBoss) {
       // Don't resetRun here — run-complete screen reads store data, then resets
       router.replace('/run-complete');
@@ -35,8 +35,8 @@ export default function VictoryScreen() {
         </Text>
 
         <View style={styles.rewardBox}>
-          <Text style={styles.rewardLabel}>Золото за забег</Text>
-          <Text style={styles.rewardGold}>💰 {gold}</Text>
+          <Text style={styles.rewardLabel}>Очки за забег</Text>
+          <Text style={styles.rewardGold}>🎯 {score}</Text>
         </View>
 
         <TouchableOpacity style={styles.btn} onPress={handleContinue} testID="victory-continue-btn">

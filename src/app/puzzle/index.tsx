@@ -9,12 +9,11 @@ import { getRandomPuzzle } from '../../data/puzzles';
 import { useRunStore } from '../../store/runStore';
 
 const HINT_TIMEOUT_MS = 90_000;
-const WRONG_PENALTY = 20;
 const CORRECT_REWARD = 60;
 
 export default function PuzzlePage() {
   const router = useRouter();
-  const { chapterIndex, earnGold, spendGold, completeNode, currentNodeIndex, isActive } = useRunStore();
+  const { chapterIndex, addScore, completeNode, currentNodeIndex, isActive } = useRunStore();
 
   const [puzzle] = useState(() => getRandomPuzzle(chapterIndex));
   const [chess] = useState(() => new Chess(puzzle.fen));
@@ -66,9 +65,8 @@ export default function PuzzlePage() {
       chess.undo();
       setBoardKey(k => k + 1);
       setAttempts(a => a + 1);
-      spendGold(WRONG_PENALTY);
       setHintSquare(expectedUCI.slice(0, 2));
-      setMessage(`Неверно! -${WRONG_PENALTY} 💰. Попробуй ещё раз.`);
+      setMessage(`Неверно! Попробуй ещё раз.`);
       return;
     }
 
@@ -89,8 +87,8 @@ export default function PuzzlePage() {
       // Puzzle complete
       if (timerRef.current) clearTimeout(timerRef.current);
       setStatus('solved');
-      setMessage(`Отлично! +${CORRECT_REWARD} 💰`);
-      earnGold(CORRECT_REWARD);
+      setMessage(`Отлично! +${CORRECT_REWARD} 🎯`);
+      addScore(CORRECT_REWARD);
       completeNode(currentNodeIndex);
     }
     setBoardKey(k => k + 1);

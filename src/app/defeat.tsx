@@ -5,11 +5,11 @@ import { useMetaStore } from '../store/metaStore';
 
 export default function DefeatScreen() {
   const router = useRouter();
-  const { chapterIndex, gold, resetRun } = useRunStore();
+  const { chapterIndex, score, resetRun } = useRunStore();
   const recordRunResult = useMetaStore(s => s.recordRunResult);
 
   async function handleRetry() {
-    await recordRunResult(chapterIndex, false, gold);
+    await recordRunResult(chapterIndex, false, score);
     resetRun();
     router.replace('/');
   }
@@ -22,8 +22,8 @@ export default function DefeatScreen() {
         <Text style={styles.subtitle}>Противник оказался сильнее. Не сдавайся!</Text>
 
         <View style={styles.rewardBox}>
-          <Text style={styles.rewardLabel}>Собрано золота за забег</Text>
-          <Text style={styles.rewardGold}>💰 {gold}</Text>
+          <Text style={styles.rewardLabel}>Очки за забег</Text>
+          <Text style={styles.rewardGold}>🎯 {score}</Text>
         </View>
 
         <TouchableOpacity style={styles.btn} onPress={handleRetry} testID="defeat-retry-btn">

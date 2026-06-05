@@ -7,7 +7,7 @@ import type { NodeType } from '../../types';
 
 export default function AdventureScreen() {
   const router = useRouter();
-  const { nodes, currentNodeIndex, heroId, gold, chapterIndex, advanceToNode, isActive, resetRun } = useRunStore();
+  const { nodes, currentNodeIndex, heroId, score, chapterIndex, advanceToNode, isActive, resetRun } = useRunStore();
   const chapterName = CHAPTER_NAMES[chapterIndex] ?? 'Приключение';
 
   useEffect(() => {
@@ -70,7 +70,7 @@ export default function AdventureScreen() {
           <Text style={styles.chapterName}>{chapterName}</Text>
           <Text style={styles.hero}>{heroId.replace(/_/g, ' ')}</Text>
         </View>
-        <Text style={styles.gold}>💰 {gold}</Text>
+        <Text style={styles.gold}>🎯 {score}</Text>
       </View>
 
       {/* Map area — not tappable, use ВПЕРЁД button */}

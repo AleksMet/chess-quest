@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Alert, View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { Alert, View, Text, StyleSheet, Pressable } from 'react-native';
 import { Chess } from 'chess.js';
 import type { Color, Move, PieceSymbol } from 'chess.js';
 import { ChessBoard } from '../chess/ChessBoard';
@@ -14,14 +14,6 @@ import { GoldPopup } from '../ui/GoldPopup';
 const BLESSED_BONUS = 15;
 const CHECK_GOLD = 5;
 const CAPTURE_VALUES: Record<string, number> = { p: 8, n: 25, b: 25, r: 40, q: 70, k: 0 };
-
-const RARITY_COLORS: Record<string, string> = {
-  common:    '#9e9e9e',
-  rare:      '#2196f3',
-  epic:      '#9c27b0',
-  legendary: '#ff9800',
-  mythic:    '#f44336',
-};
 
 // Pick a random legal move, preferring captures ~60% of the time.
 function pickFallbackMove(chess: Chess): string | null {
@@ -63,7 +55,7 @@ export function BattleScreen({
   const { theme } = useChapterTheme();
   const [chess] = useState(() => startFen ? new Chess(startFen) : new Chess());
   const [boardKey, setBoardKey] = useState(0);
-  const [gold, setGold] = useState(0);
+  const [score, setScore] = useState(0);
   const [gameResult, setGameResult] = useState<'win' | 'lose' | 'draw' | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [isAIThinking, setIsAIThinking] = useState(false);
@@ -73,7 +65,7 @@ export function BattleScreen({
 
   const kingCheckedRef = useRef(false);
   const drawOfferedRef = useRef(false);
-  const goldRef = useRef(0);
+  const scoreRef = useRef(0);
   const engineRef = useRef<StockfishBridgeRef>(null);
   // Fallback timer: fires when WebView engine doesn't respond in time
   const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -124,16 +116,15 @@ export function BattleScreen({
         const playerWon = chess.turn() === playerColor;
         const result = playerWon ? 'win' : 'lose';
         setGameResult(result);
-        onGameEnd?.(result, goldRef.current, chess.fen());
+        onGameEnd?.(result, scoreRef.current, chess.fen());
       } else if (chess.isDraw() || chess.isStalemate()) {
         setGameResult('draw');
-        onGameEnd?.('draw', goldRef.current, chess.fen());
+        onGameEnd?.('draw', scoreRef.current, chess.fen());
       } else {
         // Occasionally offer a draw after 20+ half-moves when not yet offered
         const halfMoves = chess.history().length;
         if (!drawOfferedRef.current && halfMoves >= 20 && Math.random() < 0.15) {
           drawOfferedRef.current = true;
-          const currentGold = goldRef.current;
           const drawFen = chess.fen();
           Alert.alert(
             'Противник предлагает ничью',
@@ -144,7 +135,7 @@ export function BattleScreen({
                 text: 'Принять',
                 onPress: () => {
                   setGameResult('draw');
-                  onGameEnd?.('draw', currentGold, drawFen);
+                  onGameEnd?.('draw', scoreRef.current, drawFen);
                 },
               },
             ],
@@ -216,30 +207,29 @@ export function BattleScreen({
         chess,
         move: result.move,
         positionFenBefore: chess.fen(),
-        goldBalance: gold,
-        artifacts,
+        goldBalance: 0,
+        artifacts, // TODO: ХАОС режим — artifacts always [] in Classic Mode
         hero,
         moveNumber: chess.history().length,
         playerColor,
         kingCheckedThisGame: kingCheckedRef.current,
       };
 
-      const captureGold = result.move.captured ? (CAPTURE_VALUES[result.move.captured] ?? 0) : 0;
-      const checkGold = result.isCheck ? CHECK_GOLD : 0;
+      const captureScore = result.move.captured ? (CAPTURE_VALUES[result.move.captured] ?? 0) : 0;
+      const checkScore = result.isCheck ? CHECK_GOLD : 0;
       const reward = processMove(context);
       const blessBonus = blessedPiece && result.move.piece === blessedPiece ? BLESSED_BONUS : 0;
 
-      const moveGold = captureGold + checkGold + reward.gold + blessBonus;
-      setGold(prev => prev + moveGold);
+      const moveScore = captureScore + checkScore + reward.gold + blessBonus;
+      setScore(prev => prev + moveScore);
 
-      // Only show popup for significant events (gold earned)
-      if (moveGold > 0) {
+      if (moveScore > 0) {
         const breakdown: RewardBreakdownItem[] = [];
-        if (captureGold > 0) breakdown.push({ label: 'взятие', value: captureGold, type: 'base' });
-        if (checkGold > 0) breakdown.push({ label: '♔ шах!', value: checkGold, type: 'base' });
+        if (captureScore > 0) breakdown.push({ label: 'взятие', value: captureScore, type: 'base' });
+        if (checkScore > 0) breakdown.push({ label: '♔ шах!', value: checkScore, type: 'base' });
         breakdown.push(...reward.breakdown);
         if (blessBonus > 0) breakdown.push({ label: '✨ благословение', value: blessBonus, type: 'artifact' as const });
-        setPopup({ total: moveGold, breakdown });
+        setPopup({ total: moveScore, breakdown });
       }
 
       if (reward.log.length > 0) {
@@ -250,22 +240,22 @@ export function BattleScreen({
         const playerWon = chess.turn() !== playerColor;
         const finalResult = playerWon ? 'win' : 'lose';
         setGameResult(finalResult);
-        onGameEnd?.(finalResult, gold + moveGold, chess.fen());
+        onGameEnd?.(finalResult, score + moveScore, chess.fen());
         return;
       }
       if (result.isDraw || result.isStalemate) {
         setGameResult('draw');
-        onGameEnd?.('draw', gold + moveGold, chess.fen());
+        onGameEnd?.('draw', score + moveScore, chess.fen());
         return;
       }
 
       // Opponent's turn — try engine, fallback handles silence automatically
       requestAIMove();
     },
-    [chess, gold, artifacts, hero, playerColor, onGameEnd, requestAIMove],
+    [chess, score, artifacts, hero, playerColor, onGameEnd, requestAIMove],
   );
 
-  goldRef.current = gold;
+  scoreRef.current = score;
   const boardDisabled = gameResult !== null || isAIThinking || chess.turn() !== playerColor;
 
   return (
@@ -296,8 +286,8 @@ export function BattleScreen({
       <View style={[styles.hud, { backgroundColor: theme.surface + 'cc' }]} testID="hud">
         <View style={styles.hudTopRow}>
           <View style={[styles.goldContainer, { backgroundColor: theme.accentDark }]} testID="gold-display">
-            <Text style={styles.goldIcon}>💰</Text>
-            <Text style={styles.goldAmount} testID="gold-amount">{gold}</Text>
+            <Text style={styles.goldIcon}>🎯</Text>
+            <Text style={styles.goldAmount} testID="gold-amount">{score}</Text>
           </View>
           {onExit && (
             <Pressable
@@ -319,25 +309,7 @@ export function BattleScreen({
           )}
         </View>
 
-        <ScrollView
-          horizontal
-          style={styles.artifactRow}
-          showsHorizontalScrollIndicator={false}
-          testID="artifact-row"
-        >
-          {artifacts.map(a => (
-            <View
-              key={a.id}
-              testID={`artifact-slot-${a.id}`}
-              style={[styles.artifactSlot, { borderColor: RARITY_COLORS[a.rarity] ?? '#9e9e9e' }]}
-            >
-              <Text style={styles.artifactName} numberOfLines={1}>{a.name}</Text>
-            </View>
-          ))}
-          {Array.from({ length: Math.max(0, 6 - artifacts.length) }).map((_, i) => (
-            <View key={`empty-${i}`} style={[styles.artifactSlot, styles.artifactEmpty]} />
-          ))}
-        </ScrollView>
+        {/* TODO: ХАОС режим — restore artifact ScrollView here */}
       </View>
 
       {popup && (
@@ -361,8 +333,8 @@ export function BattleScreen({
           <Text style={styles.resultText}>
             {gameResult === 'win' ? '🏆 Победа!' : gameResult === 'lose' ? '💀 Поражение' : '🤝 Ничья'}
           </Text>
-          <Text style={styles.resultGold}>Золото: {gold}</Text>
-          <Pressable style={styles.resultButton} onPress={() => onGameEnd?.(gameResult, gold, chess.fen())}>
+          <Text style={styles.resultGold}>Очки: {score}</Text>
+          <Pressable style={styles.resultButton} onPress={() => onGameEnd?.(gameResult, score, chess.fen())}>
             <Text style={styles.resultButtonText}>Продолжить</Text>
           </Pressable>
         </View>

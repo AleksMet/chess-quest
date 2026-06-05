@@ -47,7 +47,7 @@ const STAR_LABEL_COLORS: Record<1 | 2 | 3, string> = {
 
 export default function RunCompleteScreen() {
   const router = useRouter();
-  const { artifacts, gold: totalGold, chapterIndex, currentFen, kingWasCheckedInRun, resetRun } = useRunStore();
+  const { score: totalScore, chapterIndex, currentFen, kingWasCheckedInRun, resetRun } = useRunStore();
   const { meta, recordBestScore } = useMetaStore();
 
   const { total: pieceCount, hasQueen } = countPiecesInFen(currentFen);
@@ -55,7 +55,7 @@ export default function RunCompleteScreen() {
   const score = calcScore(pieceCount, hasQueen, noCheck);
   const stars = calcStars(score);
   const chapterName = CHAPTER_NAMES[chapterIndex] ?? 'Приключение';
-  const crystalsEarned = Math.max(1, Math.floor(totalGold / 100));
+  const crystalsEarned = Math.max(1, Math.floor(totalScore / 100));
 
   const chapterMeta = meta.chapters.find(c => c.chapterIndex === chapterIndex);
   const prevBest = chapterMeta?.bestScore ?? 0;
@@ -130,23 +130,9 @@ export default function RunCompleteScreen() {
         {/* Run summary */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>ЗАБЕГ</Text>
-          <StatRow icon="💰" label="Золото" value={String(totalGold)} highlight />
-          <StatRow icon="🏺" label="Артефактов" value={String(artifacts.length)} />
+          <StatRow icon="🎯" label="Итого очков" value={String(totalScore)} highlight />
           <StatRow icon="💎" label="Кристаллов" value={`+${crystalsEarned}`} />
         </View>
-
-        {/* Artifacts */}
-        {artifacts.length > 0 && (
-          <View style={styles.artifactsSection}>
-            <Text style={styles.sectionTitle}>АРТЕФАКТЫ</Text>
-            {artifacts.map((a, i) => (
-              <View key={`artifact_${a.id}_${i}`} style={styles.artifactRow}>
-                <Text style={styles.artifactName}>{a.name}</Text>
-                <Text style={styles.artifactRarity}>{a.rarity}</Text>
-              </View>
-            ))}
-          </View>
-        )}
 
         <TouchableOpacity style={styles.btn} onPress={handleNewRun} testID="new-run-btn">
           <Text style={styles.btnText}>Новый забег</Text>

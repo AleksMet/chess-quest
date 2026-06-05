@@ -23,7 +23,7 @@ const CAPTURE_VALUES: Record<string, number> = { p: 8, n: 25, b: 25, r: 40, q: 7
 
 export default function AmbushPage() {
   const router = useRouter();
-  const { nodes, currentNodeIndex, heroId, artifacts, earnGold, completeNode, setCurrentFen, markKingChecked, isActive } = useRunStore();
+  const { nodes, currentNodeIndex, heroId, addScore, completeNode, setCurrentFen, markKingChecked, isActive } = useRunStore();
   const hero = HEROES.find(h => h.id === heroId) ?? HEROES[0];
 
   const currentNode = nodes[currentNodeIndex];
@@ -64,10 +64,10 @@ export default function AmbushPage() {
     setResult(r);
     setCurrentFen(chess.fen());
 
-    const bonusGold = r === 'checkmate' ? GOLD_CHECKMATE : r === 'survive' ? Math.round(GOLD_SURVIVE * GOLD_SURVIVE_MULTIPLIER) : 0;
+    const bonusScore = r === 'checkmate' ? GOLD_CHECKMATE : r === 'survive' ? Math.round(GOLD_SURVIVE * GOLD_SURVIVE_MULTIPLIER) : 0;
     if (r !== 'lose') {
-      earnGold(moveGoldRef.current + bonusGold);
-      // completeNode delegated to artifact-selection
+      addScore(moveGoldRef.current + bonusScore);
+      completeNode(currentNodeIndex);
     } else {
       completeNode(currentNodeIndex);
     }
@@ -131,8 +131,8 @@ export default function AmbushPage() {
         chess,
         move: moveResult.move,
         positionFenBefore: chess.fen(),
-        goldBalance: moveGoldRef.current,
-        artifacts,
+        goldBalance: 0,
+        artifacts: [], // TODO: ХАОС режим — pass real artifacts
         hero,
         moveNumber: newCount,
         playerColor: PLAYER_COLOR,
@@ -153,7 +153,7 @@ export default function AmbushPage() {
 
     requestAIMove();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerMoves, chess, result, requestAIMove, artifacts, hero]);
+  }, [playerMoves, chess, result, requestAIMove, hero]);
 
   function handleExit() {
     Alert.alert('Выйти из боя?', 'Прогресс потеряется.', [
@@ -166,10 +166,10 @@ export default function AmbushPage() {
   const boardDisabled = result !== null || isAIThinking || chess.turn() !== PLAYER_COLOR;
 
   const resultGoldText = result === 'checkmate'
-    ? `+${GOLD_CHECKMATE + moveGoldRef.current} 💰`
+    ? `+${GOLD_CHECKMATE + moveGoldRef.current} 🎯`
     : result === 'survive'
-      ? `+${Math.round(GOLD_SURVIVE * GOLD_SURVIVE_MULTIPLIER) + moveGoldRef.current} 💰`
-      : moveGoldRef.current > 0 ? `+${moveGoldRef.current} 💰` : 'Продолжаешь путь...';
+      ? `+${Math.round(GOLD_SURVIVE * GOLD_SURVIVE_MULTIPLIER) + moveGoldRef.current} 🎯`
+      : moveGoldRef.current > 0 ? `+${moveGoldRef.current} 🎯` : 'Продолжаешь путь...';
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -188,8 +188,8 @@ export default function AmbushPage() {
 
       <View style={styles.subheader}>
         <Text style={styles.goal}>
-          Продержись {SURVIVE_MOVES} ходов (+{Math.round(GOLD_SURVIVE * GOLD_SURVIVE_MULTIPLIER)} 💰)
-          или поставь мат (+{GOLD_CHECKMATE} 💰)
+          Продержись {SURVIVE_MOVES} ходов (+{Math.round(GOLD_SURVIVE * GOLD_SURVIVE_MULTIPLIER)} 🎯)
+          или поставь мат (+{GOLD_CHECKMATE} 🎯)
         </Text>
         <View style={[styles.moveBadge, movesLeft <= 3 && styles.moveBadgeUrgent]}>
           <Text style={styles.moveCount}>{movesLeft}</Text>
@@ -227,7 +227,7 @@ export default function AmbushPage() {
           <Text style={styles.resultGold}>{resultGoldText}</Text>
           <Pressable
             style={styles.continueBtn}
-            onPress={() => result === 'lose' ? router.replace('/adventure') : router.replace('/artifact-selection')}
+            onPress={() => router.replace('/adventure')}
             testID="ambush-continue"
           >
             <Text style={styles.continueBtnText}>Продолжить</Text>

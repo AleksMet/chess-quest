@@ -12,7 +12,7 @@ type DialogPhase = 'before' | 'battle' | 'after';
 
 export default function BattlePage() {
   const router = useRouter();
-  const { heroId, artifacts, nodes, currentNodeIndex, chapterIndex, blessedPiece, currentFen, earnGold, completeNode, markKingChecked, setCurrentFen, isActive } =
+  const { heroId, nodes, currentNodeIndex, chapterIndex, blessedPiece, currentFen, addScore, completeNode, markKingChecked, setCurrentFen, isActive } =
     useRunStore();
 
   const hero = HEROES.find(h => h.id === heroId) ?? HEROES[0];
@@ -32,17 +32,17 @@ export default function BattlePage() {
     return null;
   }
 
-  function handleGameEnd(result: 'win' | 'lose' | 'draw', earnedGold: number, fen: string) {
+  function handleGameEnd(result: 'win' | 'lose' | 'draw', earnedScore: number, fen: string) {
     if (result === 'win') {
       setCurrentFen(fen);
-      earnGold(earnedGold);
+      addScore(earnedScore);
       completeNode(currentNodeIndex);
     } else if (result === 'draw') {
       completeNode(currentNodeIndex);
     }
 
     if (isBossNode && boss && result === 'win') {
-      setBattleResult({ result, gold: earnedGold });
+      setBattleResult({ result, gold: earnedScore });
       setDialogPhase('after');
     } else if (isBossNode && result === 'draw') {
       Alert.alert(
@@ -94,7 +94,7 @@ export default function BattlePage() {
           name={boss.name}
           text={boss.dialogAfter}
           onContinue={() => {
-            earnGold(boss.rewardGold);
+            addScore(boss.rewardGold);
             navigate(battleResult.result);
           }}
           isBefore={false}
@@ -107,7 +107,7 @@ export default function BattlePage() {
     <SafeAreaView style={styles.safe}>
       <BattleScreen
         hero={hero}
-        artifacts={artifacts}
+        artifacts={[]} // TODO: ХАОС режим — pass real artifacts
         playerColor="w"
         opponentName={opponentName}
         opponentElo={opponentElo}

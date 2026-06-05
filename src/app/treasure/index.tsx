@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react';
-import { SafeAreaView, View, Text, StyleSheet, Pressable, Alert, ScrollView } from 'react-native';
+import { SafeAreaView, View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArtifactCard } from '../../components/artifacts/ArtifactCard';
+// TODO: ХАОС режим — restore: import { ArtifactCard } from '../../components/artifacts/ArtifactCard';
 import { useRunStore } from '../../store/runStore';
-import { ARTIFACTS } from '../../data/artifacts';
+// TODO: ХАОС режим — restore: import { ARTIFACTS } from '../../data/artifacts';
 import { countWhitePieceInFen } from '../../engine/positionGenerator';
-import type { Artifact } from '../../types';
+// TODO: ХАОС режим — restore: import type { Artifact } from '../../types';
 import type { PieceSymbol } from 'chess.js';
 
-type Phase = 'choose' | 'artifact' | 'bless';
+// TODO: ХАОС режим — restore 'artifact' phase
+type Phase = 'choose' | 'bless';
 
 const PIECE_INFO: { type: PieceSymbol; symbol: string; name: string }[] = [
   { type: 'q', symbol: '♛', name: 'Ферзь' },
@@ -20,39 +21,28 @@ const PIECE_INFO: { type: PieceSymbol; symbol: string; name: string }[] = [
 
 const BLESSED_BONUS = 15;
 
-function pickArtifacts(owned: Artifact[]): Artifact[] {
-  const ownedIds = new Set(owned.map(a => a.id));
-  const pool = ARTIFACTS.filter(a => !ownedIds.has(a.id));
-  return [...pool].sort(() => Math.random() - 0.5).slice(0, 3);
-}
+// TODO: ХАОС режим — restore pickArtifacts function
 
 export default function TreasureScreen() {
   const router = useRouter();
   const {
-    artifacts, currentFen, addArtifact,
-    earnGold, blessPiece, completeNode, currentNodeIndex,
+    currentFen, addScore,
+    blessPiece, completeNode, currentNodeIndex,
   } = useRunStore();
 
   const [phase, setPhase] = useState<Phase>('choose');
-  const goldReward = useMemo(() => 80 + Math.floor(Math.random() * 41), []);
-  const artifactChoices = useMemo(() => pickArtifacts(artifacts), []);
+  const scoreReward = useMemo(() => 80 + Math.floor(Math.random() * 41), []);
+  // TODO: ХАОС режим — restore: const artifactChoices = useMemo(() => pickArtifacts(artifacts), []);
 
   function finish() {
     completeNode(currentNodeIndex);
     router.replace('/adventure');
   }
 
-  function handlePickArtifact(artifact: Artifact) {
-    const added = addArtifact(artifact);
-    if (!added) {
-      Alert.alert('Слоты заполнены', 'У тебя уже 6 артефактов. Продай один в магазине.');
-      return;
-    }
-    finish();
-  }
+  // TODO: ХАОС режим — restore handlePickArtifact when artifacts are re-enabled
 
-  function handlePickGold() {
-    earnGold(goldReward);
+  function handlePickScore() {
+    addScore(scoreReward);
     finish();
   }
 
@@ -69,56 +59,23 @@ export default function TreasureScreen() {
         <Text style={styles.subtitle}>Выбери награду:</Text>
         <View style={styles.optionGrid}>
 
-          {/* A — Artifact */}
-          <Pressable style={[styles.optionCard, styles.cardArtifact]} onPress={() => setPhase('artifact')} testID="treasure-artifact">
-            <Text style={styles.optionEmoji}>🏺</Text>
-            <Text style={styles.optionTitle}>Артефакт</Text>
-            <Text style={styles.optionDesc}>Выбери из 3 случайных артефактов</Text>
+          {/* TODO: ХАОС режим — restore Artifact option */}
+
+          {/* Score bonus */}
+          <Pressable style={[styles.optionCard, styles.cardGold]} onPress={handlePickScore} testID="treasure-gold">
+            <Text style={styles.optionEmoji}>🎯</Text>
+            <Text style={styles.optionTitle}>Очки</Text>
+            <Text style={styles.optionGold}>+{scoreReward} 🎯</Text>
           </Pressable>
 
-          {/* B — Gold */}
-          <Pressable style={[styles.optionCard, styles.cardGold]} onPress={handlePickGold} testID="treasure-gold">
-            <Text style={styles.optionEmoji}>💰</Text>
-            <Text style={styles.optionTitle}>Золото</Text>
-            <Text style={styles.optionGold}>+{goldReward} 💰</Text>
-          </Pressable>
-
-          {/* C — Bless */}
+          {/* Bless */}
           <Pressable style={[styles.optionCard, styles.cardBless]} onPress={() => setPhase('bless')} testID="treasure-bless">
             <Text style={styles.optionEmoji}>✨</Text>
             <Text style={styles.optionTitle}>Благословение</Text>
-            <Text style={styles.optionDesc}>{`+${BLESSED_BONUS} 💰 за каждый ход\nблагословлённой фигурой`}</Text>
+            <Text style={styles.optionDesc}>{`+${BLESSED_BONUS} очков за каждый ход\nблагословлённой фигурой`}</Text>
           </Pressable>
 
         </View>
-      </SafeAreaView>
-    );
-  }
-
-  // ── ARTIFACT phase ────────────────────────────────────────────────────────────
-  if (phase === 'artifact') {
-    if (artifactChoices.length === 0) {
-      return (
-        <SafeAreaView style={styles.safe}>
-          <Text style={styles.title}>Пул артефактов пуст</Text>
-          <Pressable style={styles.skipBtn} onPress={finish}>
-            <Text style={styles.skipText}>Продолжить</Text>
-          </Pressable>
-        </SafeAreaView>
-      );
-    }
-    return (
-      <SafeAreaView style={styles.safe}>
-        <Text style={styles.title}>Выбери артефакт</Text>
-        <Text style={styles.subtitle}>Слотов: {artifacts.length}/6</Text>
-        <View style={styles.artifactList} testID="artifact-selection-list">
-          {artifactChoices.map(a => (
-            <ArtifactCard key={a.id} artifact={a} onPress={handlePickArtifact} testID={`choice-${a.id}`} />
-          ))}
-        </View>
-        <Pressable style={styles.skipBtn} onPress={finish} testID="skip-artifact-btn">
-          <Text style={styles.skipText}>Пропустить</Text>
-        </Pressable>
       </SafeAreaView>
     );
   }

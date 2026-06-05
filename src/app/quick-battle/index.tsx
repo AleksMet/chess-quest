@@ -17,12 +17,12 @@ import type { RewardBreakdownItem } from '../../types';
 const PLAYER_MOVE_LIMIT = 15;
 const PLAYER_COLOR = 'w' as const;
 const CAPTURE_VALUES: Record<string, number> = { p: 8, n: 25, b: 25, r: 40, q: 70, k: 0 };
-const WIN_GOLD = 100;
-const LOSE_GOLD = 10;
+const WIN_SCORE_BONUS = 100;
+const LOSE_SCORE_BONUS = 10;
 
 export default function QuickBattlePage() {
   const router = useRouter();
-  const { nodes, currentNodeIndex, heroId, artifacts, earnGold, completeNode, setCurrentFen, markKingChecked, isActive } = useRunStore();
+  const { nodes, currentNodeIndex, heroId, addScore, completeNode, setCurrentFen, markKingChecked, isActive } = useRunStore();
   const hero = HEROES.find(h => h.id === heroId) ?? HEROES[0];
 
   const currentNode = nodes[currentNodeIndex];
@@ -118,14 +118,14 @@ export default function QuickBattlePage() {
     setPlayerMoves(newCount);
     setBoardKey(k => k + 1);
 
-    // Reward engine
+    // Score engine: captures + artifact-style bonuses (no artifacts in Classic Mode)
     const captureGold = moveResult.move.captured ? (CAPTURE_VALUES[moveResult.move.captured] ?? 0) : 0;
     const reward = processMove({
       chess,
       move: moveResult.move,
       positionFenBefore: chess.fen(),
-      goldBalance: moveGoldRef.current,
-      artifacts,
+      goldBalance: 0,
+      artifacts: [], // TODO: ХАОС режим — pass real artifacts
       hero,
       moveNumber: newCount,
       playerColor: PLAYER_COLOR,
@@ -146,19 +146,19 @@ export default function QuickBattlePage() {
     if (newCount >= PLAYER_MOVE_LIMIT) { finishGame('draw', 'Лимит ходов'); return; }
     requestAIMove();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerMoves, chess, requestAIMove, artifacts, hero]);
+  }, [playerMoves, chess, requestAIMove, hero]);
 
   function handleContinue() {
     if (result === 'win') {
-      earnGold(moveGoldRef.current + WIN_GOLD);
-      // artifact-selection handles completeNode
-      router.replace('/artifact-selection');
+      addScore(moveGoldRef.current + WIN_SCORE_BONUS);
+      completeNode(currentNodeIndex);
+      router.replace('/adventure');
     } else if (result === 'draw') {
-      // Draw = 0 gold regardless of move-earned gold
+      // Draw = 0 score
       completeNode(currentNodeIndex);
       router.replace('/adventure');
     } else {
-      earnGold(moveGoldRef.current + LOSE_GOLD);
+      addScore(moveGoldRef.current + LOSE_SCORE_BONUS);
       router.replace('/adventure');
     }
   }
@@ -172,7 +172,7 @@ export default function QuickBattlePage() {
 
   const movesLeft = PLAYER_MOVE_LIMIT - playerMoves;
   const boardDisabled = result !== null || isAIThinking || chess.turn() !== PLAYER_COLOR;
-  const totalGoldDisplay = result === 'win' ? moveGoldRef.current + WIN_GOLD : result === 'draw' ? 0 : moveGoldRef.current + LOSE_GOLD;
+  const totalScoreDisplay = result === 'win' ? moveGoldRef.current + WIN_SCORE_BONUS : result === 'draw' ? 0 : moveGoldRef.current + LOSE_SCORE_BONUS;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -222,7 +222,7 @@ export default function QuickBattlePage() {
             {result === 'win' ? 'Победа!' : result === 'lose' ? 'Поражение' : 'Ничья'}
           </Text>
           <Text style={styles.resultReason}>{resultReason}</Text>
-          <Text style={styles.resultGold}>+{totalGoldDisplay} 💰</Text>
+          <Text style={styles.resultGold}>+{totalScoreDisplay} 🎯</Text>
           <Pressable style={styles.continueBtn} onPress={handleContinue} testID="quick-battle-continue">
             <Text style={styles.continueBtnText}>Продолжить</Text>
           </Pressable>
