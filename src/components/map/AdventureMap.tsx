@@ -8,36 +8,116 @@ interface Props {
   onNodePress: (node: MapNode) => void;
 }
 
+export const CHAPTER_NAMES = [
+  'Лес Пешек',
+  'Долина Коней',
+  'Храм Диагоналей',
+  'Башни Империи',
+  'Королевство Ферзя',
+  'Чёрный Замок',
+];
+
 export function AdventureMap({ nodes, currentNodeIndex, onNodePress }: Props) {
+  // Display bottom-to-top: index 0 (start) at bottom, last (boss) at top
+  const reversed = [...nodes].map((node, originalIdx) => ({ node, originalIdx })).reverse();
+  const allDone = nodes.every(n => n.completed);
+
   return (
     <ScrollView
       contentContainerStyle={styles.scroll}
       showsVerticalScrollIndicator={false}
       testID="adventure-map"
     >
-      {nodes.map((node, i) => (
-        <View key={node.id} style={styles.row}>
-          <NodeIcon
-            node={node}
-            isCurrent={i === currentNodeIndex}
-            onPress={onNodePress}
-          />
-          {i < nodes.length - 1 && (
-            <View style={[styles.connector, node.completed && styles.connectorDone]} />
-          )}
+      {allDone && (
+        <View style={styles.completeBanner}>
+          <Text style={styles.completeBannerText}>🏆 Глава завершена!</Text>
         </View>
-      ))}
+      )}
+
+      {reversed.map(({ node, originalIdx }, displayIdx) => {
+        const floorNum = nodes.length - displayIdx;
+        const isBoss = node.type === 'boss';
+
+        // connector goes below each node (except the last displayed, which is floor 1)
+        const showConnector = displayIdx < reversed.length - 1;
+        // connector is green if the node BELOW this one in the array (originalIdx - 1) is completed
+        const belowOrigIdx = originalIdx - 1;
+        const connectorDone = belowOrigIdx >= 0 && nodes[belowOrigIdx]?.completed;
+
+        return (
+          <View key={node.id} style={styles.row}>
+            <View style={styles.floorRow}>
+              {/* Left: floor label */}
+              <View style={styles.sideCol}>
+                <Text style={[styles.floorText, isBoss && styles.floorTextBoss]}>
+                  {isBoss ? '👑' : `F${floorNum}`}
+                </Text>
+              </View>
+
+              {/* Center: node icon */}
+              <NodeIcon
+                node={node}
+                isCurrent={originalIdx === currentNodeIndex}
+                onPress={onNodePress}
+              />
+
+              {/* Right: ELO badge */}
+              <View style={styles.sideCol}>
+                {node.chapterElo > 0 && (
+                  <View style={[styles.eloBadge, isBoss && styles.eloBadgeBoss]}>
+                    <Text style={[styles.eloText, isBoss && styles.eloTextBoss]}>
+                      {node.chapterElo}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {showConnector && (
+              <View style={styles.connectorWrap}>
+                <View style={[styles.connectorLine, connectorDone && styles.connectorLineDone]} />
+                <View style={[styles.connectorMid, connectorDone && styles.connectorMidDone]} />
+                <View style={[styles.connectorLine, connectorDone && styles.connectorLineDone]} />
+              </View>
+            )}
+          </View>
+        );
+      })}
+
       <Text style={styles.hint}>
-        {nodes.every(n => n.completed) ? '🏆 Глава завершена!' : 'Нажми на доступный узел'}
+        {allDone ? 'Путь пройден!' : 'Нажми на доступный узел'}
       </Text>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll:        { alignItems: 'center', paddingVertical: 24, paddingHorizontal: 16 },
-  row:           { alignItems: 'center' },
-  connector:     { width: 3, height: 32, backgroundColor: '#334155', marginVertical: 4 },
-  connectorDone: { backgroundColor: '#22c55e' },
-  hint:          { marginTop: 24, color: '#94a3b8', fontSize: 13 },
+  scroll:             { alignItems: 'center', paddingVertical: 16, paddingHorizontal: 8 },
+
+  completeBanner:     {
+    backgroundColor: '#14532d', borderRadius: 12,
+    paddingHorizontal: 20, paddingVertical: 10,
+    marginBottom: 16, borderWidth: 1, borderColor: '#22c55e',
+  },
+  completeBannerText: { color: '#86efac', fontSize: 15, fontWeight: '700', textAlign: 'center' },
+
+  row:       { alignItems: 'center', width: '100%' },
+  floorRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%', gap: 12 },
+
+  sideCol:    { width: 52, alignItems: 'center' },
+  floorText:  { color: '#475569', fontSize: 11, fontWeight: '700' },
+  floorTextBoss: { color: '#f59e0b', fontSize: 13 },
+
+  eloBadge:     { backgroundColor: '#1e293b', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  eloBadgeBoss: { backgroundColor: '#451a03' },
+  eloText:      { color: '#64748b', fontSize: 10, fontWeight: '600' },
+  eloTextBoss:  { color: '#f59e0b', fontWeight: '700' },
+
+  connectorWrap: { flexDirection: 'column', alignItems: 'center', marginVertical: 2 },
+  connectorLine: { width: 3, height: 12, backgroundColor: '#1e293b' },
+  connectorLineDone: { backgroundColor: '#166534' },
+  connectorMid:  { width: 10, height: 10, borderRadius: 5, backgroundColor: '#334155', marginVertical: 2 },
+  connectorMidDone: { backgroundColor: '#22c55e' },
+
+  hint: { marginTop: 20, color: '#475569', fontSize: 12, textAlign: 'center' },
 });
