@@ -138,7 +138,10 @@ export default function BattlePage() {
         <BossDialog
           name={boss.name}
           text={boss.dialogAfter}
-          onContinue={() => navigate(battleResult.result, battleResult.gold + boss.rewardGold)}
+          onContinue={() => {
+            earnGold(boss.rewardGold);
+            navigate(battleResult.result, battleResult.gold + boss.rewardGold);
+          }}
           isBefore={false}
         />
       </SafeAreaView>
