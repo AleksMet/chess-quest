@@ -1,58 +1,12 @@
 import { useState } from 'react';
 import { SafeAreaView, StyleSheet, View, Text, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Chess } from 'chess.js';
 import { BattleScreen } from '../../components/battle/BattleScreen';
 import { useRunStore } from '../../store/runStore';
 import { HEROES } from '../../data/heroes';
 import { getBossForChapter } from '../../data/bosses';
 import { eloToSkillLevel } from '../../engine/stockfish';
-
-const STANDARD_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-
-function buildBossFen(playerFen: string | null): string {
-  if (!playerFen) return STANDARD_FEN;
-  try {
-    const playerChess = new Chess(playerFen);
-    const standardChess = new Chess();
-    const playerBoard = playerChess.board();
-    const standardBoard = standardChess.board();
-
-    const rows: string[] = [];
-    for (let r = 0; r < 8; r++) {
-      let row = '';
-      let empty = 0;
-      for (let f = 0; f < 8; f++) {
-        const wp = playerBoard[r]?.[f];
-        const bp = standardBoard[r]?.[f];
-        let piece: string | null = null;
-        if (wp?.color === 'w') piece = wp.type.toUpperCase();
-        else if (bp?.color === 'b') piece = bp.type;
-
-        if (!piece) {
-          empty++;
-        } else {
-          if (empty > 0) { row += empty; empty = 0; }
-          row += piece;
-        }
-      }
-      if (empty > 0) row += empty;
-      rows.push(row);
-    }
-
-    const fenBoard = rows.join('/');
-    const fen = `${fenBoard} w - - 0 1`;
-
-    const v = new Chess(fen);
-    if (v.isCheck()) return STANDARD_FEN;
-    const vb = new Chess(fen.replace(' w ', ' b '));
-    if (vb.isCheck()) return STANDARD_FEN;
-
-    return fen;
-  } catch {
-    return STANDARD_FEN;
-  }
-}
+import { buildBossFen } from '../../engine/chessHelpers';
 
 type DialogPhase = 'before' | 'battle' | 'after';
 

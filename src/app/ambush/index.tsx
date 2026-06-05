@@ -37,6 +37,7 @@ export default function AmbushPage() {
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [engineReady, setEngineReady] = useState(false);
   const [result, setResult] = useState<'checkmate' | 'survive' | 'lose' | null>(null);
+  const [opponentLastMove, setOpponentLastMove] = useState<{ from: string; to: string } | null>(null);
   const [materialInfo, setMaterialInfo] = useState(() => {
     const c = new Chess(startFen);
     return { player: countMaterial(c, 'w'), ai: countMaterial(c, 'b') };
@@ -77,6 +78,7 @@ export default function AmbushPage() {
     try {
       const move = chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: (uci[4] as 'q') ?? 'q' });
       if (!move) { setIsAIThinking(false); return; }
+      setOpponentLastMove({ from: uci.slice(0, 2), to: uci.slice(2, 4) });
       setBoardKey(k => k + 1);
       setIsAIThinking(false);
       setMaterialInfo({ player: countMaterial(chess, 'w'), ai: countMaterial(chess, 'b') });
@@ -117,6 +119,7 @@ export default function AmbushPage() {
 
   const handleMove = useCallback((moveResult: MoveResult) => {
     if (!moveResult.success || result !== null) return;
+    setOpponentLastMove(null);
     const newCount = playerMoves + 1;
     setPlayerMoves(newCount);
     setMaterialInfo({ player: countMaterial(chess, 'w'), ai: countMaterial(chess, 'b') });
@@ -201,6 +204,7 @@ export default function AmbushPage() {
           playerColor={PLAYER_COLOR}
           onMove={handleMove}
           disabled={boardDisabled}
+          opponentLastMove={opponentLastMove}
         />
         {popup && (
           <GoldPopup

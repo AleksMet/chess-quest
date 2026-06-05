@@ -6,20 +6,37 @@ import { useRunStore } from '../store/runStore';
 import { ARTIFACTS } from '../data/artifacts';
 import type { Artifact } from '../types';
 
-const SHOP_SIZE = 4;
+const SHOP_SIZE = 5;
 
-function pickShopInventory(owned: Artifact[]): Artifact[] {
-  const ownedIds = new Set(owned.map(a => a.id));
-  const pool = ARTIFACTS.filter(a => !ownedIds.has(a.id));
-  return [...pool].sort(() => Math.random() - 0.5).slice(0, SHOP_SIZE);
+function fisherYatesShuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  let seed = Date.now();
+  for (let i = a.length - 1; i > 0; i--) {
+    // LCG step for deterministic-ish but Date.now()-seeded shuffle
+    seed = ((seed * 1664525) + 1013904223) & 0x7fffffff;
+    const j = seed % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function pickShopInventory(): Artifact[] {
+  return fisherYatesShuffle([...ARTIFACTS]).slice(0, SHOP_SIZE);
 }
 
 export default function ShopScreen() {
   const router = useRouter();
   const { artifacts, gold, spendGold, addArtifact, earnGold, removeArtifact, completeNode, currentNodeIndex } = useRunStore();
-  const inventory = useMemo(() => pickShopInventory(artifacts), []);
+  // Generate fresh 5-item inventory each time shop is entered (useMemo with [] = once per mount)
+  const inventory = useMemo(() => pickShopInventory(), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const ownedIds = new Set(artifacts.map(a => a.id));
 
   function handleBuy(artifact: Artifact) {
+    if (ownedIds.has(artifact.id)) {
+      Alert.alert('Уже куплено', 'Этот артефакт уже есть в твоём инвентаре');
+      return;
+    }
     if (artifacts.length >= 6) {
       Alert.alert('Слоты заполнены', 'Продай один артефакт чтобы освободить место.');
       return;
@@ -52,18 +69,25 @@ export default function ShopScreen() {
       <ScrollView>
         <Text style={styles.section}>Купить</Text>
         <View testID="shop-inventory">
-          {inventory.map(a => (
-            <View key={a.id}>
-              <ArtifactCard artifact={a} testID={`shop-item-${a.id}`} />
-              <TouchableOpacity
-                style={[styles.buyBtn, gold < a.shopPrice && styles.disabled]}
-                onPress={() => handleBuy(a)}
-                testID={`buy-${a.id}`}
-              >
-                <Text style={styles.buyBtnText}>Купить за {a.shopPrice}💰</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
+          {inventory.map(a => {
+            const isDuplicate = ownedIds.has(a.id);
+            const canAfford = gold >= a.shopPrice;
+            const btnDisabled = isDuplicate || !canAfford;
+            return (
+              <View key={a.id}>
+                <ArtifactCard artifact={a} testID={`shop-item-${a.id}`} />
+                <TouchableOpacity
+                  style={[styles.buyBtn, btnDisabled && styles.disabled]}
+                  onPress={() => handleBuy(a)}
+                  testID={`buy-${a.id}`}
+                >
+                  <Text style={styles.buyBtnText}>
+                    {isDuplicate ? 'Уже есть' : `Купить за ${a.shopPrice}💰`}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            );
+          })}
         </View>
 
         {artifacts.length > 0 && (
@@ -100,7 +124,7 @@ const styles = StyleSheet.create({
   section:     { color: '#94a3b8', fontSize: 13, fontWeight: '600', letterSpacing: 1, marginTop: 16, marginBottom: 8, paddingHorizontal: 16 },
   buyBtn:      { backgroundColor: '#f59e0b', marginHorizontal: 16, marginBottom: 16, padding: 12, borderRadius: 8, alignItems: 'center' },
   buyBtnText:  { color: '#0f172a', fontWeight: '700', fontSize: 14 },
-  disabled:    { opacity: 0.4 },
+  disabled:    { opacity: 0.5 },
   sellBtn:     { backgroundColor: '#334155', marginHorizontal: 16, marginBottom: 16, padding: 12, borderRadius: 8, alignItems: 'center' },
   sellBtnText: { color: '#e2e8f0', fontWeight: '700', fontSize: 14 },
   leaveBtn:    { margin: 16, padding: 14, backgroundColor: '#1e293b', borderRadius: 8, alignItems: 'center' },

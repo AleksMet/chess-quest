@@ -69,6 +69,7 @@ export function BattleScreen({
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [engineReady, setEngineReady] = useState(false);
   const [popup, setPopup] = useState<{ total: number; breakdown: RewardBreakdownItem[] } | null>(null);
+  const [opponentLastMove, setOpponentLastMove] = useState<{ from: string; to: string } | null>(null);
 
   const kingCheckedRef = useRef(false);
   const drawOfferedRef = useRef(false);
@@ -110,6 +111,7 @@ export function BattleScreen({
       const move = chess.move({ from, to, promotion: promotion ?? 'q' });
       if (!move) { setIsAIThinking(false); return; }
 
+      setOpponentLastMove({ from, to });
       setBoardKey(k => k + 1);
       setIsAIThinking(false);
 
@@ -204,6 +206,7 @@ export function BattleScreen({
   const handleMove = useCallback(
     (result: MoveResult) => {
       if (!result.success || !result.move) return;
+      setOpponentLastMove(null);
 
       if (result.isCheck && chess.turn() === playerColor) {
         kingCheckedRef.current = true;
@@ -287,6 +290,7 @@ export function BattleScreen({
         playerColor={playerColor}
         onMove={handleMove}
         disabled={boardDisabled}
+        opponentLastMove={opponentLastMove}
       />
 
       <View style={[styles.hud, { backgroundColor: theme.surface + 'cc' }]} testID="hud">

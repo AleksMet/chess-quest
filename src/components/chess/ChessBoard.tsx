@@ -17,7 +17,8 @@ interface ChessBoardProps {
   playerColor?: Color;
   onMove?: (result: MoveResult) => void;
   disabled?: boolean;
-  highlightSquare?: string;  // hint square, pulsed amber
+  highlightSquare?: string;           // hint square, pulsed amber
+  opponentLastMove?: { from: string; to: string } | null;  // opponent move overlay
 }
 
 interface PieceViewProps {
@@ -32,7 +33,7 @@ function PieceView({ pieceKey }: PieceViewProps) {
   );
 }
 
-export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false, highlightSquare }: ChessBoardProps) {
+export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false, highlightSquare, opponentLastMove }: ChessBoardProps) {
   const { theme } = useChapterTheme();
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalTargets, setLegalTargets] = useState<Square[]>([]);
@@ -102,6 +103,7 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
             const isLastMoveSquare = lastMove?.from === square || lastMove?.to === square;
             const isHintSquare = square === highlightSquare;
             const isJustMoved = square === lastMove?.to;
+            const isOpponentLastMove = opponentLastMove?.from === square || opponentLastMove?.to === square;
 
             const pieceKey = cell
               ? (`${cell.color}${cell.type.toUpperCase()}` as PieceKey)
@@ -125,6 +127,9 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
                 onPress={() => handleSquarePress(square)}
                 activeOpacity={0.7}
               >
+                {isOpponentLastMove && (
+                  <View style={styles.opponentMoveOverlay} />
+                )}
                 {isLegalTarget && (
                   <View
                     style={[
@@ -164,6 +169,12 @@ const styles = StyleSheet.create({
     height: CELL_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  opponentMoveOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: '#FFD700',
+    opacity: 0.4,
   },
   legalDot: {
     position: 'absolute',

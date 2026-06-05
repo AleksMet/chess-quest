@@ -6,7 +6,7 @@ import { ChessBoard } from '../../components/chess/ChessBoard';
 import { StockfishBridgeView } from '../../components/engine/StockfishBridgeView';
 import type { StockfishBridgeRef } from '../../components/engine/StockfishBridgeView';
 import type { MoveResult } from '../../engine/chessLogic';
-import { generateQuickBattlePosition, countMaterial } from '../../engine/positionGenerator';
+import { generateQuickBattlePosition } from '../../engine/positionGenerator';
 import { processMove } from '../../engine/rewardEngine';
 import { GoldPopup } from '../../components/ui/GoldPopup';
 import { useRunStore } from '../../store/runStore';
@@ -18,7 +18,6 @@ const PLAYER_MOVE_LIMIT = 15;
 const PLAYER_COLOR = 'w' as const;
 const CAPTURE_VALUES: Record<string, number> = { p: 8, n: 25, b: 25, r: 40, q: 70, k: 0 };
 const WIN_GOLD = 100;
-const DRAW_GOLD = 30;
 const LOSE_GOLD = 10;
 
 export default function QuickBattlePage() {
@@ -30,7 +29,8 @@ export default function QuickBattlePage() {
   const opponentElo = currentNode?.chapterElo ?? 500;
   const skillLevel = eloToSkillLevel(opponentElo);
 
-  const [startFen] = useState(() => generateQuickBattlePosition());
+  const isPreBoss = currentNodeIndex === 4; // floor 5 (0-indexed) = last before boss
+  const [startFen] = useState(() => generateQuickBattlePosition(isPreBoss));
   const [chess] = useState(() => new Chess(startFen));
   const [boardKey, setBoardKey] = useState(0);
   const [playerMoves, setPlayerMoves] = useState(0);
@@ -40,6 +40,7 @@ export default function QuickBattlePage() {
   const [result, setResult] = useState<'win' | 'lose' | 'draw' | null>(null);
   const [resultReason, setResultReason] = useState('');
   const [popup, setPopup] = useState<{ total: number; breakdown: RewardBreakdownItem[] } | null>(null);
+  const [opponentLastMove, setOpponentLastMove] = useState<{ from: string; to: string } | null>(null);
 
   const moveGoldRef = useRef(0);
   const engineRef = useRef<StockfishBridgeRef>(null);
@@ -63,13 +64,6 @@ export default function QuickBattlePage() {
     setCurrentFen(chess.fen());
   }
 
-  function checkMaterialResult() {
-    const playerMat = countMaterial(chess, PLAYER_COLOR);
-    const aiMat = countMaterial(chess, 'b');
-    if (playerMat > aiMat) finishGame('win', `Материал: ${playerMat}:${aiMat}`);
-    else if (aiMat > playerMat) finishGame('lose', `Материал: ${playerMat}:${aiMat}`);
-    else finishGame('draw', 'Равный материал');
-  }
 
   const applyAIMove = useCallback((uci: string) => {
     if (aiTimeoutRef.current) { clearTimeout(aiTimeoutRef.current); aiTimeoutRef.current = null; }
@@ -78,6 +72,7 @@ export default function QuickBattlePage() {
     try {
       const move = chess.move({ from, to, promotion: promotion ?? 'q' });
       if (!move) { setIsAIThinking(false); return; }
+      setOpponentLastMove({ from, to });
       setBoardKey(k => k + 1);
       setIsAIThinking(false);
       // Check if AI put player's king in check
@@ -118,6 +113,7 @@ export default function QuickBattlePage() {
 
   const handleMove = useCallback((moveResult: MoveResult) => {
     if (!moveResult.success || !moveResult.move) return;
+    setOpponentLastMove(null);
     const newCount = playerMoves + 1;
     setPlayerMoves(newCount);
     setBoardKey(k => k + 1);
@@ -147,19 +143,22 @@ export default function QuickBattlePage() {
     if (moveResult.isCheckmate) { finishGame('win', 'Мат!'); return; }
     if (moveResult.isDraw || moveResult.isStalemate) { finishGame('draw', 'Ничья'); return; }
 
-    if (newCount >= PLAYER_MOVE_LIMIT) { checkMaterialResult(); return; }
+    if (newCount >= PLAYER_MOVE_LIMIT) { finishGame('draw', 'Лимит ходов'); return; }
     requestAIMove();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerMoves, chess, requestAIMove, artifacts, hero]);
 
   function handleContinue() {
-    const flatReward = result === 'win' ? WIN_GOLD : result === 'draw' ? DRAW_GOLD : LOSE_GOLD;
-    earnGold(moveGoldRef.current + flatReward);
     if (result === 'win') {
+      earnGold(moveGoldRef.current + WIN_GOLD);
       // artifact-selection handles completeNode
       router.replace('/artifact-selection');
+    } else if (result === 'draw') {
+      // Draw = 0 gold regardless of move-earned gold
+      completeNode(currentNodeIndex);
+      router.replace('/adventure');
     } else {
-      if (result === 'draw') completeNode(currentNodeIndex);
+      earnGold(moveGoldRef.current + LOSE_GOLD);
       router.replace('/adventure');
     }
   }
@@ -173,7 +172,7 @@ export default function QuickBattlePage() {
 
   const movesLeft = PLAYER_MOVE_LIMIT - playerMoves;
   const boardDisabled = result !== null || isAIThinking || chess.turn() !== PLAYER_COLOR;
-  const totalGoldDisplay = result === 'win' ? moveGoldRef.current + WIN_GOLD : result === 'draw' ? moveGoldRef.current + DRAW_GOLD : moveGoldRef.current + LOSE_GOLD;
+  const totalGoldDisplay = result === 'win' ? moveGoldRef.current + WIN_GOLD : result === 'draw' ? 0 : moveGoldRef.current + LOSE_GOLD;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -198,6 +197,7 @@ export default function QuickBattlePage() {
           playerColor={PLAYER_COLOR}
           onMove={handleMove}
           disabled={boardDisabled}
+          opponentLastMove={opponentLastMove}
         />
         {popup && (
           <GoldPopup
