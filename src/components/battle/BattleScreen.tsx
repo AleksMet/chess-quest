@@ -44,6 +44,7 @@ interface BattleScreenProps {
   onExit?:        () => void;
   blessedPiece?:  PieceSymbol | null;
   onKingChecked?: () => void;
+  startFen?:      string;
 }
 
 export function BattleScreen({
@@ -57,9 +58,10 @@ export function BattleScreen({
   onExit,
   blessedPiece = null,
   onKingChecked,
+  startFen,
 }: BattleScreenProps) {
   const { theme } = useChapterTheme();
-  const [chess] = useState(() => new Chess());
+  const [chess] = useState(() => startFen ? new Chess(startFen) : new Chess());
   const [boardKey, setBoardKey] = useState(0);
   const [gold, setGold] = useState(0);
   const [gameResult, setGameResult] = useState<'win' | 'lose' | 'draw' | null>(null);
