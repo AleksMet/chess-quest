@@ -155,8 +155,13 @@ export default function QuickBattlePage() {
   function handleContinue() {
     const flatReward = result === 'win' ? WIN_GOLD : result === 'draw' ? DRAW_GOLD : LOSE_GOLD;
     earnGold(moveGoldRef.current + flatReward);
-    if (result !== 'lose') completeNode(currentNodeIndex);
-    router.replace('/adventure');
+    if (result === 'win') {
+      // artifact-selection handles completeNode
+      router.replace('/artifact-selection');
+    } else {
+      if (result === 'draw') completeNode(currentNodeIndex);
+      router.replace('/adventure');
+    }
   }
 
   function handleExit() {

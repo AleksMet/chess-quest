@@ -64,11 +64,10 @@ export default function AmbushPage() {
     setCurrentFen(chess.fen());
 
     const bonusGold = r === 'checkmate' ? GOLD_CHECKMATE : r === 'survive' ? Math.round(GOLD_SURVIVE * GOLD_SURVIVE_MULTIPLIER) : 0;
-    if (bonusGold > 0 || r !== 'lose') {
+    if (r !== 'lose') {
       earnGold(moveGoldRef.current + bonusGold);
-      completeNode(currentNodeIndex);
+      // completeNode delegated to artifact-selection
     } else {
-      // lose: still advance the node so run continues
       completeNode(currentNodeIndex);
     }
   }
@@ -222,7 +221,11 @@ export default function AmbushPage() {
             {result === 'checkmate' ? 'Невозможный мат!' : result === 'survive' ? 'Выжил!' : 'Поражение'}
           </Text>
           <Text style={styles.resultGold}>{resultGoldText}</Text>
-          <Pressable style={styles.continueBtn} onPress={() => router.replace('/adventure')} testID="ambush-continue">
+          <Pressable
+            style={styles.continueBtn}
+            onPress={() => result === 'lose' ? router.replace('/adventure') : router.replace('/artifact-selection')}
+            testID="ambush-continue"
+          >
             <Text style={styles.continueBtnText}>Продолжить</Text>
           </Pressable>
         </View>
