@@ -26,7 +26,8 @@ export default function FlagPage() {
 
   const [startFen] = useState(() => generateQuickBattlePosition(false));
   const [chess] = useState(() => new Chess(startFen));
-  const [flagSquare] = useState<Square>(() => selectFlagSquare());
+  // Флаг выбирается на стороне противника — свободная клетка в стартовой позиции
+  const [flagSquare] = useState<Square>(() => selectFlagSquare(startFen));
   const [boardKey, setBoardKey] = useState(0);
   const [playerMoves, setPlayerMoves] = useState(0);
   const [playerHold, setPlayerHold] = useState(0);

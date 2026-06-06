@@ -6,7 +6,7 @@ import { ChessBoard } from '../../components/chess/ChessBoard';
 import { StockfishBridgeView } from '../../components/engine/StockfishBridgeView';
 import type { StockfishBridgeRef } from '../../components/engine/StockfishBridgeView';
 import type { MoveResult } from '../../engine/chessLogic';
-import { SURVIVAL_START_FEN, SURVIVAL_MOVE_LIMIT, addPieceToBoard } from '../../engine/survivalMode';
+import { generateSurvivalStartFen, SURVIVAL_MOVE_LIMIT, addPieceToBoard } from '../../engine/survivalMode';
 import { calcSurvivalScore, calcMateScore } from '../../engine/scoreEngine';
 import { useRunStore } from '../../store/runStore';
 import { eloToSkillLevel } from '../../engine/stockfish';
@@ -19,9 +19,10 @@ export default function SurvivalPage() {
 
   const currentNode = nodes[currentNodeIndex];
   const opponentElo = currentNode?.chapterElo ?? 500;
-  const skillLevel = eloToSkillLevel(opponentElo);
+  // Выживание сложнее — AI на 3 уровня выше чем текущий этаж
+  const skillLevel = Math.min(20, eloToSkillLevel(opponentElo) + 3);
 
-  const [chess] = useState(() => new Chess(SURVIVAL_START_FEN));
+  const [chess] = useState(() => new Chess(generateSurvivalStartFen()));
   const [boardKey, setBoardKey] = useState(0);
   const [survivedMoves, setSurvivedMoves] = useState(0);
   const [isAIThinking, setIsAIThinking] = useState(false);

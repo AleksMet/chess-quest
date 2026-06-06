@@ -30,11 +30,14 @@ export default function SniperPage() {
   const [playerMoves, setPlayerMoves] = useState(0);
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [engineReady, setEngineReady] = useState(false);
-  const [result, setResult] = useState<'win' | 'lose' | null>(null);
+  // 'draw' = мат без взятия цели (0 очков)
+  const [result, setResult] = useState<'win' | 'lose' | 'draw' | null>(null);
   const [resultReason, setResultReason] = useState('');
+  // Автопереход при ничье
+  const [drawNotice, setDrawNotice] = useState(false);
   const [opponentLastMove, setOpponentLastMove] = useState<{ from: string; to: string } | null>(null);
 
-  // Target piece tracking — follows the piece as it moves
+  // Отслеживаем целевую фигуру — следует за ней при перемещении
   const [targetSquare, setTargetSquare] = useState<Square | null>(() =>
     selectSniperTarget(startFen, currentNodeIndex),
   );
@@ -49,10 +52,25 @@ export default function SniperPage() {
   const scoreRef = useRef(0);
   const engineRef = useRef<StockfishBridgeRef>(null);
   const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const drawTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   if (!isActive) { router.replace('/'); return null; }
 
-  useEffect(() => () => { if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current); }, []);
+  useEffect(() => () => {
+    if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
+    if (drawTimerRef.current) clearTimeout(drawTimerRef.current);
+  }, []);
+
+  // Автопереход через 2 секунды после ничьи (мат без цели)
+  useEffect(() => {
+    if (!drawNotice) return;
+    drawTimerRef.current = setTimeout(() => {
+      completeNode(currentNodeIndex); // 0 очков — но уровень засчитан
+      router.replace('/adventure');
+    }, 2000);
+    return () => { if (drawTimerRef.current) clearTimeout(drawTimerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawNotice]);
 
   const sendToEngine = useCallback((cmd: string) => engineRef.current?.send(cmd), []);
 
@@ -61,7 +79,7 @@ export default function SniperPage() {
     sendToEngine(`setoption name Skill Level value ${skillLevel}`);
   }, [skillLevel, sendToEngine]);
 
-  function finishGame(r: 'win' | 'lose', reason: string) {
+  function finishGame(r: 'win' | 'lose' | 'draw', reason: string) {
     if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
     setResult(r);
     setResultReason(reason);
@@ -80,11 +98,12 @@ export default function SniperPage() {
       setBoardKey(k => k + 1);
       setIsAIThinking(false);
 
-      // If AI moved the target piece, track its new position
+      // Если AI уходит с целевой клетки — обновляем позицию цели
       if (from === targetSquareRef.current) {
         setTargetSquare(to as Square);
       }
 
+      // Мат от AI = поражение игрока
       if (chess.isCheckmate()) finishGame('lose', 'Мат!');
     } catch { setIsAIThinking(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -110,7 +129,6 @@ export default function SniperPage() {
     if (!line.startsWith('bestmove')) return;
     const uci = line.split(' ')[1];
     if (!uci || uci === '0000') { setIsAIThinking(false); return; }
-    // Переопределяем ход AI если цель под угрозой
     const target = targetSquareRef.current;
     const finalUci = target ? getProtectiveMove(chess, target, uci) : uci;
     applyAIMove(finalUci);
@@ -134,22 +152,24 @@ export default function SniperPage() {
       move.captured !== undefined &&
       move.captured === targetPieceType.current;
 
+    // Победа — только взятие цели
     if (capturedOnTarget) {
       const capScore = calcCaptureScore(move.captured!);
-      const mateBonus = calcMateScore(newCount, moveLimit);
-      scoreRef.current = capScore + Math.floor(mateBonus * 0.5);
+      const speedBonus = Math.floor(calcMateScore(newCount, moveLimit) * 0.5);
+      scoreRef.current = capScore + speedBonus;
       setScoreDisplay(scoreRef.current);
       finishGame('win', 'Цель захвачена!');
       return;
     }
 
+    // Мат без взятия цели = ничья, 0 очков, автопереход через 2 сек
     if (moveResult.isCheckmate) {
-      scoreRef.current = calcMateScore(newCount, moveLimit);
-      setScoreDisplay(scoreRef.current);
-      finishGame('win', 'Мат!');
+      setDrawNotice(true);
+      finishGame('draw', 'Цель не поймана — 0 очков');
       return;
     }
 
+    // Лимит ходов истёк = поражение
     if (newCount >= moveLimit) {
       finishGame('lose', 'Лимит ходов');
       return;
@@ -212,13 +232,22 @@ export default function SniperPage() {
         </Text>
       </View>
 
-      {result && (
+      {/* Уведомление о ничье — автопереход через 2 сек */}
+      {drawNotice && (
+        <View style={styles.overlay}>
+          <Text style={styles.resultEmoji}>🤝</Text>
+          <Text style={styles.resultTitle}>Цель не поймана</Text>
+          <Text style={styles.resultReason}>0 очков — переход дальше...</Text>
+        </View>
+      )}
+
+      {result && result !== 'draw' && (
         <View style={styles.overlay}>
           <Text style={styles.resultEmoji}>{result === 'win' ? '🏆' : '💀'}</Text>
           <Text style={styles.resultTitle}>{result === 'win' ? 'Цель уничтожена!' : 'Промах'}</Text>
           <Text style={styles.resultReason}>{resultReason}</Text>
           {result === 'win' && (
-            <Text style={styles.resultScore}>+{scoreRef.current} 🎯</Text>
+            <Text style={styles.resultScore}>+{scoreRef.current} ⭐</Text>
           )}
           <Pressable style={styles.continueBtn} onPress={handleContinue}>
             <Text style={styles.continueBtnText}>Продолжить</Text>
