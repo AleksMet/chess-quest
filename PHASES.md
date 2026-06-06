@@ -14,13 +14,14 @@
 Статус:           ✅ fix/shop-battle-improvements завершён (6 исправлений)
                   ✅ feat/chapter-2 завершён (Глава 2 + выбор главы)
                   ✅ feat/classic-mode завершён (7 задач)
-Последнее обновление: 2026-06-05
+                  ✅ feat/classic-mode/screens завершён (Снайпер + Выживание + Флаг экраны)
+Последнее обновление: 2026-06-06
 Ожидает апрува:   НЕТ
 ```
 
-## feat/classic-mode — Классический режим (2026-06-05)
+## feat/classic-mode — Классический режим (2026-06-05 → 2026-06-06)
 
-### 7 задач
+### 7 задач + экраны
 - [x] Задача 1: Убраны артефакты и магазин; gold→score в runStore; shop/artifact-selection отключены с TODO: ХАОС режим
 - [x] Задача 2: scoreEngine.ts — calcMateScore, calcCaptureScore, calcFlagHoldScore, calcSurvivalScore, calcChapterStars (23 теста)
 - [x] Задача 3: sniperMode.ts — selectSniperTarget(fen, floorIndex), getSniperMoveLimit
@@ -28,11 +29,15 @@
 - [x] Задача 5: flagMode.ts — selectFlagSquare(), isFlagCaptured(fen, square, color), FLAG_HOLD_REQUIRED
 - [x] Задача 6: towerConfig.ts — FloorType/FLOOR_DEFS/generateFloorTypes(); башня 7 этажей; иконки в adventure
 - [x] Задача 7: victory.tsx — звёзды (★★★), крупный счёт, "Новый рекорд!" при победе над боссом
+- [x] Задача 8: app/sniper/index.tsx — экран "Снайпер" (цель следует за фигурой, счёт = ценность + скорость)
+- [x] Задача 9: app/survival/index.tsx — экран "Выживание" (addPieceToBoard после каждого хода)
+- [x] Задача 10: app/flag/index.tsx — экран "Флаг" (3 consecutive хода, dot-прогресс, счётчик противника)
+- [x] NodeType расширен: добавлены sniper/survival/flag; adventure.tsx роутит на реальные экраны
 
 ```
 TypeScript:   ✅ 0 ошибок
 ESLint:       ✅ 0 предупреждений
-Тесты:        ✅ 180 passed (+18 новых: scoreEngine×23, runStore обновлены)
+Тесты:        ✅ 180 passed
 ```
 
 ---
