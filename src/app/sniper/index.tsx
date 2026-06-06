@@ -8,7 +8,7 @@ import { StockfishBridgeView } from '../../components/engine/StockfishBridgeView
 import type { StockfishBridgeRef } from '../../components/engine/StockfishBridgeView';
 import type { MoveResult } from '../../engine/chessLogic';
 import { generateQuickBattlePosition } from '../../engine/positionGenerator';
-import { selectSniperTarget, getSniperMoveLimit } from '../../engine/sniperMode';
+import { selectSniperTarget, getSniperMoveLimit, getProtectiveMove } from '../../engine/sniperMode';
 import { calcMateScore, calcCaptureScore } from '../../engine/scoreEngine';
 import { useRunStore } from '../../store/runStore';
 import { eloToSkillLevel } from '../../engine/stockfish';
@@ -45,6 +45,7 @@ export default function SniperPage() {
     targetSquare ? new Chess(startFen).get(targetSquare)?.type ?? null : null,
   );
 
+  const [scoreDisplay, setScoreDisplay] = useState(0);
   const scoreRef = useRef(0);
   const engineRef = useRef<StockfishBridgeRef>(null);
   const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -109,8 +110,11 @@ export default function SniperPage() {
     if (!line.startsWith('bestmove')) return;
     const uci = line.split(' ')[1];
     if (!uci || uci === '0000') { setIsAIThinking(false); return; }
-    applyAIMove(uci);
-  }, [applyAIMove]);
+    // Переопределяем ход AI если цель под угрозой
+    const target = targetSquareRef.current;
+    const finalUci = target ? getProtectiveMove(chess, target, uci) : uci;
+    applyAIMove(finalUci);
+  }, [applyAIMove, chess]);
 
   useEffect(() => {
     if (engineReady && chess.turn() !== PLAYER_COLOR) requestAIMove();
@@ -133,13 +137,15 @@ export default function SniperPage() {
     if (capturedOnTarget) {
       const capScore = calcCaptureScore(move.captured!);
       const mateBonus = calcMateScore(newCount, moveLimit);
-      scoreRef.current = capScore + Math.floor(mateBonus * 0.5); // speed bonus
+      scoreRef.current = capScore + Math.floor(mateBonus * 0.5);
+      setScoreDisplay(scoreRef.current);
       finishGame('win', 'Цель захвачена!');
       return;
     }
 
     if (moveResult.isCheckmate) {
       scoreRef.current = calcMateScore(newCount, moveLimit);
+      setScoreDisplay(scoreRef.current);
       finishGame('win', 'Мат!');
       return;
     }
@@ -180,6 +186,7 @@ export default function SniperPage() {
         <Pressable style={styles.exitBtn} onPress={handleExit}>
           <Text style={styles.exitBtnText}>Выход</Text>
         </Pressable>
+        <Text style={styles.scoreBadge}>⭐ {scoreDisplay}</Text>
         <View style={[styles.moveBadge, movesLeft <= 5 && styles.moveBadgeUrgent]}>
           <Text style={styles.moveCount}>{movesLeft}</Text>
           <Text style={styles.moveLabel}>ходов</Text>
@@ -228,6 +235,7 @@ const styles = StyleSheet.create({
   title:           { flex: 1, color: '#f1f5f9', fontSize: 18, fontWeight: '700' },
   exitBtn:         { backgroundColor: '#7f1d1d', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
   exitBtnText:     { color: '#fca5a5', fontSize: 13, fontWeight: '600' },
+  scoreBadge:      { color: '#fbbf24', fontSize: 15, fontWeight: '700' },
   moveBadge:       { backgroundColor: '#1e3a5f', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4, alignItems: 'center', minWidth: 52 },
   moveBadgeUrgent: { backgroundColor: '#7f1d1d' },
   moveCount:       { color: '#fff', fontSize: 20, fontWeight: '900', lineHeight: 24 },

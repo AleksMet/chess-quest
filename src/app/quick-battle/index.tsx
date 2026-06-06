@@ -8,11 +8,9 @@ import type { StockfishBridgeRef } from '../../components/engine/StockfishBridge
 import type { MoveResult } from '../../engine/chessLogic';
 import { generateQuickBattlePosition } from '../../engine/positionGenerator';
 import { processMove } from '../../engine/rewardEngine';
-import { GoldPopup } from '../../components/ui/GoldPopup';
 import { useRunStore } from '../../store/runStore';
 import { HEROES } from '../../data/heroes';
 import { eloToSkillLevel } from '../../engine/stockfish';
-import type { RewardBreakdownItem } from '../../types';
 
 const PLAYER_MOVE_LIMIT = 15;
 const PLAYER_COLOR = 'w' as const;
@@ -29,7 +27,8 @@ export default function QuickBattlePage() {
   const opponentElo = currentNode?.chapterElo ?? 500;
   const skillLevel = eloToSkillLevel(opponentElo);
 
-  const isPreBoss = currentNodeIndex === 4; // floor 5 (0-indexed) = last before boss
+  // quick_battle — index 3, после него идёт boss (index 4)
+  const isPreBoss = currentNodeIndex === 3;
   const [startFen] = useState(() => generateQuickBattlePosition(isPreBoss));
   const [chess] = useState(() => new Chess(startFen));
   const [boardKey, setBoardKey] = useState(0);
@@ -39,7 +38,7 @@ export default function QuickBattlePage() {
   const [engineReady, setEngineReady] = useState(false);
   const [result, setResult] = useState<'win' | 'lose' | 'draw' | null>(null);
   const [resultReason, setResultReason] = useState('');
-  const [popup, setPopup] = useState<{ total: number; breakdown: RewardBreakdownItem[] } | null>(null);
+  const [scoreDisplay, setScoreDisplay] = useState(0);
   const [opponentLastMove, setOpponentLastMove] = useState<{ from: string; to: string } | null>(null);
 
   const moveGoldRef = useRef(0);
@@ -134,10 +133,7 @@ export default function QuickBattlePage() {
     if (moveGold > 0) {
       moveGoldRef.current += moveGold;
       setMoveGoldAcc(prev => prev + moveGold);
-      const breakdown: RewardBreakdownItem[] = [];
-      if (captureGold > 0) breakdown.push({ label: 'взятие', value: captureGold, type: 'base' });
-      breakdown.push(...reward.breakdown);
-      setPopup({ total: moveGold, breakdown });
+      setScoreDisplay(prev => prev + moveGold);
     }
 
     if (moveResult.isCheckmate) { finishGame('win', 'Мат!'); return; }
@@ -183,6 +179,7 @@ export default function QuickBattlePage() {
         <Pressable style={styles.exitBtn} onPress={handleExit} testID="exit-battle-btn">
           <Text style={styles.exitBtnText}>Выход</Text>
         </Pressable>
+        <Text style={styles.scoreBadge}>⭐ {scoreDisplay}</Text>
         <View style={[styles.moveBadge, movesLeft <= 5 && styles.moveBadgeUrgent]}>
           <Text style={styles.moveCount}>{movesLeft}</Text>
           <Text style={styles.moveLabel}>ходов</Text>
@@ -199,14 +196,6 @@ export default function QuickBattlePage() {
           disabled={boardDisabled}
           opponentLastMove={opponentLastMove}
         />
-        {popup && (
-          <GoldPopup
-            key={`popup_${moveGoldRef.current}`}
-            total={popup.total}
-            breakdown={popup.breakdown}
-            onDone={() => setPopup(null)}
-          />
-        )}
       </View>
 
       <View style={styles.footer}>
@@ -238,6 +227,7 @@ const styles = StyleSheet.create({
   title:            { flex: 1, color: '#f1f5f9', fontSize: 18, fontWeight: '700' },
   exitBtn:          { backgroundColor: '#7f1d1d', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
   exitBtnText:      { color: '#fca5a5', fontSize: 13, fontWeight: '600' },
+  scoreBadge:       { color: '#fbbf24', fontSize: 15, fontWeight: '700' },
   moveBadge:        { backgroundColor: '#1e3a5f', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4, alignItems: 'center', minWidth: 52 },
   moveBadgeUrgent:  { backgroundColor: '#7f1d1d' },
   moveCount:        { color: '#fff', fontSize: 20, fontWeight: '900', lineHeight: 24 },

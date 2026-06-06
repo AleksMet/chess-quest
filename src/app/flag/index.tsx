@@ -8,7 +8,7 @@ import { StockfishBridgeView } from '../../components/engine/StockfishBridgeView
 import type { StockfishBridgeRef } from '../../components/engine/StockfishBridgeView';
 import type { MoveResult } from '../../engine/chessLogic';
 import { generateQuickBattlePosition } from '../../engine/positionGenerator';
-import { selectFlagSquare, isFlagCaptured, FLAG_HOLD_REQUIRED } from '../../engine/flagMode';
+import { selectFlagSquare, isFlagCaptured, FLAG_HOLD_REQUIRED, getFlagAwareMove } from '../../engine/flagMode';
 import { calcFlagHoldScore, calcMateScore } from '../../engine/scoreEngine';
 import { useRunStore } from '../../store/runStore';
 import { eloToSkillLevel } from '../../engine/stockfish';
@@ -37,6 +37,7 @@ export default function FlagPage() {
   const [resultReason, setResultReason] = useState('');
   const [opponentLastMove, setOpponentLastMove] = useState<{ from: string; to: string } | null>(null);
 
+  const [scoreDisplay, setScoreDisplay] = useState(0);
   const scoreRef = useRef(0);
   const playerHoldRef = useRef(0);
   const opponentHoldRef = useRef(0);
@@ -63,6 +64,7 @@ export default function FlagPage() {
       const flagScore = calcFlagHoldScore(playerHoldRef.current);
       const mateBonus = reason === 'Мат!' ? calcMateScore(moves, MOVE_LIMIT) : 0;
       scoreRef.current = flagScore + mateBonus;
+      setScoreDisplay(scoreRef.current);
     }
   }
 
@@ -116,9 +118,11 @@ export default function FlagPage() {
     if (!line.startsWith('bestmove')) return;
     const uci = line.split(' ')[1];
     if (!uci || uci === '0000') { setIsAIThinking(false); return; }
-    applyAIMove(uci, playerMoves);
+    // Переопределяем ход AI с учётом флага
+    const flagUci = getFlagAwareMove(chess, flagSquare, playerHoldRef.current, opponentHoldRef.current, uci);
+    applyAIMove(flagUci, playerMoves);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [applyAIMove, playerMoves]);
+  }, [applyAIMove, playerMoves, chess, flagSquare]);
 
   useEffect(() => {
     if (engineReady && chess.turn() !== PLAYER_COLOR) requestAIMove(0);
@@ -193,8 +197,9 @@ export default function FlagPage() {
         <Pressable style={styles.exitBtn} onPress={handleExit}>
           <Text style={styles.exitBtnText}>Выход</Text>
         </Pressable>
+        <Text style={styles.scoreBadge}>⭐ {scoreDisplay}</Text>
         <View style={styles.holdBar}>
-          <Text style={styles.holdLabel}>Флаг</Text>
+          <Text style={styles.holdLabel}>Флаг: {playerHold}/{FLAG_HOLD_REQUIRED}</Text>
           <View style={styles.holdDots}>
             {Array.from({ length: FLAG_HOLD_REQUIRED }).map((_, i) => (
               <View
@@ -257,6 +262,7 @@ const styles = StyleSheet.create({
   title:           { flex: 1, color: '#f1f5f9', fontSize: 17, fontWeight: '700' },
   exitBtn:         { backgroundColor: '#7f1d1d', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
   exitBtnText:     { color: '#fca5a5', fontSize: 13, fontWeight: '600' },
+  scoreBadge:      { color: '#fbbf24', fontSize: 15, fontWeight: '700' },
   holdBar:         { alignItems: 'center', gap: 2 },
   holdLabel:       { color: '#94a3b8', fontSize: 10 },
   holdDots:        { flexDirection: 'row', gap: 4 },

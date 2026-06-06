@@ -101,7 +101,7 @@ function DelayedTotal({ total, delayMs }: { total: number; delayMs: number }) {
 
   return (
     <Animated.View style={[styles.divider, { opacity, transform: [{ scale }] }]}>
-      <Text style={styles.totalLabel}>= +{total} 💰</Text>
+      <Text style={styles.totalLabel}>+{total}</Text>
     </Animated.View>
   );
 }

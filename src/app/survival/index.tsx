@@ -30,6 +30,7 @@ export default function SurvivalPage() {
   const [resultReason, setResultReason] = useState('');
   const [opponentLastMove, setOpponentLastMove] = useState<{ from: string; to: string } | null>(null);
 
+  const [scoreDisplay, setScoreDisplay] = useState(0);
   const scoreRef = useRef(0);
   const engineRef = useRef<StockfishBridgeRef>(null);
   const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -54,6 +55,7 @@ export default function SurvivalPage() {
       scoreRef.current = reason === 'Мат!'
         ? calcMateScore(finalMoves, SURVIVAL_MOVE_LIMIT) + calcSurvivalScore(finalMoves)
         : calcSurvivalScore(finalMoves);
+      setScoreDisplay(scoreRef.current);
     }
   }
 
@@ -111,16 +113,25 @@ export default function SurvivalPage() {
 
     if (moveResult.isCheckmate) {
       scoreRef.current = calcMateScore(newCount, SURVIVAL_MOVE_LIMIT) + calcSurvivalScore(newCount);
+      setScoreDisplay(scoreRef.current);
       finishGame('win', 'Мат!', newCount);
       return;
     }
 
-    // Add a new white piece after each player move
-    const newFen = addPieceToBoard(chess.fen(), newCount - 1);
-    chess.load(newFen);
-    setBoardKey(k => k + 1);
+    // Новая фигура появляется только при ходе королём
+    if (moveResult.move.piece === 'k') {
+      const newFen = addPieceToBoard(chess.fen(), newCount - 1);
+      chess.load(newFen);
+      setBoardKey(k => k + 1);
+    }
 
     if (newCount >= SURVIVAL_MOVE_LIMIT) {
+      finishGame('win', 'Вы выжили!', newCount);
+      return;
+    }
+
+    // Проверяем, не в пате ли позиция после добавления фигуры
+    if (chess.isStalemate() || chess.isDraw()) {
       finishGame('win', 'Вы выжили!', newCount);
       return;
     }
@@ -156,6 +167,7 @@ export default function SurvivalPage() {
         <Pressable style={styles.exitBtn} onPress={handleExit}>
           <Text style={styles.exitBtnText}>Выход</Text>
         </Pressable>
+        <Text style={styles.scoreBadge}>⭐ {scoreDisplay}</Text>
         <View style={[styles.moveBadge, movesLeft <= 8 && styles.moveBadgeUrgent]}>
           <Text style={styles.moveCount}>{movesLeft}</Text>
           <Text style={styles.moveLabel}>ходов</Text>
@@ -203,6 +215,7 @@ const styles = StyleSheet.create({
   title:           { flex: 1, color: '#f1f5f9', fontSize: 18, fontWeight: '700' },
   exitBtn:         { backgroundColor: '#7f1d1d', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
   exitBtnText:     { color: '#fca5a5', fontSize: 13, fontWeight: '600' },
+  scoreBadge:      { color: '#fbbf24', fontSize: 15, fontWeight: '700' },
   moveBadge:       { backgroundColor: '#1e3a5f', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4, alignItems: 'center', minWidth: 52 },
   moveBadgeUrgent: { backgroundColor: '#7f1d1d' },
   moveCount:       { color: '#fff', fontSize: 20, fontWeight: '900', lineHeight: 24 },

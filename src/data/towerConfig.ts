@@ -14,26 +14,11 @@ export const FLOOR_DEFS: Record<FloorType, FloorDef> = {
   boss:        { type: 'boss',        icon: '👑', label: 'Босс' },
 };
 
-// The 3 randomisable battle types for floors 0-5
-const BATTLE_TYPES: FloorType[] = ['sniper', 'survival', 'flag', 'quick_battle'];
-
-// Fisher-Yates shuffle
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-// Generate a randomised 7-floor sequence:
-// floors 0-5: 6 battle floors (shuffle 4 types, repeat 2 of them randomly)
-// floor 6: always boss
-export function generateFloorTypes(): FloorType[] {
-  const shuffled = shuffle(BATTLE_TYPES);
-  // Pick 2 extras from the same pool to fill 6 slots
-  const extras = shuffle(BATTLE_TYPES).slice(0, 2);
-  const battles = shuffle([...shuffled, ...extras]);
-  return [...battles, 'boss'];
-}
+// Фиксированная последовательность — без рандома, одна и та же каждый забег
+export const FIXED_TOWER_SEQUENCE: FloorType[] = [
+  'sniper',       // этаж 1 (index 0)
+  'flag',         // этаж 2 (index 1)
+  'survival',     // этаж 3 (index 2)
+  'quick_battle', // этаж 4 (index 3) — фигуры переходят к боссу
+  'boss',         // этаж 5 (index 4)
+];

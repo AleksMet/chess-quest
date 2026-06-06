@@ -7,9 +7,8 @@ import { StockfishBridgeView } from '../engine/StockfishBridgeView';
 import type { StockfishBridgeRef } from '../engine/StockfishBridgeView';
 import type { MoveResult } from '../../engine/chessLogic';
 import { processMove } from '../../engine/rewardEngine';
-import type { Artifact, BattleContext, Hero, RewardBreakdownItem } from '../../types';
+import type { Artifact, BattleContext, Hero } from '../../types';
 import { useChapterTheme } from '../../contexts/ChapterThemeContext';
-import { GoldPopup } from '../ui/GoldPopup';
 
 const BLESSED_BONUS = 15;
 const CHECK_GOLD = 5;
@@ -60,7 +59,6 @@ export function BattleScreen({
   const [log, setLog] = useState<string[]>([]);
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [engineReady, setEngineReady] = useState(false);
-  const [popup, setPopup] = useState<{ total: number; breakdown: RewardBreakdownItem[] } | null>(null);
   const [opponentLastMove, setOpponentLastMove] = useState<{ from: string; to: string } | null>(null);
 
   const kingCheckedRef = useRef(false);
@@ -223,14 +221,6 @@ export function BattleScreen({
       const moveScore = captureScore + checkScore + reward.gold + blessBonus;
       setScore(prev => prev + moveScore);
 
-      if (moveScore > 0) {
-        const breakdown: RewardBreakdownItem[] = [];
-        if (captureScore > 0) breakdown.push({ label: 'взятие', value: captureScore, type: 'base' });
-        if (checkScore > 0) breakdown.push({ label: '♔ шах!', value: checkScore, type: 'base' });
-        breakdown.push(...reward.breakdown);
-        if (blessBonus > 0) breakdown.push({ label: '✨ благословение', value: blessBonus, type: 'artifact' as const });
-        setPopup({ total: moveScore, breakdown });
-      }
 
       if (reward.log.length > 0) {
         setLog(prev => [...prev, ...reward.log].slice(-8));
@@ -286,7 +276,7 @@ export function BattleScreen({
       <View style={[styles.hud, { backgroundColor: theme.surface + 'cc' }]} testID="hud">
         <View style={styles.hudTopRow}>
           <View style={[styles.goldContainer, { backgroundColor: theme.accentDark }]} testID="gold-display">
-            <Text style={styles.goldIcon}>🎯</Text>
+            <Text style={styles.goldIcon}>⭐</Text>
             <Text style={styles.goldAmount} testID="gold-amount">{score}</Text>
           </View>
           {onExit && (
@@ -311,14 +301,6 @@ export function BattleScreen({
 
         {/* TODO: ХАОС режим — restore artifact ScrollView here */}
       </View>
-
-      {popup && (
-        <GoldPopup
-          total={popup.total}
-          breakdown={popup.breakdown}
-          onDone={() => setPopup(null)}
-        />
-      )}
 
       {log.length > 0 && (
         <View style={styles.logContainer} testID="reward-log">

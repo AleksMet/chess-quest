@@ -1,15 +1,14 @@
 import { create } from 'zustand';
 import type { HeroId, MapNode, RunState } from '../types';
-import { generateFloorTypes } from '../data/towerConfig';
+import { FIXED_TOWER_SEQUENCE } from '../data/towerConfig';
 import type { FloorType } from '../data/towerConfig';
 
-// ELO progression per chapter: 7 floors [f0..f5, boss]
+// ELO progression per chapter: 5 этажей [sniper, flag, survival, quick_battle, boss]
 const CHAPTER_ELOS: number[][] = [
-  [400, 450, 500, 520, 540, 550, 750], // Chapter 0: Forest of Pawns
-  [600, 650, 700, 720, 760, 800, 900], // Chapter 1: Valley of Knights
+  [400, 450, 500, 540, 750], // Глава 0: Лес Пешек
+  [600, 650, 700, 760, 900], // Глава 1: Долина Коней
 ];
 
-// Tower of 7 floors: 6 battle floors (types from floorTypes) + 1 boss
 function generateNodes(chapterIndex: number, floorTypes: FloorType[]): MapNode[] {
   const elos = CHAPTER_ELOS[chapterIndex] ?? CHAPTER_ELOS[0];
 
@@ -52,12 +51,11 @@ export const useRunStore = create<RunStore>((set) => ({
   floorTypes: [],
 
   startRun: (heroId: HeroId, chapterIndex = 0) => {
-    const floorTypes = generateFloorTypes();
     set({
       heroId,
       currentNodeIndex: 0,
-      nodes: generateNodes(chapterIndex, floorTypes),
-      floorTypes,
+      nodes: generateNodes(chapterIndex, FIXED_TOWER_SEQUENCE),
+      floorTypes: FIXED_TOWER_SEQUENCE,
       score: 0,
       masteryStars: 0,
       chapterIndex,
