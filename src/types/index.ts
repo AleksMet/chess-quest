@@ -79,6 +79,9 @@ export interface Hero {
 export type NodeType =
   | 'battle'
   | 'quick_battle'
+  | 'sniper'
+  | 'survival'
+  | 'flag'
   | 'puzzle'
   | 'ambush'
   | 'elite'

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { HeroId, MapNode, NodeType, RunState } from '../types';
+import type { HeroId, MapNode, RunState } from '../types';
 import { generateFloorTypes } from '../data/towerConfig';
 import type { FloorType } from '../data/towerConfig';
 
@@ -15,7 +15,7 @@ function generateNodes(chapterIndex: number, floorTypes: FloorType[]): MapNode[]
 
   return floorTypes.map((ft, i) => ({
     id: `node_${i}`,
-    type: ft as NodeType,
+    type: ft,
     completed: false,
     accessible: i === 0,
     chapterElo: elos[i] ?? elos[elos.length - 1],

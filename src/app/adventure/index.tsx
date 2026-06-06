@@ -33,19 +33,13 @@ export default function AdventureScreen() {
 
   function navigateToNode(type: NodeType) {
     switch (type) {
-      case 'boss':
-        router.push('/battle');
-        break;
-      // TODO: СНАЙПЕР/ВЫЖИВАНИЕ/ФЛАГ screens not yet built — route to quick-battle
-      case 'sniper' as NodeType:
-      case 'survival' as NodeType:
-      case 'flag' as NodeType:
+      case 'boss':        router.push('/battle'); break;
+      case 'sniper':      router.push('/sniper'); break;
+      case 'survival':    router.push('/survival'); break;
+      case 'flag':        router.push('/flag'); break;
       case 'quick_battle':
-      case 'ambush':
-        router.push('/quick-battle');
-        break;
-      default:
-        break;
+      case 'ambush':      router.push('/quick-battle'); break;
+      default:            break;
     }
   }
 
