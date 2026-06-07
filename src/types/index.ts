@@ -82,6 +82,10 @@ export type NodeType =
   | 'sniper'
   | 'survival'
   | 'flag'
+  | 'handicap'
+  | 'clock'
+  | 'advantage'
+  | 'free'
   | 'puzzle'
   | 'ambush'
   | 'elite'
@@ -112,6 +116,7 @@ export interface RunState {
   currentFen: string | null;
   blessedPiece: PieceSymbol | null;
   kingWasCheckedInRun: boolean;
+  floorScores: number[];
 }
 
 // ─── Battle ───────────────────────────────────────────────────────────────────

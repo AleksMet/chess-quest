@@ -6,50 +6,47 @@ import { ChessBoard } from '../../components/chess/ChessBoard';
 import { StockfishBridgeView } from '../../components/engine/StockfishBridgeView';
 import type { StockfishBridgeRef } from '../../components/engine/StockfishBridgeView';
 import type { MoveResult } from '../../engine/chessLogic';
-import { generateQuickBattlePosition } from '../../engine/positionGenerator';
-import { processMove } from '../../engine/rewardEngine';
+import {
+  HANDICAP_ELO,
+  HANDICAP_SURVIVE_LIMIT,
+  HANDICAP_SURVIVE_POINTS_PER_MOVE,
+  generateHandicapFen,
+  calcHandicapSurvivalScore,
+} from '../../engine/handicapMode';
+import { calcMateScore } from '../../engine/scoreEngine';
 import { useRunStore } from '../../store/runStore';
-import { HEROES } from '../../data/heroes';
 import { eloToSkillLevel } from '../../engine/stockfish';
 
-const PLAYER_MOVE_LIMIT = 15;
 const PLAYER_COLOR = 'w' as const;
-const CAPTURE_VALUES: Record<string, number> = { p: 8, n: 25, b: 25, r: 40, q: 70, k: 0 };
-const WIN_SCORE_BONUS = 100;
-const LOSE_SCORE_BONUS = 10;
 
-export default function QuickBattlePage() {
+export default function HandicapPage() {
   const router = useRouter();
-  const { nodes, currentNodeIndex, heroId, addScore, recordFloorScore, completeNode, setCurrentFen, markKingChecked, isActive } = useRunStore();
-  const hero = HEROES.find(h => h.id === heroId) ?? HEROES[0];
+  const { nodes, currentNodeIndex, recordFloorScore, completeNode, setCurrentFen, isActive } = useRunStore();
 
   const currentNode = nodes[currentNodeIndex];
-  const opponentElo = currentNode?.chapterElo ?? 500;
+  const opponentElo = currentNode?.chapterElo ?? HANDICAP_ELO;
   const skillLevel = eloToSkillLevel(opponentElo);
 
-  // 'free' — последний, 4-й этаж башни: фигуры переходят к итогам забега.
-  // Используем более насыщенный пул позиций (как раньше для пред-боссового этажа)
-  const isLastFloor = currentNode?.type === 'free';
-  const isPreBoss = isLastFloor;
-  const [startFen] = useState(() => generateQuickBattlePosition(isPreBoss));
+  const [startFen] = useState(() => generateHandicapFen());
   const [chess] = useState(() => new Chess(startFen));
   const [boardKey, setBoardKey] = useState(0);
   const [playerMoves, setPlayerMoves] = useState(0);
-  const [, setMoveGoldAcc] = useState(0);
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [engineReady, setEngineReady] = useState(false);
   const [result, setResult] = useState<'win' | 'lose' | 'draw' | null>(null);
   const [resultReason, setResultReason] = useState('');
-  const [scoreDisplay, setScoreDisplay] = useState(0);
   const [opponentLastMove, setOpponentLastMove] = useState<{ from: string; to: string } | null>(null);
 
-  const moveGoldRef = useRef(0);
+  const [scoreDisplay, setScoreDisplay] = useState(0);
+  const scoreRef = useRef(0);
   const engineRef = useRef<StockfishBridgeRef>(null);
   const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   if (!isActive) { router.replace('/'); return null; }
 
-  useEffect(() => () => { if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current); }, []);
+  useEffect(() => () => {
+    if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
+  }, []);
 
   const sendToEngine = useCallback((cmd: string) => engineRef.current?.send(cmd), []);
 
@@ -58,17 +55,19 @@ export default function QuickBattlePage() {
     sendToEngine(`setoption name Skill Level value ${skillLevel}`);
   }, [skillLevel, sendToEngine]);
 
-  function finishGame(r: 'win' | 'lose' | 'draw', reason: string) {
+  function finishGame(r: 'win' | 'lose' | 'draw', reason: string, points: number) {
     if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
+    scoreRef.current = points;
+    setScoreDisplay(points);
     setResult(r);
     setResultReason(reason);
     setCurrentFen(chess.fen());
   }
 
-
   const applyAIMove = useCallback((uci: string) => {
     if (aiTimeoutRef.current) { clearTimeout(aiTimeoutRef.current); aiTimeoutRef.current = null; }
-    const from = uci.slice(0, 2); const to = uci.slice(2, 4);
+    const from = uci.slice(0, 2);
+    const to = uci.slice(2, 4);
     const promotion = uci[4] as 'q' | undefined;
     try {
       const move = chess.move({ from, to, promotion: promotion ?? 'q' });
@@ -76,13 +75,18 @@ export default function QuickBattlePage() {
       setOpponentLastMove({ from, to });
       setBoardKey(k => k + 1);
       setIsAIThinking(false);
-      // Check if AI put player's king in check
-      if (chess.isCheck() && chess.turn() === PLAYER_COLOR) markKingChecked();
-      if (chess.isCheckmate()) finishGame('lose', 'Мат!');
-      else if (chess.isDraw() || chess.isStalemate()) finishGame('draw', 'Ничья');
+
+      if (chess.isCheckmate()) {
+        finishGame('lose', 'Мат!', 0);
+        return;
+      }
+      if (chess.isDraw() || chess.isStalemate()) {
+        finishGame('draw', 'Ничья — 0 очков', 0);
+        return;
+      }
     } catch { setIsAIThinking(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chess, markKingChecked]);
+  }, [chess]);
 
   const requestAIMove = useCallback(() => {
     if (chess.isGameOver() || chess.turn() === PLAYER_COLOR) return;
@@ -118,49 +122,31 @@ export default function QuickBattlePage() {
     const newCount = playerMoves + 1;
     setPlayerMoves(newCount);
     setBoardKey(k => k + 1);
+    setScoreDisplay(newCount * HANDICAP_SURVIVE_POINTS_PER_MOVE);
 
-    // Score engine: captures + artifact-style bonuses (no artifacts in Classic Mode)
-    const captureGold = moveResult.move.captured ? (CAPTURE_VALUES[moveResult.move.captured] ?? 0) : 0;
-    const reward = processMove({
-      chess,
-      move: moveResult.move,
-      positionFenBefore: chess.fen(),
-      goldBalance: 0,
-      artifacts: [], // TODO: ХАОС режим — pass real artifacts
-      hero,
-      moveNumber: newCount,
-      playerColor: PLAYER_COLOR,
-    });
-    const moveGold = captureGold + reward.gold;
-    if (moveGold > 0) {
-      moveGoldRef.current += moveGold;
-      setMoveGoldAcc(prev => prev + moveGold);
-      setScoreDisplay(prev => prev + moveGold);
+    if (moveResult.isCheckmate) {
+      finishGame('win', 'Мат противнику!', calcMateScore(newCount, HANDICAP_SURVIVE_LIMIT));
+      return;
+    }
+    if (moveResult.isDraw || moveResult.isStalemate) {
+      finishGame('draw', 'Ничья — 0 очков', 0);
+      return;
+    }
+    if (newCount >= HANDICAP_SURVIVE_LIMIT) {
+      finishGame('win', `Выжил ${HANDICAP_SURVIVE_LIMIT} ходов!`, calcHandicapSurvivalScore(HANDICAP_SURVIVE_LIMIT));
+      return;
     }
 
-    if (moveResult.isCheckmate) { finishGame('win', 'Мат!'); return; }
-    if (moveResult.isDraw || moveResult.isStalemate) { finishGame('draw', 'Ничья'); return; }
-
-    if (newCount >= PLAYER_MOVE_LIMIT) { finishGame('draw', 'Лимит ходов'); return; }
     requestAIMove();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerMoves, chess, requestAIMove, hero]);
+  }, [playerMoves, chess, requestAIMove]);
 
   function handleContinue() {
-    const destination = isLastFloor ? '/victory' : '/adventure';
-    if (result === 'win') {
-      const points = moveGoldRef.current + WIN_SCORE_BONUS;
-      if (isLastFloor) recordFloorScore(currentNodeIndex, points);
-      else addScore(points);
+    if (result === 'win' || result === 'draw') {
+      recordFloorScore(currentNodeIndex, scoreRef.current);
       completeNode(currentNodeIndex);
-      router.replace(destination);
-    } else if (result === 'draw') {
-      // Ничья — 0 очков
-      if (isLastFloor) recordFloorScore(currentNodeIndex, 0);
-      completeNode(currentNodeIndex);
-      router.replace(destination);
+      router.replace('/adventure');
     } else {
-      addScore(moveGoldRef.current + LOSE_SCORE_BONUS);
       router.replace('/adventure');
     }
   }
@@ -172,23 +158,22 @@ export default function QuickBattlePage() {
     ]);
   }
 
-  const movesLeft = PLAYER_MOVE_LIMIT - playerMoves;
+  const movesLeft = HANDICAP_SURVIVE_LIMIT - playerMoves;
   const boardDisabled = result !== null || isAIThinking || chess.turn() !== PLAYER_COLOR;
-  const totalScoreDisplay = result === 'win' ? moveGoldRef.current + WIN_SCORE_BONUS : result === 'draw' ? 0 : moveGoldRef.current + LOSE_SCORE_BONUS;
 
   return (
     <SafeAreaView style={styles.safe}>
       <StockfishBridgeView ref={engineRef} onMessage={handleEngineMessage} onReady={handleEngineReady} />
 
       <View style={styles.header}>
-        <Text style={styles.title}>{isLastFloor ? '🏆 Свободный бой' : '⚡ Быстрый бой'}</Text>
-        <Pressable style={styles.exitBtn} onPress={handleExit} testID="exit-battle-btn">
+        <Text style={styles.title}>⚖️ Гандикап</Text>
+        <Pressable style={styles.exitBtn} onPress={handleExit}>
           <Text style={styles.exitBtnText}>Выход</Text>
         </Pressable>
         <Text style={styles.scoreBadge}>⭐ {scoreDisplay}</Text>
         <View style={[styles.moveBadge, movesLeft <= 5 && styles.moveBadgeUrgent]}>
-          <Text style={styles.moveCount}>{movesLeft}</Text>
-          <Text style={styles.moveLabel}>ходов</Text>
+          <Text style={styles.moveCount}>{Math.max(0, movesLeft)}</Text>
+          <Text style={styles.moveLabel}>выжить</Text>
         </View>
         {isAIThinking && <Text style={styles.thinking}>⏳</Text>}
       </View>
@@ -205,7 +190,9 @@ export default function QuickBattlePage() {
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.goal}>🎯 Мат или больше материала за {PLAYER_MOVE_LIMIT} ходов</Text>
+        <Text style={styles.goal}>
+          ⚖️ У тебя король и 3 фигуры. Поставь мат или продержись {HANDICAP_SURVIVE_LIMIT} ходов
+        </Text>
       </View>
 
       {result && (
@@ -217,8 +204,8 @@ export default function QuickBattlePage() {
             {result === 'win' ? 'Победа!' : result === 'lose' ? 'Поражение' : 'Ничья'}
           </Text>
           <Text style={styles.resultReason}>{resultReason}</Text>
-          <Text style={styles.resultGold}>+{totalScoreDisplay} 🎯</Text>
-          <Pressable style={styles.continueBtn} onPress={handleContinue} testID="quick-battle-continue">
+          {result !== 'lose' && <Text style={styles.resultScore}>+{scoreRef.current} ⭐</Text>}
+          <Pressable style={styles.continueBtn} onPress={handleContinue}>
             <Text style={styles.continueBtnText}>Продолжить</Text>
           </Pressable>
         </View>
@@ -228,25 +215,25 @@ export default function QuickBattlePage() {
 }
 
 const styles = StyleSheet.create({
-  safe:             { flex: 1, backgroundColor: '#0d1117' },
-  header:           { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
-  title:            { flex: 1, color: '#f1f5f9', fontSize: 18, fontWeight: '700' },
-  exitBtn:          { backgroundColor: '#7f1d1d', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
-  exitBtnText:      { color: '#fca5a5', fontSize: 13, fontWeight: '600' },
-  scoreBadge:       { color: '#fbbf24', fontSize: 15, fontWeight: '700' },
-  moveBadge:        { backgroundColor: '#1e3a5f', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4, alignItems: 'center', minWidth: 52 },
-  moveBadgeUrgent:  { backgroundColor: '#7f1d1d' },
-  moveCount:        { color: '#fff', fontSize: 20, fontWeight: '900', lineHeight: 24 },
-  moveLabel:        { color: '#94a3b8', fontSize: 10 },
-  thinking:         { fontSize: 20 },
-  boardWrap:        { position: 'relative', flex: 1 },
-  footer:           { paddingHorizontal: 16, paddingVertical: 8 },
-  goal:             { color: '#64748b', fontSize: 12, textAlign: 'center' },
-  overlay:          { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  resultEmoji:      { fontSize: 72 },
-  resultTitle:      { color: '#fff', fontSize: 36, fontWeight: '900' },
-  resultReason:     { color: '#94a3b8', fontSize: 16 },
-  resultGold:       { color: '#ffd700', fontSize: 28, fontWeight: '800' },
-  continueBtn:      { marginTop: 16, backgroundColor: '#22c55e', paddingVertical: 14, paddingHorizontal: 48, borderRadius: 14 },
-  continueBtnText:  { color: '#fff', fontSize: 17, fontWeight: '800' },
+  safe:            { flex: 1, backgroundColor: '#0d1117' },
+  header:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
+  title:           { flex: 1, color: '#f1f5f9', fontSize: 18, fontWeight: '700' },
+  exitBtn:         { backgroundColor: '#7f1d1d', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
+  exitBtnText:     { color: '#fca5a5', fontSize: 13, fontWeight: '600' },
+  scoreBadge:      { color: '#fbbf24', fontSize: 15, fontWeight: '700' },
+  moveBadge:       { backgroundColor: '#1e3a5f', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4, alignItems: 'center', minWidth: 52 },
+  moveBadgeUrgent: { backgroundColor: '#7f1d1d' },
+  moveCount:       { color: '#fff', fontSize: 20, fontWeight: '900', lineHeight: 24 },
+  moveLabel:       { color: '#94a3b8', fontSize: 10 },
+  thinking:        { fontSize: 20 },
+  boardWrap:       { flex: 1 },
+  footer:          { paddingHorizontal: 16, paddingVertical: 8 },
+  goal:            { color: '#64748b', fontSize: 12, textAlign: 'center' },
+  overlay:         { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  resultEmoji:     { fontSize: 72 },
+  resultTitle:     { color: '#fff', fontSize: 32, fontWeight: '900' },
+  resultReason:    { color: '#94a3b8', fontSize: 16 },
+  resultScore:     { color: '#ffd700', fontSize: 28, fontWeight: '800' },
+  continueBtn:     { marginTop: 16, backgroundColor: '#22c55e', paddingVertical: 14, paddingHorizontal: 48, borderRadius: 14 },
+  continueBtnText: { color: '#fff', fontSize: 17, fontWeight: '800' },
 });

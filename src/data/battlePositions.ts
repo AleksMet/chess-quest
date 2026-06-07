@@ -41,3 +41,20 @@ export const PRE_BOSS_POSITIONS: string[] = [
   'r1bqk2r/ppppbppp/2n2n2/4p3/4P3/2NP1N2/PPP2PPP/R1BQKB1R w KQkq - 2 5',
   'rnbqkb1r/ppp2ppp/3p1n2/4p3/4P3/2NP1N2/PPP2PPP/R1BQKB1R w KQkq - 0 5',
 ];
+
+// Позиции для режима «Часы»: активный миттельшпиль/эндшпиль, 6-8 фигур (с пешками) на сторону
+// Все проверены через chess.js: ход белых, без шаха, есть ходы.
+export const CLOCK_POSITIONS: string[] = [
+  '2k5/2r5/p5p1/4p2p/3P1P1r/1BPn4/4BR2/6K1 w - - 0 1',
+  '6k1/3r2p1/B2q1p1p/P7/PP3B2/2n3RP/8/6K1 w - - 0 1',
+  '2k5/n7/1R1p1r2/2p1P1R1/1np2P1p/7P/N3P3/6K1 w - - 0 1',
+  '6k1/p7/1q4p1/2RP4/P1B1Bp1n/2bP3P/8/6K1 w - - 0 1',
+  '2k5/8/1r3p2/3r4/1P3pPp/QP2n2B/4N3/2K5 w - - 0 1',
+  '2k5/2b2n2/1p4p1/q3NP1R/2pR4/P7/5P2/6K1 w - - 0 1',
+  '2k5/3pb3/2p5/1rPP1Q2/1bp5/3NP1B1/7P/6K1 w - - 0 1',
+  '6k1/2p1p1p1/6b1/2B1r3/p2N2Qb/2PP3P/8/2K5 w - - 0 1',
+  '2k5/8/N5pp/1P1nn3/1rp1P2P/1B4P1/4R3/6K1 w - - 0 1',
+  '6k1/7r/R1p2p2/2n5/1pnpBP1B/P7/P7/6K1 w - - 0 1',
+  '6k1/6b1/3Qb1p1/NP1Br2p/3pP3/6PP/8/2K5 w - - 0 1',
+  '6k1/8/1Nb2BpR/1np4P/q5p1/1P6/P4P2/6K1 w - - 0 1',
+];

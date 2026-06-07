@@ -17,9 +17,10 @@ describe('runStore', () => {
     expect(s.heroId).toBe('timmy_pawn');
     expect(s.score).toBe(0);
     expect(s.currentNodeIndex).toBe(0);
-    // Новая башня: 5 этажей (sniper, flag, survival, quick_battle, boss)
-    expect(s.nodes).toHaveLength(5);
-    expect(s.floorTypes).toHaveLength(5);
+    // Новая башня: 4 этажа (handicap, clock, advantage, free)
+    expect(s.nodes).toHaveLength(4);
+    expect(s.floorTypes).toHaveLength(4);
+    expect(s.floorScores).toEqual([0, 0, 0, 0]);
   });
 
   it('initial state before startRun is inactive', () => {
@@ -43,32 +44,33 @@ describe('runStore', () => {
     expect(useRunStore.getState().score).toBe(150);
   });
 
-  // ── структура башни ────────────────────────────────────────────────────────
-
-  it('фиксированная последовательность: sniper, flag, survival, quick_battle, boss', () => {
+  it('recordFloorScore stores per-floor score AND adds it to the total (no double counting)', () => {
     act(() => { useRunStore.getState().startRun('timmy_pawn'); });
+    act(() => { useRunStore.getState().recordFloorScore(0, 200); });
+    act(() => { useRunStore.getState().recordFloorScore(1, 80); });
     const s = useRunStore.getState();
-    expect(s.floorTypes[0]).toBe('sniper');
-    expect(s.floorTypes[1]).toBe('flag');
-    expect(s.floorTypes[2]).toBe('survival');
-    expect(s.floorTypes[3]).toBe('quick_battle');
-    expect(s.floorTypes[4]).toBe('boss');
+    expect(s.floorScores[0]).toBe(200);
+    expect(s.floorScores[1]).toBe(80);
+    expect(s.score).toBe(280);
   });
 
-  it('последний узел (index 4) всегда boss', () => {
+  // ── структура башни ────────────────────────────────────────────────────────
+
+  it('фиксированная последовательность: handicap, clock, advantage, free', () => {
+    act(() => { useRunStore.getState().startRun('timmy_pawn'); });
+    const s = useRunStore.getState();
+    expect(s.floorTypes[0]).toBe('handicap');
+    expect(s.floorTypes[1]).toBe('clock');
+    expect(s.floorTypes[2]).toBe('advantage');
+    expect(s.floorTypes[3]).toBe('free');
+  });
+
+  it('последний узел (index 3) всегда free', () => {
     for (let i = 0; i < 5; i++) {
       act(() => { useRunStore.getState().startRun('timmy_pawn'); });
       const s = useRunStore.getState();
-      expect(s.nodes[4].type).toBe('boss');
-      expect(s.floorTypes[4]).toBe('boss');
-    }
-  });
-
-  it('первые 4 этажа — не boss', () => {
-    act(() => { useRunStore.getState().startRun('timmy_pawn'); });
-    const s = useRunStore.getState();
-    for (let f = 0; f < 4; f++) {
-      expect(s.nodes[f].type).not.toBe('boss');
+      expect(s.nodes[3].type).toBe('free');
+      expect(s.floorTypes[3]).toBe('free');
     }
   });
 
@@ -84,30 +86,26 @@ describe('runStore', () => {
 
   // ── поддержка глав ────────────────────────────────────────────────────────
 
-  it('startRun chapter 0: boss ELO is 750', () => {
+  // Новые режимы — фиксированный ELO, одинаковый для всех глав (см. TASK 6):
+  // handicap=900, clock=800, advantage=1000, free=900
+  it('startRun chapter 0: ELO по этажам — 900/800/1000/900', () => {
     act(() => { useRunStore.getState().startRun('timmy_pawn', 0); });
     const s = useRunStore.getState();
     expect(s.chapterIndex).toBe(0);
-    expect(s.nodes[4].chapterElo).toBe(750); // index 4 — boss
+    expect(s.nodes[0].chapterElo).toBe(900);
+    expect(s.nodes[1].chapterElo).toBe(800);
+    expect(s.nodes[2].chapterElo).toBe(1000);
+    expect(s.nodes[3].chapterElo).toBe(900);
   });
 
-  it('startRun chapter 1: boss ELO is 900', () => {
+  it('startRun chapter 1: ELO по этажам — 900/800/1000/900', () => {
     act(() => { useRunStore.getState().startRun('timmy_pawn', 1); });
     const s = useRunStore.getState();
     expect(s.chapterIndex).toBe(1);
-    expect(s.nodes[4].chapterElo).toBe(900);
-  });
-
-  it('startRun chapter 1: floor 0 ELO is 600', () => {
-    act(() => { useRunStore.getState().startRun('finn_knight', 1); });
-    const s = useRunStore.getState();
-    expect(s.nodes[0].chapterElo).toBe(600);
-  });
-
-  it('startRun chapter 1: floor 3 (quick_battle, pre-boss) ELO is 760', () => {
-    act(() => { useRunStore.getState().startRun('timmy_pawn', 1); });
-    const s = useRunStore.getState();
-    expect(s.nodes[3].chapterElo).toBe(760); // quick_battle перед боссом
+    expect(s.nodes[0].chapterElo).toBe(900);
+    expect(s.nodes[1].chapterElo).toBe(800);
+    expect(s.nodes[2].chapterElo).toBe(1000);
+    expect(s.nodes[3].chapterElo).toBe(900);
   });
 
   it('startRun resets FEN and blessedPiece on new chapter run', () => {

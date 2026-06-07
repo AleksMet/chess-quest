@@ -1,4 +1,6 @@
-export type FloorType = 'sniper' | 'survival' | 'flag' | 'quick_battle' | 'boss';
+// TODO: пересмотреть — режимы sniper/survival/flag/quick_battle/boss временно отключены
+// (старая последовательность из 5 этажей заменена новой башней из 4 этажей)
+export type FloorType = 'handicap' | 'clock' | 'advantage' | 'free';
 
 export interface FloorDef {
   type: FloorType;
@@ -7,18 +9,16 @@ export interface FloorDef {
 }
 
 export const FLOOR_DEFS: Record<FloorType, FloorDef> = {
-  sniper:      { type: 'sniper',      icon: '🎯', label: 'Снайпер' },
-  survival:    { type: 'survival',    icon: '🛡️', label: 'Выживание' },
-  flag:        { type: 'flag',        icon: '🚩', label: 'Флаг' },
-  quick_battle:{ type: 'quick_battle',icon: '⚔️', label: 'Быстрый бой' },
-  boss:        { type: 'boss',        icon: '👑', label: 'Босс' },
+  handicap:  { type: 'handicap',  icon: '⚖️', label: 'Гандикап' },
+  clock:     { type: 'clock',     icon: '⏱️', label: 'Часы' },
+  advantage: { type: 'advantage', icon: '⚔️', label: 'Форы' },
+  free:      { type: 'free',      icon: '🏆', label: 'Свободный бой' },
 };
 
 // Фиксированная последовательность — без рандома, одна и та же каждый забег
 export const FIXED_TOWER_SEQUENCE: FloorType[] = [
-  'sniper',       // этаж 1 (index 0)
-  'flag',         // этаж 2 (index 1)
-  'survival',     // этаж 3 (index 2)
-  'quick_battle', // этаж 4 (index 3) — фигуры переходят к боссу
-  'boss',         // этаж 5 (index 4)
+  'handicap',  // этаж 1 (index 0)
+  'clock',     // этаж 2 (index 1)
+  'advantage', // этаж 3 (index 2)
+  'free',      // этаж 4 (index 3) — фигуры переходят к итогам забега
 ];

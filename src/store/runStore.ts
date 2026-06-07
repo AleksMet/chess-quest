@@ -3,10 +3,11 @@ import type { HeroId, MapNode, RunState } from '../types';
 import { FIXED_TOWER_SEQUENCE } from '../data/towerConfig';
 import type { FloorType } from '../data/towerConfig';
 
-// ELO progression per chapter: 5 этажей [sniper, flag, survival, quick_battle, boss]
+// ELO для новой башни из 4 этажей [handicap, clock, advantage, free] — фиксированные,
+// одинаковые для всех глав (режимы не масштабируются по главам, см. TASK 6)
 const CHAPTER_ELOS: number[][] = [
-  [400, 450, 500, 540, 750], // Глава 0: Лес Пешек
-  [600, 650, 700, 760, 900], // Глава 1: Долина Коней
+  [900, 800, 1000, 900],
+  [900, 800, 1000, 900],
 ];
 
 function generateNodes(chapterIndex: number, floorTypes: FloorType[]): MapNode[] {
@@ -26,6 +27,7 @@ interface RunStore extends RunState {
   startRun: (heroId: HeroId, chapterIndex?: number) => void;
   resetRun: () => void;
   addScore: (points: number) => void;
+  recordFloorScore: (nodeIndex: number, points: number) => void;
   completeNode: (nodeIndex: number) => void;
   advanceToNode: (nodeIndex: number) => void;
   setCurrentFen: (fen: string | null) => void;
@@ -44,6 +46,7 @@ const INITIAL_STATE: RunState = {
   currentFen: null,
   blessedPiece: null,
   kingWasCheckedInRun: false,
+  floorScores: [],
 };
 
 export const useRunStore = create<RunStore>((set) => ({
@@ -63,6 +66,7 @@ export const useRunStore = create<RunStore>((set) => ({
       currentFen: null,
       blessedPiece: null,
       kingWasCheckedInRun: false,
+      floorScores: FIXED_TOWER_SEQUENCE.map(() => 0),
     });
   },
 
@@ -70,6 +74,14 @@ export const useRunStore = create<RunStore>((set) => ({
 
   addScore: (points: number) => {
     set(s => ({ score: s.score + points }));
+  },
+
+  recordFloorScore: (nodeIndex: number, points: number) => {
+    set(s => {
+      const floorScores = [...s.floorScores];
+      floorScores[nodeIndex] = points;
+      return { floorScores, score: s.score + points };
+    });
   },
 
   completeNode: (nodeIndex: number) => {
