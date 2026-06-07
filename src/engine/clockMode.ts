@@ -1,5 +1,6 @@
 import { CLOCK_POSITIONS } from '../data/battlePositions';
 
+// TODO: классический режим — временно отключён (заменён режимом ХАОС), движок не используется в навигации
 // Режим «Часы»: партия с общим лимитом времени на ходы игрока
 export const CLOCK_ELO = 1100;
 export const CLOCK_TIME_LIMIT_SECONDS = 90;

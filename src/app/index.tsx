@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useRunStore } from '../store/runStore';
+// TODO: классический режим — временно отключён (заменён режимом ХАОС)
+// import { useRunStore } from '../store/runStore';
+import { useChaosModeStore } from '../store/chaosModeStore';
 import { useMetaStore } from '../store/metaStore';
 import { HEROES } from '../data/heroes';
 import { CHAPTER_NAMES } from '../components/map/AdventureMap';
@@ -13,7 +15,9 @@ const CHAPTER_ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 export default function MainMenuScreen() {
   const router = useRouter();
   const { theme } = useChapterTheme();
-  const startRun = useRunStore(s => s.startRun);
+  // TODO: классический режим — временно отключён (заменён режимом ХАОС)
+  // const startRun = useRunStore(s => s.startRun);
+  const resetChaosRun = useChaosModeStore(s => s.resetRun);
   const { isLoaded, loadMeta, meta } = useMetaStore();
   const [selectedHeroId, setSelectedHeroId] = useState<HeroId>('timmy_pawn');
   const [selectedChapter, setSelectedChapter] = useState(0);
@@ -29,9 +33,15 @@ export default function MainMenuScreen() {
   const selectedHero = HEROES.find(h => h.id === selectedHeroId) ?? HEROES[0];
   const unlockedChapters = meta.chapters.filter(c => c.unlocked);
 
-  function handleStartRun() {
-    startRun(selectedHeroId, selectedChapter);
-    router.push('/adventure');
+  // TODO: классический режим — временно отключён (заменён режимом ХАОС)
+  // function handleStartRun() {
+  //   startRun(selectedHeroId, selectedChapter);
+  //   router.push('/adventure');
+  // }
+
+  function handleStartChaos() {
+    resetChaosRun();
+    router.push('/chaos-tower');
   }
 
   if (!isLoaded) return null;
@@ -142,12 +152,12 @@ export default function MainMenuScreen() {
             shadowColor: theme.accent,
           },
         ]}
-        onPress={handleStartRun}
-        testID="start-run-btn"
+        onPress={handleStartChaos}
+        testID="start-chaos-btn"
         activeOpacity={0.85}
       >
         <Text style={[styles.startBtnText, { color: theme.buttonText }]}>
-          ⚔  Начать забег
+          🌀  ХАОС
         </Text>
       </TouchableOpacity>
     </SafeAreaView>

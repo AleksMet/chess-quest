@@ -33,17 +33,17 @@ export default function AdventureScreen() {
 
   function navigateToNode(type: NodeType) {
     switch (type) {
-      // TODO: пересмотреть — режим временно отключён
+      // TODO: классический режим — временно отключён (заменён режимом ХАОС)
       // case 'boss':        router.push('/battle'); break;
       // case 'sniper':      router.push('/sniper'); break;
       // case 'survival':    router.push('/survival'); break;
       // case 'flag':        router.push('/flag'); break;
-      case 'handicap':    router.push('/handicap'); break;
-      case 'clock':       router.push('/clock'); break;
-      case 'advantage':   router.push('/advantage'); break;
-      case 'free':
-      case 'quick_battle':
-      case 'ambush':      router.push('/quick-battle'); break;
+      // case 'handicap':    router.push('/handicap'); break;
+      // case 'clock':       router.push('/clock'); break;
+      // case 'advantage':   router.push('/advantage'); break;
+      // case 'free':
+      // case 'quick_battle':
+      // case 'ambush':      router.push('/quick-battle'); break;
       default:            break;
     }
   }

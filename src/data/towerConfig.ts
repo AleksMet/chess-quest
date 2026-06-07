@@ -1,5 +1,6 @@
 // TODO: пересмотреть — режимы sniper/survival/flag/quick_battle/boss временно отключены
 // (старая последовательность из 5 этажей заменена новой башней из 4 этажей)
+// TODO: классический режим — временно отключён (заменён режимом ХАОС, см. chaosModeStore)
 export type FloorType = 'handicap' | 'clock' | 'advantage' | 'free';
 
 export interface FloorDef {

@@ -1,6 +1,7 @@
 import type { Chess, Square } from 'chess.js';
 import { countMaterial } from './positionGenerator';
 
+// TODO: классический режим — временно отключён (заменён режимом ХАОС), движок не используется в навигации
 // Режим «Форы»: у ИИ лишний ферзь на d6
 export const ADVANTAGE_ELO = 1400;
 export const ADVANTAGE_MOVE_LIMIT = 30;
