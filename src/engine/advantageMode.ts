@@ -2,7 +2,7 @@ import type { Chess, Square } from 'chess.js';
 import { countMaterial } from './positionGenerator';
 
 // Режим «Форы»: у ИИ лишний ферзь на d6
-export const ADVANTAGE_ELO = 1000;
+export const ADVANTAGE_ELO = 1400;
 export const ADVANTAGE_MOVE_LIMIT = 30;
 export const ADVANTAGE_EXTRA_QUEEN_SQUARE: Square = 'd6';
 export const ADVANTAGE_EXTRA_QUEEN_BONUS = 150;

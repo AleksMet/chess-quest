@@ -6,8 +6,8 @@ import type { FloorType } from '../data/towerConfig';
 // ELO для новой башни из 4 этажей [handicap, clock, advantage, free] — фиксированные,
 // одинаковые для всех глав (режимы не масштабируются по главам, см. TASK 6)
 const CHAPTER_ELOS: number[][] = [
-  [900, 800, 1000, 900],
-  [900, 800, 1000, 900],
+  [1200, 1100, 1400, 1200],
+  [1200, 1100, 1400, 1200],
 ];
 
 function generateNodes(chapterIndex: number, floorTypes: FloorType[]): MapNode[] {

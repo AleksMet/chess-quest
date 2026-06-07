@@ -1,7 +1,7 @@
 import { Chess } from 'chess.js';
 
 // Режим «Гандикап»: у игрока король + 3 случайные фигуры против полного комплекта ИИ
-export const HANDICAP_ELO = 900;
+export const HANDICAP_ELO = 1200;
 export const HANDICAP_SURVIVE_LIMIT = 15;
 export const HANDICAP_SURVIVE_POINTS_PER_MOVE = 25;
 

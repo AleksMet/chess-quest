@@ -41,6 +41,7 @@ export default function ClockPage() {
   const [opponentLastMove, setOpponentLastMove] = useState<{ from: string; to: string } | null>(null);
 
   const [secondsLeft, setSecondsLeft] = useState(CLOCK_TIME_LIMIT_SECONDS);
+  const timeLeftRef = useRef(CLOCK_TIME_LIMIT_SECONDS);
   const timerAnim = useRef(new Animated.Value(CLOCK_TIME_LIMIT_SECONDS)).current;
   const timerColor = timerAnim.interpolate({ inputRange: TIMER_COLOR_INPUT, outputRange: TIMER_COLOR_OUTPUT });
 
@@ -50,34 +51,46 @@ export default function ClockPage() {
   const aiCaptureRef = useRef(0);
   const engineRef = useRef<StockfishBridgeRef>(null);
   const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resultRef = useRef<'win' | 'lose' | 'draw' | null>(null);
   resultRef.current = result;
 
   if (!isActive) { router.replace('/'); return null; }
 
+  function stopTimer() {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }
+
+  function startTimer() {
+    if (timerRef.current || timeLeftRef.current <= 0) return;
+    timerRef.current = setInterval(() => {
+      timeLeftRef.current -= 1;
+      const next = timeLeftRef.current;
+      // Побочные эффекты — ВНЕ функции обновления состояния (setState updater должен быть чистым)
+      setSecondsLeft(next);
+      timerAnim.setValue(Math.max(0, next));
+      if (next <= 0) {
+        stopTimer();
+        handleTimeout();
+      }
+    }, 1000);
+  }
+
   useEffect(() => () => {
     if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
-    if (tickRef.current) clearInterval(tickRef.current);
+    stopTimer();
   }, []);
 
-  // Таймер тикает только когда сейчас ход игрока и партия не закончена
+  // Таймер идёт только когда сейчас ход игрока и партия не закончена;
+  // на ходу AI и при завершении боя — останавливается (но не сбрасывается)
   useEffect(() => {
-    const shouldTick = engineReady && !isAIThinking && result === null && chess.turn() === PLAYER_COLOR;
-    if (shouldTick) {
-      tickRef.current = setInterval(() => {
-        setSecondsLeft(prev => {
-          const next = prev - 1;
-          timerAnim.setValue(Math.max(0, next));
-          if (next <= 0) {
-            if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
-            handleTimeout();
-          }
-          return Math.max(0, next);
-        });
-      }, 1000);
-    }
-    return () => { if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; } };
+    const shouldRun = engineReady && !isAIThinking && result === null && chess.turn() === PLAYER_COLOR;
+    if (shouldRun) startTimer();
+    else stopTimer();
+    return () => stopTimer();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engineReady, isAIThinking, result, chess.turn()]);
 
@@ -90,7 +103,7 @@ export default function ClockPage() {
 
   function finishGame(r: 'win' | 'lose' | 'draw', reason: string, points: number) {
     if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
-    if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
+    stopTimer();
     scoreRef.current = points;
     setScoreDisplay(points);
     setResult(r);
@@ -216,7 +229,8 @@ export default function ClockPage() {
 
       <View style={styles.timerWrap}>
         <Animated.Text style={[styles.timerText, { color: timerColor }]}>{timeLabel}</Animated.Text>
-        {isAIThinking && <Text style={styles.thinking}>⏳ ход соперника</Text>}
+        {/* Место под надпись зарезервировано всегда — opacity вместо conditional render, чтобы доска не прыгала */}
+        <Text style={[styles.thinking, { opacity: isAIThinking ? 1 : 0 }]}>⏳ ход соперника</Text>
       </View>
 
       <View style={styles.boardWrap}>

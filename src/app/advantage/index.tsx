@@ -198,7 +198,7 @@ export default function AdvantagePage() {
           <Text style={styles.moveCount}>{Math.max(0, movesLeft)}</Text>
           <Text style={styles.moveLabel}>ходов</Text>
         </View>
-        {isAIThinking && <Text style={styles.thinking}>⏳</Text>}
+        <Text style={[styles.thinking, { opacity: isAIThinking ? 1 : 0 }]}>⏳</Text>
       </View>
 
       <View style={styles.boardWrap}>

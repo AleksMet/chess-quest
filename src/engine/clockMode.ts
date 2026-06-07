@@ -1,7 +1,7 @@
 import { CLOCK_POSITIONS } from '../data/battlePositions';
 
 // Режим «Часы»: партия с общим лимитом времени на ходы игрока
-export const CLOCK_ELO = 800;
+export const CLOCK_ELO = 1100;
 export const CLOCK_TIME_LIMIT_SECONDS = 90;
 export const CLOCK_MATE_BONUS = 200;
 

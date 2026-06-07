@@ -86,26 +86,26 @@ describe('runStore', () => {
 
   // ── поддержка глав ────────────────────────────────────────────────────────
 
-  // Новые режимы — фиксированный ELO, одинаковый для всех глав (см. TASK 6):
-  // handicap=900, clock=800, advantage=1000, free=900
-  it('startRun chapter 0: ELO по этажам — 900/800/1000/900', () => {
+  // Новые режимы — фиксированный ELO, одинаковый для всех глав (см. TASK 6, повышено в fix/difficulty-and-clock):
+  // handicap=1200, clock=1100, advantage=1400, free=1200
+  it('startRun chapter 0: ELO по этажам — 1200/1100/1400/1200', () => {
     act(() => { useRunStore.getState().startRun('timmy_pawn', 0); });
     const s = useRunStore.getState();
     expect(s.chapterIndex).toBe(0);
-    expect(s.nodes[0].chapterElo).toBe(900);
-    expect(s.nodes[1].chapterElo).toBe(800);
-    expect(s.nodes[2].chapterElo).toBe(1000);
-    expect(s.nodes[3].chapterElo).toBe(900);
+    expect(s.nodes[0].chapterElo).toBe(1200);
+    expect(s.nodes[1].chapterElo).toBe(1100);
+    expect(s.nodes[2].chapterElo).toBe(1400);
+    expect(s.nodes[3].chapterElo).toBe(1200);
   });
 
-  it('startRun chapter 1: ELO по этажам — 900/800/1000/900', () => {
+  it('startRun chapter 1: ELO по этажам — 1200/1100/1400/1200', () => {
     act(() => { useRunStore.getState().startRun('timmy_pawn', 1); });
     const s = useRunStore.getState();
     expect(s.chapterIndex).toBe(1);
-    expect(s.nodes[0].chapterElo).toBe(900);
-    expect(s.nodes[1].chapterElo).toBe(800);
-    expect(s.nodes[2].chapterElo).toBe(1000);
-    expect(s.nodes[3].chapterElo).toBe(900);
+    expect(s.nodes[0].chapterElo).toBe(1200);
+    expect(s.nodes[1].chapterElo).toBe(1100);
+    expect(s.nodes[2].chapterElo).toBe(1400);
+    expect(s.nodes[3].chapterElo).toBe(1200);
   });
 
   it('startRun resets FEN and blessedPiece on new chapter run', () => {
