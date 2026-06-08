@@ -9,6 +9,7 @@ import type { StockfishBridgeRef } from '../components/engine/StockfishBridgeVie
 import type { MoveResult } from '../engine/chessLogic';
 import {
   buildChaosFen,
+  resolveArmyAfterBattle,
   CHAOS_BATTLE_ELO,
   CHAOS_MOVE_LIMIT,
   CHAOS_GOLD,
@@ -70,7 +71,7 @@ function isKnightFork(chess: Chess, square: Square): boolean {
 
 export default function ChaosBattleScreen() {
   const router = useRouter();
-  const { currentFloor, pieces, artifacts, addGold, addScore, nextFloor } = useChaosModeStore();
+  const { currentFloor, pieces, purchasedPieces, artifacts, addGold, addScore, setPieces, savePurchasedPieces, nextFloor } = useChaosModeStore();
 
   const battleNumber = battleNumberForFloor(currentFloor);
   const safeBattleNumber: ChaosBattleNumber = battleNumber ?? 1;
@@ -94,7 +95,10 @@ export default function ChaosBattleScreen() {
   const engineRef = useRef<StockfishBridgeRef>(null);
   const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  if (battleNumber === null) { router.replace('/chaos-tower'); return null; }
+  useEffect(() => {
+    savePurchasedPieces();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => () => {
     if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
@@ -213,6 +217,8 @@ export default function ChaosBattleScreen() {
   }, [playerMoves, chess, requestAIMove, artifacts, moveLimit]);
 
   function handleContinue() {
+    // Превращённые во время боя ферзи возвращаются пешками — переходит только купленная армия
+    setPieces(resolveArmyAfterBattle(chess.fen(), purchasedPieces));
     // addScore всегда вызывается ровно раз за бой (даже с 0), чтобы floorScores[i]
     // оставался выровнен по номеру боя для разбивки на экране победы
     if (finalGoldRef.current > 0) addGold(finalGoldRef.current);
@@ -227,6 +233,9 @@ export default function ChaosBattleScreen() {
       { text: 'Выйти', style: 'destructive', onPress: () => { useChaosModeStore.getState().resetRun(); router.replace('/'); } },
     ]);
   }
+
+  // Хуки уже объявлены — теперь можно безопасно делать условный return
+  if (battleNumber === null) { router.replace('/chaos-tower'); return null; }
 
   const movesLeft = moveLimit !== null ? moveLimit - playerMoves : null;
   const boardDisabled = result !== null || isAIThinking || chess.turn() !== PLAYER_COLOR;

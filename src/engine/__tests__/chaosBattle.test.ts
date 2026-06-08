@@ -1,5 +1,5 @@
 import { Chess } from 'chess.js';
-import { buildChaosFen } from '../chaosBattle';
+import { buildChaosFen, resolveArmyAfterBattle } from '../chaosBattle';
 import type { ChessPiece } from '../../store/chaosModeStore';
 
 const STARTING_PIECES: ChessPiece[] = ['k', 'p', 'p', 'p', 'p'];
@@ -91,5 +91,36 @@ describe('buildChaosFen', () => {
       expect((board.match(/K/g) ?? []).length).toBe(1);
       expect((board.match(/k/g) ?? []).length).toBe(1);
     }
+  });
+});
+
+describe('resolveArmyAfterBattle', () => {
+  it('a pawn promoted to queen during the battle returns to the army as a pawn', () => {
+    const fen = '4k3/8/8/8/8/8/8/4K2Q w - - 0 1';
+    const purchased: ChessPiece[] = ['k', 'p'];
+    const result = resolveArmyAfterBattle(fen, purchased);
+    expect([...result].sort()).toEqual(['k', 'p']);
+  });
+
+  it('a purchased queen that survived the battle remains a queen', () => {
+    const fen = '4k3/8/8/8/8/8/8/3QK3 w - - 0 1';
+    const purchased: ChessPiece[] = ['k', 'q'];
+    const result = resolveArmyAfterBattle(fen, purchased);
+    expect([...result].sort()).toEqual(['k', 'q']);
+  });
+
+  it('a purchased queen that died in battle does not carry over', () => {
+    const fen = '4k3/8/8/8/8/8/8/4K3 w - - 0 1';
+    const purchased: ChessPiece[] = ['k', 'q'];
+    const result = resolveArmyAfterBattle(fen, purchased);
+    expect(result).not.toContain('q');
+    expect([...result].sort()).toEqual(['k']);
+  });
+
+  it('ordinary surviving pieces carry over to the next battle as-is', () => {
+    const fen = '4k3/8/8/8/8/8/8/RNB1K3 w - - 0 1';
+    const purchased: ChessPiece[] = ['k', 'r', 'n', 'b'];
+    const result = resolveArmyAfterBattle(fen, purchased);
+    expect([...result].sort()).toEqual(['b', 'k', 'n', 'r']);
   });
 });

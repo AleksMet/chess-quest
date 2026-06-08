@@ -11,6 +11,9 @@ interface ChaosState {
   // Армия игрока
   pieces: ChessPiece[];
 
+  // Снимок армии перед боем — превращённые во время боя ферзи в него не попадают
+  purchasedPieces: ChessPiece[];
+
   // Валюта
   gold: number;
 
@@ -25,6 +28,8 @@ interface ChaosState {
   // Действия
   addPiece: (piece: ChessPiece) => void;
   removePiece: (piece: ChessPiece) => void;
+  setPieces: (pieces: ChessPiece[]) => void;
+  savePurchasedPieces: () => void;
   spendGold: (amount: number) => boolean;
   addGold: (amount: number) => void;
   addArtifact: (artifact: ChaosArtifact) => void;
@@ -40,6 +45,7 @@ const STARTING_GOLD = 150;
 function initialState() {
   return {
     pieces: [...STARTING_PIECES],
+    purchasedPieces: [...STARTING_PIECES],
     gold: STARTING_GOLD,
     artifacts: [] as ChaosArtifact[],
     currentFloor: 0,
@@ -60,6 +66,10 @@ export const useChaosModeStore = create<ChaosState>((set, get) => ({
     pieces.splice(idx, 1);
     return { pieces };
   }),
+
+  setPieces: (pieces) => set({ pieces }),
+
+  savePurchasedPieces: () => set(s => ({ purchasedPieces: [...s.pieces] })),
 
   spendGold: (amount) => {
     if (get().gold < amount) return false;

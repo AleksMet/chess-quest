@@ -163,3 +163,26 @@ export function buildChaosFen(playerPieces: ChessPiece[], battleNumber: ChaosBat
     return FALLBACK_FEN;
   }
 }
+
+// Собирает армию игрока для следующего боя из итоговой позиции (Вариант В превращения):
+// ферзь, выросший из пешки во время боя, возвращается пешкой; купленный ферзь остаётся ферзём.
+// Различить их можно только по числу — лишние ферзи сверх купленных это превращённые пешки.
+export function resolveArmyAfterBattle(boardFen: string, purchasedPieces: ChessPiece[]): ChessPiece[] {
+  const chess = new Chess(boardFen);
+  const purchasedQueens = purchasedPieces.filter(p => p === 'q').length;
+
+  let queensSeen = 0;
+  const survivors: ChessPiece[] = [];
+  for (const row of chess.board()) {
+    for (const cell of row) {
+      if (!cell || cell.color !== 'w') continue;
+      if (cell.type === 'q') {
+        queensSeen += 1;
+        survivors.push(queensSeen > purchasedQueens ? 'p' : 'q');
+      } else {
+        survivors.push(cell.type);
+      }
+    }
+  }
+  return survivors;
+}
