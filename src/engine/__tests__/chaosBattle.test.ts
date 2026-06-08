@@ -1,12 +1,12 @@
 import { Chess } from 'chess.js';
-import { buildChaosFen, resolveArmyAfterBattle } from '../chaosBattle';
+import { buildChaosFen, resolveArmyAfterBattle, spawnKnightOnKingMove } from '../chaosBattle';
 import type { ChessPiece } from '../../store/chaosModeStore';
 
 const STARTING_PIECES: ChessPiece[] = ['k', 'p', 'p', 'p', 'p'];
 const FULL_ARMY: ChessPiece[] = ['k', 'q', 'r', 'r', 'b', 'b', 'n', 'n', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'];
 
 describe('buildChaosFen', () => {
-  const battles = [1, 2, 3, 'boss'] as const;
+  const battles = [1, 2, 'boss'] as const;
 
   it.each(battles)('produces a valid FEN with white to move for battle %s (starting army)', (battleNumber) => {
     const fen = buildChaosFen(STARTING_PIECES, battleNumber);
@@ -55,14 +55,6 @@ describe('buildChaosFen', () => {
     const board = fen.split(' ')[0];
     expect((board.match(/n/g) ?? []).length).toBe(2);
     expect((board.match(/b/g) ?? []).length).toBe(1);
-    expect((board.match(/r/g) ?? []).length).toBe(1);
-  });
-
-  it('battle 3 AI army matches GDD spec: king + 6 pawns + 2 knights + 2 bishops + rook', () => {
-    const fen = buildChaosFen(STARTING_PIECES, 3);
-    const board = fen.split(' ')[0];
-    expect((board.match(/n/g) ?? []).length).toBe(2);
-    expect((board.match(/b/g) ?? []).length).toBe(2);
     expect((board.match(/r/g) ?? []).length).toBe(1);
   });
 
@@ -122,5 +114,42 @@ describe('resolveArmyAfterBattle', () => {
     const purchased: ChessPiece[] = ['k', 'r', 'n', 'b'];
     const result = resolveArmyAfterBattle(fen, purchased);
     expect([...result].sort()).toEqual(['b', 'k', 'n', 'r']);
+  });
+});
+
+describe('spawnKnightOnKingMove', () => {
+  it('places a black knight on an empty square in ranks 5-8 after a black king move', () => {
+    const chess = new Chess('4k3/8/8/8/8/8/8/4K3 b - - 0 1');
+    const square = spawnKnightOnKingMove(chess, { piece: 'k', color: 'b' });
+
+    expect(square).not.toBeNull();
+    expect(square![1]).toMatch(/[5-8]/);
+    expect(chess.get(square!)).toEqual({ type: 'n', color: 'b' });
+  });
+
+  it('does nothing for moves by pieces other than the king', () => {
+    const chess = new Chess('4k3/8/8/8/8/8/8/4K3 b - - 0 1');
+    const before = chess.fen();
+    const square = spawnKnightOnKingMove(chess, { piece: 'q', color: 'b' });
+
+    expect(square).toBeNull();
+    expect(chess.fen()).toBe(before);
+  });
+
+  it('does nothing for a white king move', () => {
+    const chess = new Chess('4k3/8/8/8/8/8/8/4K3 w - - 0 1');
+    const before = chess.fen();
+    const square = spawnKnightOnKingMove(chess, { piece: 'k', color: 'w' });
+
+    expect(square).toBeNull();
+    expect(chess.fen()).toBe(before);
+  });
+
+  it('returns null when ranks 5-8 are completely full', () => {
+    const fen = 'rrrrrrrr/rrrrrrrr/rrrrrrrr/rrrrrrrr/4k3/8/8/4K3 b - - 0 1';
+    const chess = new Chess(fen);
+    const square = spawnKnightOnKingMove(chess, { piece: 'k', color: 'b' });
+
+    expect(square).toBeNull();
   });
 });

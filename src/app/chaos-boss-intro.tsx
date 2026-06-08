@@ -12,16 +12,20 @@ export default function ChaosBossIntroScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.content}>
         <Text style={styles.crown}>👑</Text>
-        <Text style={styles.title}>ФИНАЛЬНЫЙ БОЙ</Text>
+        <Text style={styles.title}>ВСАДНИК</Text>
 
-        <Text style={styles.armyLabel}>Армия Короля Хаоса</Text>
+        <Text style={styles.armyLabel}>Армия Всадника</Text>
         <Text style={styles.armyDesc}>
-          Король, 8 пешек, 2 ладьи, конь и два ферзя — один уже выдвинут на d6,
-          прямо под носом у твоей короны. Боя без лимита ходов не избежать.
+          Король, 8 пешек, 2 ладьи, конь и 2 ферзя. Каждый ход короля призывает
+          нового коня на одну из дальних горизонталей.
+        </Text>
+
+        <Text style={styles.warning}>
+          ⚠️ Берегись берсерк-ферзя! Убей его первым.
         </Text>
 
         <Text style={styles.taunt}>
-          «Ты прошёл три боя и думаешь, что готов? Здесь твою армию встретит настоящий хаос.»
+          «Мои всадники сомнут тебя волной!»
         </Text>
       </View>
 
@@ -44,7 +48,8 @@ const styles = StyleSheet.create({
   armyLabel: { color: '#fca5a5', fontSize: 15, fontWeight: '800', marginTop: 12 },
   armyDesc:  { color: '#94a3b8', fontSize: 14, textAlign: 'center', lineHeight: 21 },
 
-  taunt:   { color: '#fbbf24', fontSize: 14, fontStyle: 'italic', textAlign: 'center', marginTop: 16, lineHeight: 21 },
+  warning: { color: '#ef4444', fontSize: 14, fontWeight: '800', textAlign: 'center', marginTop: 16, lineHeight: 21 },
+  taunt:   { color: '#fbbf24', fontSize: 14, fontStyle: 'italic', textAlign: 'center', marginTop: 8, lineHeight: 21 },
 
   footer:    { paddingHorizontal: 24, paddingVertical: 20 },
   startBtn:  { backgroundColor: '#7f1d1d', borderRadius: 16, paddingVertical: 18, alignItems: 'center' },

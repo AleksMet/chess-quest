@@ -1,24 +1,8 @@
 import { useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Alert } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useChaosModeStore } from '../store/chaosModeStore';
-
-interface ChaosNodeDef {
-  icon: string;
-  label: string;
-  route: Href;
-}
-
-// Порядок узлов снизу вверх = порядок прохождения (currentFloor 0..6)
-const CHAOS_NODES: ChaosNodeDef[] = [
-  { icon: '🏪', label: 'Магазин 1', route: '/chaos-shop' },
-  { icon: '⚔️', label: 'Бой 1',     route: '/chaos-battle' },
-  { icon: '💎', label: 'Сокровище', route: '/chaos-treasure' },
-  { icon: '⚔️', label: 'Бой 2',     route: '/chaos-battle' },
-  { icon: '⚔️', label: 'Бой 3',     route: '/chaos-battle' },
-  { icon: '🏪', label: 'Магазин 2', route: '/chaos-shop' },
-  { icon: '👑', label: 'Босс',      route: '/chaos-boss-intro' },
-];
+import { CHAOS_TOWER_NODES } from '../data/chaosTowerConfig';
 
 export default function ChaosTowerScreen() {
   const router = useRouter();
@@ -26,12 +10,12 @@ export default function ChaosTowerScreen() {
 
   useEffect(() => {
     if (currentFloor === 0) router.replace('/chaos-shop');
-    else if (currentFloor >= CHAOS_NODES.length) router.replace('/chaos-victory');
+    else if (currentFloor >= CHAOS_TOWER_NODES.length) router.replace('/chaos-victory');
   }, [currentFloor]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (currentFloor === 0 || currentFloor >= CHAOS_NODES.length) return null;
+  if (currentFloor === 0 || currentFloor >= CHAOS_TOWER_NODES.length) return null;
 
-  const current = CHAOS_NODES[currentFloor];
+  const current = CHAOS_TOWER_NODES[currentFloor];
 
   function handleForward() {
     router.push(current.route);
@@ -45,7 +29,7 @@ export default function ChaosTowerScreen() {
   }
 
   // Отображаем сверху вниз: Босс наверху, Магазин 1 внизу — как в спецификации
-  const displayNodes = CHAOS_NODES
+  const displayNodes = CHAOS_TOWER_NODES
     .map((node, index) => ({ ...node, index }))
     .reverse();
 
@@ -80,7 +64,7 @@ export default function ChaosTowerScreen() {
                 <Text style={styles.nodeIcon}>{isDone ? '✅' : icon}</Text>
                 <Text style={[styles.nodeLabel, isCurrent && styles.nodeLabelCurrent]}>{label}</Text>
               </View>
-              {index < CHAOS_NODES.length - 1 && <View style={styles.connector} />}
+              {index < CHAOS_TOWER_NODES.length - 1 && <View style={styles.connector} />}
             </View>
           );
         })}

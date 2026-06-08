@@ -1,14 +1,13 @@
 import { Chess } from 'chess.js';
-import type { PieceSymbol } from 'chess.js';
+import type { PieceSymbol, Square } from 'chess.js';
 import type { ChessPiece } from '../store/chaosModeStore';
 
 // Режим «ХАОС»: бои собранной игроком армией против фиксированных составов ИИ
-export type ChaosBattleNumber = 1 | 2 | 3 | 'boss';
+export type ChaosBattleNumber = 1 | 2 | 'boss';
 
 export const CHAOS_BATTLE_ELO: Record<ChaosBattleNumber, number> = {
   1: 800,
   2: 1000,
-  3: 1100,
   boss: 1400,
 };
 
@@ -63,6 +62,12 @@ function countPieces(pieces: ChessPiece[]): Record<PieceSymbol, number> {
   return counts;
 }
 
+// Стартовые клетки армии игрока (белые) — общие константы для расстановки и для
+// отслеживания позиций улучшенных фигур (см. pieceStartingSquare)
+const ROOK_SQUARES: Square[] = ['a1', 'h1'];
+const BISHOP_SQUARES: Square[] = ['c1', 'f1'];
+const KNIGHT_SQUARES: Square[] = ['b1', 'g1'];
+
 // Расставляет армию игрока (белые) на стандартные клетки:
 // Король → e1, Ферзь → d1, Ладьи → a1/h1, Слоны → c1/f1, Кони → b1/g1,
 // Пешки → a2, b2, c2... слева направо
@@ -73,18 +78,26 @@ function buildPlayerBoard(pieces: ChessPiece[]): Board {
   place(board, 'e1', 'K');
   if (counts.q > 0) place(board, 'd1', 'Q');
 
-  const rookSquares = ['a1', 'h1'];
-  for (let i = 0; i < Math.min(counts.r, rookSquares.length); i++) place(board, rookSquares[i], 'R');
-
-  const bishopSquares = ['c1', 'f1'];
-  for (let i = 0; i < Math.min(counts.b, bishopSquares.length); i++) place(board, bishopSquares[i], 'B');
-
-  const knightSquares = ['b1', 'g1'];
-  for (let i = 0; i < Math.min(counts.n, knightSquares.length); i++) place(board, knightSquares[i], 'N');
-
+  for (let i = 0; i < Math.min(counts.r, ROOK_SQUARES.length); i++) place(board, ROOK_SQUARES[i], 'R');
+  for (let i = 0; i < Math.min(counts.b, BISHOP_SQUARES.length); i++) place(board, BISHOP_SQUARES[i], 'B');
+  for (let i = 0; i < Math.min(counts.n, KNIGHT_SQUARES.length); i++) place(board, KNIGHT_SQUARES[i], 'N');
   for (let i = 0; i < Math.min(counts.p, 8); i++) place(board, `${FILES[i]}2`, 'P');
 
   return board;
+}
+
+// Стартовая клетка конкретного экземпляра фигуры в армии игрока — мирроит расстановку
+// buildPlayerBoard, чтобы отслеживать положение улучшенных фигур на доске (chaos-battle)
+export function pieceStartingSquare(pieceType: PieceSymbol, pieceIndex: number): Square | null {
+  switch (pieceType) {
+    case 'k': return pieceIndex === 0 ? 'e1' : null;
+    case 'q': return pieceIndex === 0 ? 'd1' : null;
+    case 'r': return ROOK_SQUARES[pieceIndex] ?? null;
+    case 'b': return BISHOP_SQUARES[pieceIndex] ?? null;
+    case 'n': return KNIGHT_SQUARES[pieceIndex] ?? null;
+    case 'p': return pieceIndex < 8 ? (`${FILES[pieceIndex]}2` as Square) : null;
+    default: return null;
+  }
 }
 
 // Составы ИИ по номеру боя — фиксированные клетки, как в GDD раздел 22
@@ -106,15 +119,6 @@ function buildAiBoard(battleNumber: ChaosBattleNumber): Board {
       place(board, 'b8', 'n');
       place(board, 'g8', 'n');
       place(board, 'c8', 'b');
-      place(board, 'a8', 'r');
-      break;
-    case 3:
-      place(board, 'e8', 'k');
-      sixPawnFiles.forEach(f => place(board, `${f}7`, 'p'));
-      place(board, 'b8', 'n');
-      place(board, 'g8', 'n');
-      place(board, 'c8', 'b');
-      place(board, 'f8', 'b');
       place(board, 'a8', 'r');
       break;
     case 'boss':
@@ -176,4 +180,98 @@ export function resolveArmyAfterBattle(boardFen: string, purchasedPieces: ChessP
     }
   }
   return survivors;
+}
+
+// ===== ИИ босса «Всадник» — особые механики фигур (см. GDD раздел 22) =====
+
+export interface BossMoveCandidate {
+  from: Square;
+  to: Square;
+  promotion?: PieceSymbol;
+}
+
+const PIECE_VALUES: Record<PieceSymbol, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+
+export function findPieceSquare(chess: Chess, type: PieceSymbol, color: 'w' | 'b'): Square | null {
+  for (const row of chess.board()) {
+    for (const cell of row) {
+      if (cell && cell.type === type && cell.color === color) return cell.square;
+    }
+  }
+  return null;
+}
+
+export function findAllPieceSquares(chess: Chess, type: PieceSymbol, color: 'w' | 'b'): Square[] {
+  const squares: Square[] = [];
+  for (const row of chess.board()) {
+    for (const cell of row) {
+      if (cell && cell.type === type && cell.color === color) squares.push(cell.square);
+    }
+  }
+  return squares;
+}
+
+// Расстояние Чебышёва между клетками — «в скольких ходах короля» одна клетка от другой
+function squareDistance(a: Square, b: Square): number {
+  const fileDiff = Math.abs(a.charCodeAt(0) - b.charCodeAt(0));
+  const rankDiff = Math.abs(parseInt(a[1], 10) - parseInt(b[1], 10));
+  return Math.max(fileDiff, rankDiff);
+}
+
+// Ферзь-Берсерк: если у чёрных есть взятие ферзём — форсируем его (даже если Stockfish
+// выбрал другой ход), отдавая предпочтение более ценной добыче. Если Stockfish и так
+// выбрал взятие ферзём — оставляем его выбор как есть.
+export function getBerserkQueenMove(chess: Chess, stockfishMove: BossMoveCandidate): BossMoveCandidate {
+  const queenCaptures = chess.moves({ verbose: true }).filter(m => m.piece === 'q' && m.captured);
+  if (queenCaptures.length === 0) return stockfishMove;
+
+  const stockfishIsQueenCapture = queenCaptures.some(m => m.from === stockfishMove.from && m.to === stockfishMove.to);
+  if (stockfishIsQueenCapture) return stockfishMove;
+
+  const best = queenCaptures.reduce((a, b) => (PIECE_VALUES[b.captured as PieceSymbol] > PIECE_VALUES[a.captured as PieceSymbol] ? b : a));
+  return { from: best.from as Square, to: best.to as Square, promotion: best.promotion as PieceSymbol | undefined };
+}
+
+// Ладья-Страж: чёрная ладья, стоящая ближе всех к своему королю, не уходит дальше
+// 3 клеток от него. Если ход Stockfish уводит её дальше — ищем среди её ходов любой,
+// что удерживает её в радиусе; не находим — оставляем выбор Stockfish.
+export function getGuardRookMove(chess: Chess, stockfishMove: BossMoveCandidate): BossMoveCandidate {
+  const kingSquare = findPieceSquare(chess, 'k', 'b');
+  if (!kingSquare) return stockfishMove;
+
+  const rookSquares = findAllPieceSquares(chess, 'r', 'b');
+  if (rookSquares.length === 0) return stockfishMove;
+  const guardRook = rookSquares.reduce((a, b) => (squareDistance(b, kingSquare) < squareDistance(a, kingSquare) ? b : a));
+
+  if (stockfishMove.from !== guardRook || squareDistance(stockfishMove.to, kingSquare) <= 3) {
+    return stockfishMove;
+  }
+
+  const rookMoves = chess.moves({ square: guardRook, verbose: true });
+  const safeMove = rookMoves.find(m => squareDistance(m.to as Square, kingSquare) <= 3);
+  return safeMove
+    ? { from: safeMove.from as Square, to: safeMove.to as Square, promotion: safeMove.promotion as PieceSymbol | undefined }
+    : stockfishMove;
+}
+
+const SPAWN_RANKS = [5, 6, 7, 8];
+
+// Король-Всадник: после каждого хода своим королём ставит чёрного коня на случайную
+// свободную клетку рядов 5-8 (см. GDD раздел 22). Возвращает клетку спавна или null,
+// если ход не королём либо свободных клеток в этой зоне не осталось.
+export function spawnKnightOnKingMove(chess: Chess, move: { piece: PieceSymbol; color: 'w' | 'b' }): Square | null {
+  if (move.piece !== 'k' || move.color !== 'b') return null;
+
+  const emptySquares: Square[] = [];
+  for (const rank of SPAWN_RANKS) {
+    for (const file of FILES) {
+      const square = `${file}${rank}` as Square;
+      if (!chess.get(square)) emptySquares.push(square);
+    }
+  }
+  if (emptySquares.length === 0) return null;
+
+  const square = emptySquares[Math.floor(Math.random() * emptySquares.length)];
+  chess.put({ type: 'n', color: 'b' }, square);
+  return square;
 }

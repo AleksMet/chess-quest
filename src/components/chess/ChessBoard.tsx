@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { Animated, View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Chess } from 'chess.js';
 import type { Square, Color } from 'chess.js';
 import { getLegalMovesFrom, attemptMove } from '../../engine/chessLogic';
@@ -12,6 +12,12 @@ const BOARD_SIZE = Math.min(Dimensions.get('window').width, Dimensions.get('wind
 const CELL_SIZE = BOARD_SIZE / 8;
 const PIECE_SIZE = CELL_SIZE * 0.88;
 
+interface UpgradeHighlight {
+  square: Square;
+  color: 'red' | 'blue' | 'gold';
+  opacity: number;
+}
+
 interface ChessBoardProps {
   chess: Chess;
   playerColor?: Color;
@@ -19,7 +25,17 @@ interface ChessBoardProps {
   disabled?: boolean;
   highlightSquare?: string;           // hint square, pulsed amber
   opponentLastMove?: { from: string; to: string } | null;  // opponent move overlay
+  upgradeHighlights?: UpgradeHighlight[]; // улучшенные фигуры режима ХАОС — подсветка клетки под фигурой
+  spawnedSquare?: Square | null;      // клетка только что заспавненной фигуры — анимация появления opacity 0→1
 }
+
+const UPGRADE_HIGHLIGHT_COLOR: Record<UpgradeHighlight['color'], string> = {
+  red:  '#FF4444',
+  blue: '#4444FF',
+  gold: '#FFD700',
+};
+
+const SPAWN_FADE_IN_MS = 500;
 
 interface PieceViewProps {
   pieceKey: PieceKey;
@@ -33,7 +49,22 @@ function PieceView({ pieceKey }: PieceViewProps) {
   );
 }
 
-export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false, highlightSquare, opponentLastMove }: ChessBoardProps) {
+// Только что заспавненная фигура (конь короля-босса) — плавно проявляется opacity 0→1
+function SpawnedPieceView({ pieceKey }: PieceViewProps) {
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(opacity, { toValue: 1, duration: SPAWN_FADE_IN_MS, useNativeDriver: true }).start();
+  }, [opacity]);
+
+  return (
+    <Animated.View style={[styles.pieceContainer, { opacity }]}>
+      <ChessPieceSVG pieceKey={pieceKey} size={PIECE_SIZE} />
+    </Animated.View>
+  );
+}
+
+export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false, highlightSquare, opponentLastMove, upgradeHighlights, spawnedSquare }: ChessBoardProps) {
   const { theme } = useChapterTheme();
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalTargets, setLegalTargets] = useState<Square[]>([]);
@@ -104,6 +135,7 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
             const isHintSquare = square === highlightSquare;
             const isJustMoved = square === lastMove?.to;
             const isOpponentLastMove = opponentLastMove?.from === square || opponentLastMove?.to === square;
+            const upgradeHighlight = upgradeHighlights?.find(h => h.square === square);
 
             const pieceKey = cell
               ? (`${cell.color}${cell.type.toUpperCase()}` as PieceKey)
@@ -130,6 +162,15 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
                 {isOpponentLastMove && (
                   <View style={styles.opponentMoveOverlay} />
                 )}
+                {upgradeHighlight && (
+                  <View
+                    style={[
+                      styles.upgradeOverlay,
+                      { backgroundColor: UPGRADE_HIGHLIGHT_COLOR[upgradeHighlight.color], opacity: upgradeHighlight.opacity },
+                    ]}
+                    testID={`upgrade-highlight-${square}`}
+                  />
+                )}
                 {isLegalTarget && (
                   <View
                     style={[
@@ -141,10 +182,9 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
                   />
                 )}
                 {pieceKey && (
-                  <PieceView
-                    key={isJustMoved ? `${square}-moved` : square}
-                    pieceKey={pieceKey}
-                  />
+                  square === spawnedSquare
+                    ? <SpawnedPieceView key={`${square}-spawned`} pieceKey={pieceKey} />
+                    : <PieceView key={isJustMoved ? `${square}-moved` : square} pieceKey={pieceKey} />
                 )}
               </TouchableOpacity>
             );
@@ -175,6 +215,10 @@ const styles = StyleSheet.create({
     top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: '#FFD700',
     opacity: 0.4,
+  },
+  upgradeOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
   },
   legalDot: {
     position: 'absolute',

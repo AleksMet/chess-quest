@@ -2,9 +2,9 @@ import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable } from 'rea
 import { useRouter } from 'expo-router';
 import { useChaosModeStore } from '../store/chaosModeStore';
 
-const BATTLE_LABELS = ['Бой 1', 'Бой 2', 'Бой 3', 'Финальный бой'];
+const BATTLE_LABELS = ['Бой 1', 'Бой 2', 'Финальный бой'];
 
-// Шкала звёзд для ХАОСа подобрана под масштаб золота за забег (до 4 боёв за прохождение)
+// Шкала звёзд для ХАОСа подобрана под масштаб золота за забег (до 3 боёв за прохождение)
 function calcChaosStars(totalScore: number): 1 | 2 | 3 {
   if (totalScore >= 700) return 3;
   if (totalScore >= 350) return 2;
