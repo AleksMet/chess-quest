@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, SafeAreaView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 // TODO: классический режим — временно отключён (заменён режимом ХАОС)
 // import { useRunStore } from '../store/runStore';
+// import { HEROES } from '../data/heroes';
+// import type { Hero, HeroId } from '../types';
 import { useMetaStore } from '../store/metaStore';
-import { HEROES } from '../data/heroes';
 import { CHAPTER_NAMES } from '../components/map/AdventureMap';
 import { useChapterTheme } from '../contexts/ChapterThemeContext';
-import type { Hero, HeroId } from '../types';
 
 const CHAPTER_ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 
@@ -17,7 +17,8 @@ export default function MainMenuScreen() {
   // TODO: классический режим — временно отключён (заменён режимом ХАОС)
   // const startRun = useRunStore(s => s.startRun);
   const { isLoaded, loadMeta, meta } = useMetaStore();
-  const [selectedHeroId, setSelectedHeroId] = useState<HeroId>('timmy_pawn');
+  // TODO: классический режим — временно отключён (заменён режимом ХАОС)
+  // const [selectedHeroId, setSelectedHeroId] = useState<HeroId>('timmy_pawn');
   const [selectedChapter, setSelectedChapter] = useState(0);
 
   useEffect(() => {
@@ -28,7 +29,8 @@ export default function MainMenuScreen() {
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const selectedHero = HEROES.find(h => h.id === selectedHeroId) ?? HEROES[0];
+  // TODO: классический режим — временно отключён (заменён режимом ХАОС)
+  // const selectedHero = HEROES.find(h => h.id === selectedHeroId) ?? HEROES[0];
   const unlockedChapters = meta.chapters.filter(c => c.unlocked);
 
   // TODO: классический режим — временно отключён (заменён режимом ХАОС)
@@ -95,7 +97,7 @@ export default function MainMenuScreen() {
         </View>
       )}
 
-      {/* Hero section */}
+      {/* TODO: классический режим — временно отключён (заменён режимом ХАОС)
       <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>— Выбери героя —</Text>
       <ScrollView
         horizontal
@@ -116,7 +118,6 @@ export default function MainMenuScreen() {
         ))}
       </ScrollView>
 
-      {/* Hero detail */}
       {selectedHero && (
         <View
           style={[
@@ -139,6 +140,7 @@ export default function MainMenuScreen() {
           </Text>
         </View>
       )}
+      */}
 
       {/* Start button */}
       <TouchableOpacity
@@ -161,39 +163,40 @@ export default function MainMenuScreen() {
   );
 }
 
-interface HeroCardProps {
-  hero: Hero;
-  selected: boolean;
-  accent: string;
-  surface: string;
-  surfaceRaised: string;
-  onPress: () => void;
-}
-
-function HeroCard({ hero, selected, accent, surface, surfaceRaised, onPress }: HeroCardProps) {
-  return (
-    <TouchableOpacity
-      style={[
-        styles.heroCard,
-        {
-          backgroundColor: selected ? surfaceRaised : surface,
-          borderColor: selected ? accent : surface,
-          shadowColor: selected ? accent : 'transparent',
-        },
-      ]}
-      onPress={onPress}
-      disabled={!hero.unlocked}
-      testID={`hero-${hero.id}`}
-      activeOpacity={0.8}
-    >
-      <Text style={[styles.heroCardName, { color: selected ? accent : '#c8d8c8' }]}>
-        {hero.name}
-      </Text>
-      {!hero.unlocked && <Text style={styles.heroCardLock}>🔒</Text>}
-      {selected && <View style={[styles.heroCardDot, { backgroundColor: accent }]} />}
-    </TouchableOpacity>
-  );
-}
+// TODO: классический режим — временно отключён (заменён режимом ХАОС)
+// interface HeroCardProps {
+//   hero: Hero;
+//   selected: boolean;
+//   accent: string;
+//   surface: string;
+//   surfaceRaised: string;
+//   onPress: () => void;
+// }
+//
+// function HeroCard({ hero, selected, accent, surface, surfaceRaised, onPress }: HeroCardProps) {
+//   return (
+//     <TouchableOpacity
+//       style={[
+//         styles.heroCard,
+//         {
+//           backgroundColor: selected ? surfaceRaised : surface,
+//           borderColor: selected ? accent : surface,
+//           shadowColor: selected ? accent : 'transparent',
+//         },
+//       ]}
+//       onPress={onPress}
+//       disabled={!hero.unlocked}
+//       testID={`hero-${hero.id}`}
+//       activeOpacity={0.8}
+//     >
+//       <Text style={[styles.heroCardName, { color: selected ? accent : '#c8d8c8' }]}>
+//         {hero.name}
+//       </Text>
+//       {!hero.unlocked && <Text style={styles.heroCardLock}>🔒</Text>}
+//       {selected && <View style={[styles.heroCardDot, { backgroundColor: accent }]} />}
+//     </TouchableOpacity>
+//   );
+// }
 
 const styles = StyleSheet.create({
   safe: {
