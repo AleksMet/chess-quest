@@ -19,7 +19,7 @@ export default function ChaosVictoryScreen() {
 
   function handleNewRun() {
     resetRun();
-    router.replace('/chaos-tower');
+    router.replace('/chaos-character-select');
   }
 
   return (

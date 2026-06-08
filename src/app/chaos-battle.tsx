@@ -172,6 +172,11 @@ export default function ChaosBattleScreen() {
   const upgradeStateRef = useRef<Map<string, UpgradeRuntimeState>>(new Map());
   // Серия взятий подряд Берсерком — ключ: id улучшения, значение: длина текущей серии
   const berserkStreakRef = useRef<Record<string, number>>({});
+  // Страж: клетка фигуры на конец предыдущего хода и счётчик ходов БЕЗ движения — ключ: id улучшения.
+  // Сравниваем текущую клетку с записанной, чтобы отличить «осталась на месте» от «вернулась туда же» —
+  // в обоих случаях клетка совпадает, считаем это «не двигалась» (ровно по спецификации Стража).
+  const guardPositionsRef = useRef<Record<string, Square>>({});
+  const guardTurnsRef = useRef<Record<string, number>>({});
   const goldToastIdRef = useRef(0);
 
   // Показывает золотой попап в правом верхнем углу — стекается с предыдущими, исчезает через 1.5с
@@ -211,15 +216,20 @@ export default function ChaosBattleScreen() {
   // порядку фигур этого типа в массиве армии (см. buildPlayerBoard / pieceStartingSquare)
   useEffect(() => {
     const map = new Map<string, UpgradeRuntimeState>();
+    const guardPositions: Record<string, Square> = {};
     for (const upgrade of pieceUpgrades) {
+      const square = pieceStartingSquare(upgrade.pieceType, upgrade.pieceIndex);
       map.set(upgrade.id, {
-        square: pieceStartingSquare(upgrade.pieceType, upgrade.pieceIndex),
+        square,
         turnsOnPosition: 0,
         turnsAlive: 0,
       });
+      if (upgrade.upgradeType === 'guard' && square) guardPositions[upgrade.id] = square;
     }
     upgradeStateRef.current = map;
     berserkStreakRef.current = {};
+    guardPositionsRef.current = guardPositions;
+    guardTurnsRef.current = {};
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -276,13 +286,25 @@ export default function ChaosBattleScreen() {
     }
   }
 
-  // Страж: награда за каждые 5 ходов выживания — считается по turnsAlive ПОСЛЕ инкремента
+  // Страж: награда за каждые guardTriggerTurns ходов БЕЗ движения фигуры (не за выживание!).
+  // Сравниваем клетку с записанной на конце предыдущего хода: сдвинулась — счётчик в 0,
+  // осталась на месте — +1; при достижении кратного guardTriggerTurns начисляем золото.
   function checkGuardBonus() {
     for (const upgrade of pieceUpgrades) {
       if (upgrade.upgradeType !== 'guard') continue;
       const state = upgradeStateRef.current.get(upgrade.id);
-      if (!state || state.square === null) continue;
-      const bonus = guardSurvivalBonus(state.turnsAlive, guardTriggerTurns);
+      if (!state?.square) continue;
+
+      const prevSquare = guardPositionsRef.current[upgrade.id];
+      guardPositionsRef.current[upgrade.id] = state.square;
+      if (prevSquare !== state.square) {
+        guardTurnsRef.current[upgrade.id] = 0;
+        continue;
+      }
+
+      const turns = (guardTurnsRef.current[upgrade.id] ?? 0) + 1;
+      guardTurnsRef.current[upgrade.id] = turns;
+      const bonus = guardSurvivalBonus(turns, guardTriggerTurns);
       if (bonus > 0) {
         goldRef.current += bonus;
         pushGoldToast(`+${bonus} золота — Страж`);
@@ -304,16 +326,18 @@ export default function ChaosBattleScreen() {
 
   // Подсветка клеток улучшенных фигур игрока:
   // Берсерк/Снайпер/Провокатор — красная, фиксированная opacity 0.35;
-  // Страж — синяя, цикличная по turnsAlive % 5 (нарастает к награде на 5-м ходу);
+  // Страж — синяя, цикличная по числу ходов БЕЗ движения (нарастает к награде на guardTriggerTurns-м ходу);
   // Засада — синяя, по числу ходов на месте (0/1/2+ → 0.10/0.20/0.40, «готова к удару»).
   // Пересчитывается на каждый ход (boardKey).
   const upgradeHighlights = pieceUpgrades.reduce<{ square: Square; color: 'red' | 'blue' | 'gold'; opacity: number }[]>((acc, upgrade) => {
     const state = upgradeStateRef.current.get(upgrade.id);
     if (!state?.square) return acc;
     switch (upgrade.upgradeType) {
-      case 'guard':
-        acc.push({ square: state.square, color: 'blue', opacity: GUARD_HIGHLIGHT_OPACITY[state.turnsAlive % GUARD_HIGHLIGHT_OPACITY.length] });
+      case 'guard': {
+        const guardTurns = guardTurnsRef.current[upgrade.id] ?? 0;
+        acc.push({ square: state.square, color: 'blue', opacity: GUARD_HIGHLIGHT_OPACITY[guardTurns % GUARD_HIGHLIGHT_OPACITY.length] });
         break;
+      }
       case 'ambush':
         acc.push({ square: state.square, color: 'blue', opacity: AMBUSH_HIGHLIGHT_OPACITY[Math.min(state.turnsOnPosition, AMBUSH_HIGHLIGHT_OPACITY.length - 1)] });
         break;
@@ -354,8 +378,9 @@ export default function ChaosBattleScreen() {
       const streak = berserkStreakRef.current[upgrade.id] ?? 0;
       if (streak > 0) suffix = ` (серия: ${streak})`;
     } else if (upgrade.upgradeType === 'guard') {
-      const step = state.turnsAlive % guardTriggerTurns;
-      suffix = ` (ход ${step === 0 && state.turnsAlive > 0 ? guardTriggerTurns : step}/${guardTriggerTurns})`;
+      const guardTurns = guardTurnsRef.current[upgrade.id] ?? 0;
+      const step = guardTurns % guardTriggerTurns;
+      suffix = ` (без движения: ${step === 0 && guardTurns > 0 ? guardTriggerTurns : step}/${guardTriggerTurns})`;
     } else if (upgrade.upgradeType === 'ambush') {
       suffix = ` (на месте: ${state.turnsOnPosition} ${turnsWord(state.turnsOnPosition)})`;
     }
@@ -509,7 +534,7 @@ export default function ChaosBattleScreen() {
       checkBerserkStreak(move);
       trackUpgradeMove(move.from as Square, move.to as Square);
       tickUpgradeCounters();
-      // Страж: считается по turnsAlive ПОСЛЕ инкремента (этот ход уже засчитан как «выживание»)
+      // Страж: сравниваем клетку ПОСЛЕ обновления позиций — этот ход уже отражён в state.square
       checkGuardBonus();
     }
     setGoldDisplay(goldRef.current);
