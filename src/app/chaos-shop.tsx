@@ -80,7 +80,7 @@ export default function ChaosShopScreen() {
   const router = useRouter();
   const {
     currentFloor, pieces, gold, spendGold, addPiece, nextFloor,
-    pieceUpgrades, addUpgrade, canAddUpgrade,
+    pieceUpgrades, addUpgrade, canAddUpgrade, getPieceUpgradeClass,
   } = useChaosModeStore();
 
   const [tab, setTab] = useState<ShopTab>('pieces');
@@ -102,11 +102,19 @@ export default function ChaosShopScreen() {
     setSelectedUpgrade(prev => (prev === type ? null : type));
   }
 
+  // На фигуру можно вешать улучшения только одного класса — атакующие и защитные несовместимы
+  function isClassLocked(instance: UpgradableInstance, type: UpgradeType): boolean {
+    const lockedClass = getPieceUpgradeClass(instance.id);
+    if (!lockedClass) return false;
+    const def = UPGRADE_DEFINITIONS.find(d => d.type === type);
+    return !!def && def.category !== lockedClass;
+  }
+
   function handleApplyUpgrade(instance: UpgradableInstance) {
     if (!selectedUpgrade) return;
     const def = UPGRADE_DEFINITIONS.find(d => d.type === selectedUpgrade);
     if (!def) return;
-    if (!canAddUpgrade(instance.id) || gold < def.price) return;
+    if (!canAddUpgrade(instance.id) || isClassLocked(instance, selectedUpgrade) || gold < def.price) return;
     if (!spendGold(def.price)) return;
     addUpgrade({
       id: `${instance.id}_${def.type}_${pieceUpgrades.length}`,
@@ -247,18 +255,22 @@ export default function ChaosShopScreen() {
               ) : (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.targetRow}>
                   {upgradableInstances.map(instance => {
-                    const locked = !canAddUpgrade(instance.id);
+                    const atLimit = !canAddUpgrade(instance.id);
+                    const classLocked = isClassLocked(instance, selectedUpgrade);
+                    const locked = atLimit || classLocked;
                     return (
                       <Pressable
                         key={instance.id}
-                        style={[styles.targetChip, locked && styles.cardLocked]}
+                        style={[styles.targetChip, atLimit && styles.cardLocked, classLocked && styles.classLockedChip]}
                         onPress={() => handleApplyUpgrade(instance)}
                         disabled={locked}
                         testID={`chaos-shop-upgrade-target-${instance.id}`}
                       >
                         <ChessPieceSVG pieceKey={instance.pieceKey} size={26} />
                         <Text style={styles.targetLabel}>{instance.label}</Text>
-                        {locked && <Text style={styles.targetLockedLabel}>Максимум улучшений</Text>}
+                        {classLocked
+                          ? <Text style={styles.targetLockedLabel}>Только один класс</Text>
+                          : atLimit && <Text style={styles.targetLockedLabel}>Максимум улучшений</Text>}
                       </Pressable>
                     );
                   })}
@@ -321,6 +333,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10,
   },
   cardLocked: { opacity: 0.5 },
+  classLockedChip: { opacity: 0.4 },
   cardIcon:   { width: 48, alignItems: 'center', justifyContent: 'center' },
   cardInfo:   { flex: 1 },
   cardName:   { color: '#f1f5f9', fontSize: 16, fontWeight: '700' },

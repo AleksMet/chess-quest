@@ -69,6 +69,11 @@ function turnsWord(n: number): string {
   return 'ходов';
 }
 
+// Счётчик призывов коней боссом «Всадник» — отображается под заголовком финального боя
+function knightSpawnCounterText(spawnsLeft: number): string {
+  return spawnsLeft > 0 ? `⚔️ Призывов осталось: ${spawnsLeft}` : '⚔️ Кони закончились';
+}
+
 // Текст попапа за серию взятий Берсерка — золото берётся из berserkStreakBonus,
 // число огоньков растёт до серии 4 и дальше не увеличивается (серия 4+ → 🔥🔥🔥)
 function berserkStreakPopupText(streak: number, bonus: number): string {
@@ -131,7 +136,10 @@ function isKnightFork(chess: Chess, square: Square): boolean {
 
 export default function ChaosBattleScreen() {
   const router = useRouter();
-  const { currentFloor, pieces, purchasedPieces, pieceUpgrades, artifacts, addGold, addScore, setPieces, savePurchasedPieces, nextFloor } = useChaosModeStore();
+  const {
+    currentFloor, pieces, purchasedPieces, pieceUpgrades, artifacts, addGold, addScore, setPieces, savePurchasedPieces, nextFloor,
+    bossKnightSpawnsLeft, setBossKnightSpawnsLeft,
+  } = useChaosModeStore();
 
   const battleNumber = battleNumberForFloor(currentFloor);
   const safeBattleNumber: ChaosBattleNumber = battleNumber ?? 1;
@@ -151,6 +159,8 @@ export default function ChaosBattleScreen() {
   const [goldDisplay, setGoldDisplay] = useState(0);
   const [spawnedSquare, setSpawnedSquare] = useState<Square | null>(null);
   const [goldToasts, setGoldToasts] = useState<GoldToastItem[]>([]);
+  // Баннер «Кони закончились!» — показывается на 1с, когда счётчик призывов босса достигает 0
+  const [showKnightsOutBanner, setShowKnightsOutBanner] = useState(false);
   const goldRef = useRef(0);
   const finalGoldRef = useRef(0);
   const engineRef = useRef<StockfishBridgeRef>(null);
@@ -176,6 +186,13 @@ export default function ChaosBattleScreen() {
     const timer = setTimeout(() => setSpawnedSquare(null), 600);
     return () => clearTimeout(timer);
   }, [spawnedSquare]);
+
+  // Баннер «Кони закончились!» показываем 1 секунду, затем прячем
+  useEffect(() => {
+    if (!showKnightsOutBanner) return;
+    const timer = setTimeout(() => setShowKnightsOutBanner(false), 1000);
+    return () => clearTimeout(timer);
+  }, [showKnightsOutBanner]);
 
   useEffect(() => {
     savePurchasedPieces();
@@ -399,10 +416,16 @@ export default function ChaosBattleScreen() {
         setGoldDisplay(goldRef.current);
       }
       // Босс «Всадник»: каждый ход королём — новый конь на случайной клетке рядов 5-8,
-      // появляется с плавным проявлением (анимация в ChessBoard через spawnedSquare)
-      if (safeBattleNumber === 'boss') {
+      // появляется с плавным проявлением (анимация в ChessBoard через spawnedSquare).
+      // Лимит призывов — bossKnightSpawnsLeft, проверяем ДО мутации доски в spawnKnightOnKingMove
+      if (safeBattleNumber === 'boss' && bossKnightSpawnsLeft > 0) {
         const spawnSquare = spawnKnightOnKingMove(chess, move);
-        if (spawnSquare) setSpawnedSquare(spawnSquare);
+        if (spawnSquare) {
+          setSpawnedSquare(spawnSquare);
+          const remaining = bossKnightSpawnsLeft - 1;
+          setBossKnightSpawnsLeft(remaining);
+          if (remaining === 0) setShowKnightsOutBanner(true);
+        }
       }
       setOpponentLastMove({ from, to });
       setBoardKey(k => k + 1);
@@ -524,7 +547,12 @@ export default function ChaosBattleScreen() {
       <StockfishBridgeView ref={engineRef} onMessage={handleEngineMessage} onReady={handleEngineReady} />
 
       <View style={styles.header}>
-        <Text style={styles.title}>{BATTLE_TITLES[safeBattleNumber]}</Text>
+        <View style={styles.titleBlock}>
+          <Text style={styles.title}>{BATTLE_TITLES[safeBattleNumber]}</Text>
+          {safeBattleNumber === 'boss' && (
+            <Text style={styles.knightCounter}>{knightSpawnCounterText(bossKnightSpawnsLeft)}</Text>
+          )}
+        </View>
         <Pressable style={styles.exitBtn} onPress={handleExit} testID="chaos-battle-exit-btn">
           <Text style={styles.exitBtnText}>Выход</Text>
         </Pressable>
@@ -546,6 +574,11 @@ export default function ChaosBattleScreen() {
           forcedMoves={berserkForce?.forcedMoves}
         />
         <ChaosGoldToastStack items={goldToasts} onExpire={removeGoldToast} />
+        {showKnightsOutBanner && (
+          <View style={styles.knightsOutBanner} pointerEvents="none">
+            <Text style={styles.knightsOutBannerText}>Кони закончились!</Text>
+          </View>
+        )}
       </View>
 
       {pieceUpgrades.length > 0 && (
@@ -584,12 +617,20 @@ export default function ChaosBattleScreen() {
 const styles = StyleSheet.create({
   safe:            { flex: 1, backgroundColor: '#0d1117' },
   header:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
-  title:           { flex: 1, color: '#f1f5f9', fontSize: 18, fontWeight: '700' },
+  titleBlock:      { flex: 1 },
+  title:           { color: '#f1f5f9', fontSize: 18, fontWeight: '700' },
+  knightCounter:   { color: '#FF4444', fontSize: 12, fontWeight: '700', marginTop: 2 },
   exitBtn:         { backgroundColor: '#7f1d1d', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
   exitBtnText:     { color: '#fca5a5', fontSize: 13, fontWeight: '600' },
   goldBadge:       { color: '#f59e0b', fontSize: 15, fontWeight: '700' },
   thinking:        { fontSize: 20 },
   boardWrap:       { flex: 1 },
+  knightsOutBanner: {
+    position: 'absolute', top: 60, left: 16, right: 16,
+    backgroundColor: '#FF4444', borderRadius: 12,
+    paddingVertical: 10, alignItems: 'center', zIndex: 50,
+  },
+  knightsOutBannerText: { color: '#fff', fontSize: 16, fontWeight: '800' },
   upgradePanel:    { height: 92, paddingHorizontal: 16, paddingVertical: 6, justifyContent: 'flex-start' },
   upgradePanelLine:{ color: '#94a3b8', fontSize: 11, lineHeight: 15 },
   footer:          { paddingHorizontal: 16, paddingVertical: 8 },

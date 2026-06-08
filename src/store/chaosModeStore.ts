@@ -34,6 +34,9 @@ interface ChaosState {
   totalScore: number;
   floorScores: number[];
 
+  // Сколько раз босс «Всадник» ещё может заспавнить коня (стартует с 5, обнуляется до конца боя)
+  bossKnightSpawnsLeft: number;
+
   // Действия
   addPiece: (piece: ChessPiece) => void;
   removePiece: (piece: ChessPiece) => void;
@@ -42,17 +45,21 @@ interface ChaosState {
   addUpgrade: (upgrade: PieceUpgrade) => void;
   removeUpgrade: (upgradeId: string) => void;
   canAddUpgrade: (pieceId: string) => boolean;
+  getPieceUpgradeClass: (pieceId: string) => 'attack' | 'defense' | null;
   spendGold: (amount: number) => boolean;
   addGold: (amount: number) => void;
   addArtifact: (artifact: ChaosArtifact) => void;
   addScore: (score: number) => void;
   nextFloor: () => void;
+  setBossKnightSpawnsLeft: (count: number) => void;
   resetRun: () => void;
 }
 
 // Стартовый набор: король e1 + 4 пешки (a2-d2)
 const STARTING_PIECES: ChessPiece[] = ['k', 'p', 'p', 'p', 'p'];
 const STARTING_GOLD = 150;
+// Сколько раз босс «Всадник» может заспавнить коня за бой
+const BOSS_KNIGHT_SPAWNS = 5;
 
 function initialState() {
   return {
@@ -64,6 +71,7 @@ function initialState() {
     currentFloor: 0,
     totalScore: 0,
     floorScores: [] as number[],
+    bossKnightSpawnsLeft: BOSS_KNIGHT_SPAWNS,
   };
 }
 
@@ -93,6 +101,15 @@ export const useChaosModeStore = create<ChaosState>((set, get) => ({
   canAddUpgrade: (pieceId) =>
     get().pieceUpgrades.filter(u => pieceInstanceId(u.pieceType, u.pieceIndex) === pieceId).length < 2,
 
+  // На одну фигуру можно вешать улучшения только одного класса:
+  // если уже есть атакующее — защитные недоступны, и наоборот. Нет улучшений — оба класса доступны.
+  getPieceUpgradeClass: (pieceId) => {
+    const upgrades = get().pieceUpgrades.filter(u => pieceInstanceId(u.pieceType, u.pieceIndex) === pieceId);
+    if (upgrades.some(u => u.category === 'attack')) return 'attack';
+    if (upgrades.some(u => u.category === 'defense')) return 'defense';
+    return null;
+  },
+
   spendGold: (amount) => {
     if (get().gold < amount) return false;
     set(s => ({ gold: s.gold - amount }));
@@ -111,6 +128,8 @@ export const useChaosModeStore = create<ChaosState>((set, get) => ({
   })),
 
   nextFloor: () => set(s => ({ currentFloor: s.currentFloor + 1 })),
+
+  setBossKnightSpawnsLeft: (count) => set({ bossKnightSpawnsLeft: count }),
 
   resetRun: () => set({ ...initialState() }),
 }));
