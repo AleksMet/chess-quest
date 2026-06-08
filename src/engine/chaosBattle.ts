@@ -12,18 +12,9 @@ export const CHAOS_BATTLE_ELO: Record<ChaosBattleNumber, number> = {
   boss: 1400,
 };
 
-// Лимит ходов на бой; у босса лимита нет (null)
-export const CHAOS_MOVE_LIMIT: Record<ChaosBattleNumber, number | null> = {
-  1: 20,
-  2: 20,
-  3: 20,
-  boss: null,
-};
-
 export const CHAOS_GOLD = {
   mateUnder10: 150,
   mate11to20: 100,
-  materialWin: 60,
   draw: 0,
   capturePawn: 10,
   captureMinor: 30, // конь или слон

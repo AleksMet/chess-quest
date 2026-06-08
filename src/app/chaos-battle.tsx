@@ -11,14 +11,12 @@ import {
   buildChaosFen,
   resolveArmyAfterBattle,
   CHAOS_BATTLE_ELO,
-  CHAOS_MOVE_LIMIT,
   CHAOS_GOLD,
   CHAOS_FORK_BONUS,
   CHAOS_BLITZ_MOVE_LIMIT,
   type ChaosBattleNumber,
 } from '../engine/chaosBattle';
 import { calcCaptureScore } from '../engine/scoreEngine';
-import { countMaterial } from '../engine/positionGenerator';
 import { useChaosModeStore } from '../store/chaosModeStore';
 import { eloToSkillLevel } from '../engine/stockfish';
 
@@ -32,10 +30,10 @@ const BATTLE_TITLES: Record<ChaosBattleNumber, string> = {
 };
 
 const BATTLE_GOALS: Record<ChaosBattleNumber, string> = {
-  1: 'Поставь мат сопернику быстрее, чем за 20 ходов',
+  1: 'Поставь мат сопернику',
   2: 'Армия соперника усилена — действуй решительно',
   3: 'Последний бой перед боссом — собери всё золото',
-  boss: 'Финальный бой без лимита ходов. Удачи!',
+  boss: 'Финальный бой. Удачи!',
 };
 
 // На каком этаже башни проходит какой бой (currentFloor: 1 → бой 1, 3 → бой 2, 4 → бой 3, 6 → босс)
@@ -77,7 +75,6 @@ export default function ChaosBattleScreen() {
   const safeBattleNumber: ChaosBattleNumber = battleNumber ?? 1;
   const opponentElo = CHAOS_BATTLE_ELO[safeBattleNumber];
   const skillLevel = eloToSkillLevel(opponentElo);
-  const moveLimit = CHAOS_MOVE_LIMIT[safeBattleNumber];
 
   const [startFen] = useState(() => buildChaosFen(pieces, safeBattleNumber));
   const [chess] = useState(() => new Chess(startFen));
@@ -203,18 +200,10 @@ export default function ChaosBattleScreen() {
       finishBattle('draw', 'Ничья — золото не начисляется', 0, newCount);
       return;
     }
-    if (moveLimit !== null && newCount >= moveLimit) {
-      const white = countMaterial(chess, 'w');
-      const black = countMaterial(chess, 'b');
-      if (white > black) finishBattle('win', 'Лимит ходов — у тебя больше материала!', CHAOS_GOLD.materialWin, newCount);
-      else if (black > white) finishBattle('lose', 'Лимит ходов — у соперника больше материала', 0, newCount);
-      else finishBattle('draw', 'Лимит ходов — материал равен', 0, newCount);
-      return;
-    }
 
     requestAIMove();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerMoves, chess, requestAIMove, artifacts, moveLimit]);
+  }, [playerMoves, chess, requestAIMove, artifacts]);
 
   function handleContinue() {
     // Превращённые во время боя ферзи возвращаются пешками — переходит только купленная армия
@@ -237,7 +226,6 @@ export default function ChaosBattleScreen() {
   // Хуки уже объявлены — теперь можно безопасно делать условный return
   if (battleNumber === null) { router.replace('/chaos-tower'); return null; }
 
-  const movesLeft = moveLimit !== null ? moveLimit - playerMoves : null;
   const boardDisabled = result !== null || isAIThinking || chess.turn() !== PLAYER_COLOR;
 
   return (
@@ -250,12 +238,6 @@ export default function ChaosBattleScreen() {
           <Text style={styles.exitBtnText}>Выход</Text>
         </Pressable>
         <Text style={styles.goldBadge}>💰 {goldDisplay}</Text>
-        {movesLeft !== null && (
-          <View style={[styles.moveBadge, movesLeft <= 5 && styles.moveBadgeUrgent]}>
-            <Text style={styles.moveCount}>{Math.max(0, movesLeft)}</Text>
-            <Text style={styles.moveLabel}>ходов</Text>
-          </View>
-        )}
         <Text style={[styles.thinking, { opacity: isAIThinking ? 1 : 0 }]}>⏳</Text>
       </View>
 
@@ -300,10 +282,6 @@ const styles = StyleSheet.create({
   exitBtn:         { backgroundColor: '#7f1d1d', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
   exitBtnText:     { color: '#fca5a5', fontSize: 13, fontWeight: '600' },
   goldBadge:       { color: '#f59e0b', fontSize: 15, fontWeight: '700' },
-  moveBadge:       { backgroundColor: '#1e3a5f', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4, alignItems: 'center', minWidth: 52 },
-  moveBadgeUrgent: { backgroundColor: '#7f1d1d' },
-  moveCount:       { color: '#fff', fontSize: 20, fontWeight: '900', lineHeight: 24 },
-  moveLabel:       { color: '#94a3b8', fontSize: 10 },
   thinking:        { fontSize: 20 },
   boardWrap:       { flex: 1 },
   footer:          { paddingHorizontal: 16, paddingVertical: 8 },
