@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { Alert, SafeAreaView, View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Chess } from 'chess.js';
-import type { Square, PieceSymbol } from 'chess.js';
+import type { Square, PieceSymbol, Move } from 'chess.js';
 import { ChessBoard } from '../components/chess/ChessBoard';
 import { StockfishBridgeView } from '../components/engine/StockfishBridgeView';
 import type { StockfishBridgeRef } from '../components/engine/StockfishBridgeView';
@@ -26,7 +26,12 @@ import {
   type BossMoveCandidate,
 } from '../engine/chaosBattle';
 import { calcCaptureScore } from '../engine/scoreEngine';
-import { processPlayerMove } from '../engine/chaosUpgradeEngine';
+import {
+  processPlayerMove,
+  berserkStreakBonus,
+  guardSurvivalBonus,
+  isProvocateurThreatened,
+} from '../engine/chaosUpgradeEngine';
 import type { PieceUpgrade } from '../types/chaos';
 import { UPGRADE_DEFINITIONS } from '../data/chaosUpgrades';
 import { useChaosModeStore } from '../store/chaosModeStore';
@@ -36,9 +41,16 @@ import { eloToSkillLevel } from '../engine/stockfish';
 // пешки не учитываются (см. ЗАДАЧА 3 спецификации режима ХАОС)
 const KEY_CAPTURE_PIECES: PieceSymbol[] = ['n', 'b', 'r', 'q'];
 
-// Динамическая подсветка Стража: ход «на месте» 1→0.10 ... 4→0.40, 5-й ход → 0.60 (затем сброс)
-const GUARD_HIGHLIGHT_OPACITY = [0.10, 0.10, 0.20, 0.30, 0.40, 0.60];
+// Страж награждает каждые 5 ходов выживания (см. guardSurvivalBonus в движке улучшений)
 const GUARD_TRIGGER_TURNS = 5;
+// Динамическая подсветка Стража: цикл по turnsAlive % 5 — нарастает к награде на 5-м ходу, затем сброс
+const GUARD_HIGHLIGHT_OPACITY = [0.10, 0.20, 0.30, 0.40, 0.60];
+// Подсветка Засады: 0 ходов на месте → 0.10, 1 ход → 0.20, 2+ хода → 0.40 (готова к удару)
+const AMBUSH_HIGHLIGHT_OPACITY = [0.10, 0.20, 0.40];
+
+const PIECE_DISPLAY_NAME: Record<PieceSymbol, string> = {
+  k: 'Король', q: 'Ферзь', r: 'Ладья', b: 'Слон', n: 'Конь', p: 'Пешка',
+};
 
 function upgradeBonusGold(upgradeType: PieceUpgrade['upgradeType']): number {
   return UPGRADE_DEFINITIONS.find(d => d.type === upgradeType)?.bonusGold ?? 0;
@@ -46,6 +58,23 @@ function upgradeBonusGold(upgradeType: PieceUpgrade['upgradeType']): number {
 
 function upgradeName(upgradeType: PieceUpgrade['upgradeType']): string {
   return UPGRADE_DEFINITIONS.find(d => d.type === upgradeType)?.name ?? upgradeType;
+}
+
+// Русское склонение слова «ход» по числу: 1 ход, 2-4 хода, 5+ ходов
+function turnsWord(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'ход';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'хода';
+  return 'ходов';
+}
+
+// Текст попапа за серию взятий Берсерка — золото берётся из berserkStreakBonus,
+// число огоньков растёт до серии 4 и дальше не увеличивается (серия 4+ → 🔥🔥🔥)
+function berserkStreakPopupText(streak: number, bonus: number): string {
+  const fireCount = Math.min(Math.max(streak - 1, 0), 3);
+  const fire = fireCount > 0 ? ` ${'🔥'.repeat(fireCount)}` : '';
+  return `+${bonus} золота — Берсерк${fire}`;
 }
 
 const PLAYER_COLOR = 'w' as const;
@@ -72,11 +101,12 @@ function battleNumberForFloor(floor: number): ChaosBattleNumber | null {
   }
 }
 
-// Состояние улучшённой фигуры в текущем бою — клетка и счётчик «ходов на месте» для Стража/Крепости.
-// Хранится локально (не в сторе): счётчик обнуляется с началом каждого боя.
+// Состояние улучшённой фигуры в текущем бою — клетка, счётчик «ходов на месте» (Засада)
+// и счётчик «ходов выживания» (Страж). Хранится локально — обнуляется с началом каждого боя.
 interface UpgradeRuntimeState {
   square: Square | null; // null — фигура взята
   turnsOnPosition: number;
+  turnsAlive: number;
 }
 
 const KNIGHT_OFFSETS: [number, number][] = [
@@ -126,6 +156,8 @@ export default function ChaosBattleScreen() {
   const engineRef = useRef<StockfishBridgeRef>(null);
   const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const upgradeStateRef = useRef<Map<string, UpgradeRuntimeState>>(new Map());
+  // Серия взятий подряд Берсерком — ключ: id улучшения, значение: длина текущей серии
+  const berserkStreakRef = useRef<Record<string, number>>({});
   const goldToastIdRef = useRef(0);
 
   // Показывает золотой попап в правом верхнем углу — стекается с предыдущими, исчезает через 1.5с
@@ -162,9 +194,11 @@ export default function ChaosBattleScreen() {
       map.set(upgrade.id, {
         square: pieceStartingSquare(upgrade.pieceType, upgrade.pieceIndex),
         turnsOnPosition: 0,
+        turnsAlive: 0,
       });
     }
     upgradeStateRef.current = map;
+    berserkStreakRef.current = {};
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -183,11 +217,14 @@ export default function ChaosBattleScreen() {
     }
   }
 
-  // Раз за ход игрока — продлеваем счётчик «на месте» живым улучшенным фигурам
-  // (используется и Крепостью, и Стражем — обе награждают за стояние на месте)
+  // Раз за ход игрока — продлеваем счётчики живым улучшенным фигурам:
+  // turnsOnPosition (Засада — стояние на месте) и turnsAlive (Страж — выживание)
   function tickUpgradeCounters() {
     for (const state of upgradeStateRef.current.values()) {
-      if (state.square !== null) state.turnsOnPosition += 1;
+      if (state.square !== null) {
+        state.turnsOnPosition += 1;
+        state.turnsAlive += 1;
+      }
     }
   }
 
@@ -195,37 +232,113 @@ export default function ChaosBattleScreen() {
   function liveUpgrades(): PieceUpgrade[] {
     return pieceUpgrades.map(u => {
       const state = upgradeStateRef.current.get(u.id);
-      return state ? { ...u, turnsOnPosition: state.turnsOnPosition } : u;
+      return state ? { ...u, turnsOnPosition: state.turnsOnPosition, turnsAlive: state.turnsAlive } : u;
     });
   }
 
-  // Страж: на 5-й ход подряд на месте — золото и попап, затем сброс счётчика.
-  // Считается отдельно от processPlayerMove, т.к. требует сброса состояния (побочный эффект).
-  function checkGuardBonus() {
-    const bonus = upgradeBonusGold('guard');
+  // Берсерк: серия взятий подряд именно этой фигурой. Проверяем ДО обновления позиций —
+  // нужно знать клетку, с которой фигура ходила в этот раз (move.from)
+  function checkBerserkStreak(move: Move) {
     for (const upgrade of pieceUpgrades) {
-      if (upgrade.upgradeType !== 'guard') continue;
+      if (upgrade.upgradeType !== 'berserk') continue;
       const state = upgradeStateRef.current.get(upgrade.id);
-      if (state && state.square !== null && state.turnsOnPosition >= GUARD_TRIGGER_TURNS) {
+      if (!state || state.square !== move.from) continue;
+      if (move.captured) {
+        const streak = (berserkStreakRef.current[upgrade.id] ?? 0) + 1;
+        berserkStreakRef.current[upgrade.id] = streak;
+        const bonus = berserkStreakBonus(streak);
         goldRef.current += bonus;
-        pushGoldToast(`+${bonus} золота — Страж`);
-        state.turnsOnPosition = 0;
+        pushGoldToast(berserkStreakPopupText(streak, bonus));
+      } else {
+        berserkStreakRef.current[upgrade.id] = 0;
       }
     }
   }
 
-  // Подсветка клеток улучшенных фигур игрока: атакующие (greedy/berserk/sniper) — красным,
-  // Крепость — синим (фикс. прозрачность), Страж — синим с пульсацией по счётчику «на месте».
+  // Страж: награда за каждые 5 ходов выживания — считается по turnsAlive ПОСЛЕ инкремента
+  function checkGuardBonus() {
+    for (const upgrade of pieceUpgrades) {
+      if (upgrade.upgradeType !== 'guard') continue;
+      const state = upgradeStateRef.current.get(upgrade.id);
+      if (!state || state.square === null) continue;
+      const bonus = guardSurvivalBonus(state.turnsAlive);
+      if (bonus > 0) {
+        goldRef.current += bonus;
+        pushGoldToast(`+${bonus} золота — Страж`);
+      }
+    }
+  }
+
+  // Провокатор: проверяется после КАЖДОГО хода ИИ — если фигура стоит под атакой чёрных, начисляем золото
+  function checkProvocateurBonus() {
+    for (const upgrade of pieceUpgrades) {
+      if (upgrade.upgradeType !== 'provocateur') continue;
+      const state = upgradeStateRef.current.get(upgrade.id);
+      if (!state?.square || !isProvocateurThreatened(chess, state.square)) continue;
+      const bonus = upgradeBonusGold('provocateur');
+      goldRef.current += bonus;
+      pushGoldToast(`+${bonus} золота — Провокатор`);
+    }
+  }
+
+  // Подсветка клеток улучшенных фигур игрока:
+  // Берсерк/Снайпер/Провокатор — красная, фиксированная opacity 0.35;
+  // Страж — синяя, цикличная по turnsAlive % 5 (нарастает к награде на 5-м ходу);
+  // Засада — синяя, по числу ходов на месте (0/1/2+ → 0.10/0.20/0.40, «готова к удару»).
   // Пересчитывается на каждый ход (boardKey).
   const upgradeHighlights = pieceUpgrades.reduce<{ square: Square; color: 'red' | 'blue' | 'gold'; opacity: number }[]>((acc, upgrade) => {
     const state = upgradeStateRef.current.get(upgrade.id);
     if (!state?.square) return acc;
-    if (upgrade.upgradeType === 'guard') {
-      const step = Math.min(state.turnsOnPosition, GUARD_HIGHLIGHT_OPACITY.length - 1);
-      acc.push({ square: state.square, color: 'blue', opacity: GUARD_HIGHLIGHT_OPACITY[step] });
-    } else {
-      acc.push({ square: state.square, color: upgrade.category === 'attack' ? 'red' : 'blue', opacity: 0.35 });
+    switch (upgrade.upgradeType) {
+      case 'guard':
+        acc.push({ square: state.square, color: 'blue', opacity: GUARD_HIGHLIGHT_OPACITY[state.turnsAlive % GUARD_HIGHLIGHT_OPACITY.length] });
+        break;
+      case 'ambush':
+        acc.push({ square: state.square, color: 'blue', opacity: AMBUSH_HIGHLIGHT_OPACITY[Math.min(state.turnsOnPosition, AMBUSH_HIGHLIGHT_OPACITY.length - 1)] });
+        break;
+      default:
+        acc.push({ square: state.square, color: 'red', opacity: 0.35 });
+        break;
     }
+    return acc;
+  }, []);
+
+  // Берсерк: если хотя бы одна берсерк-фигура игрока может взять — она обязана это сделать.
+  // Возвращает клетки и список разрешённых ходов (LAN), которые ChessBoard примет как форсированные.
+  const berserkForce = (() => {
+    if (chess.turn() !== PLAYER_COLOR || pieceUpgrades.length === 0) return null;
+    const forcedSquares: Square[] = [];
+    const forcedMoves: string[] = [];
+    for (const upgrade of pieceUpgrades) {
+      if (upgrade.upgradeType !== 'berserk') continue;
+      const state = upgradeStateRef.current.get(upgrade.id);
+      if (!state?.square) continue;
+      const captures = chess.moves({ square: state.square, verbose: true }).filter(m => m.captured);
+      if (captures.length === 0) continue;
+      forcedSquares.push(state.square);
+      for (const m of captures) forcedMoves.push(`${m.from}${m.to}${m.promotion ?? ''}`);
+    }
+    return forcedSquares.length > 0 ? { forcedSquares, forcedMoves } : null;
+  })();
+
+  // Панель улучшений под доской — строки для живых улучшённых фигур со статусом по типу.
+  // Пересчитывается на каждый ход (boardKey).
+  const upgradePanelLines = pieceUpgrades.reduce<{ icon: string; text: string }[]>((acc, upgrade) => {
+    const state = upgradeStateRef.current.get(upgrade.id);
+    if (!state?.square) return acc;
+    const icon = upgrade.category === 'attack' ? '🔴' : '🔵';
+    const label = `${PIECE_DISPLAY_NAME[upgrade.pieceType]} ${upgrade.pieceIndex + 1}`;
+    let suffix = '';
+    if (upgrade.upgradeType === 'berserk') {
+      const streak = berserkStreakRef.current[upgrade.id] ?? 0;
+      if (streak > 0) suffix = ` (серия: ${streak})`;
+    } else if (upgrade.upgradeType === 'guard') {
+      const step = state.turnsAlive % GUARD_TRIGGER_TURNS;
+      suffix = ` (ход ${step === 0 && state.turnsAlive > 0 ? GUARD_TRIGGER_TURNS : step}/${GUARD_TRIGGER_TURNS})`;
+    } else if (upgrade.upgradeType === 'ambush') {
+      suffix = ` (на месте: ${state.turnsOnPosition} ${turnsWord(state.turnsOnPosition)})`;
+    }
+    acc.push({ icon, text: `${label} — ${upgradeName(upgrade.upgradeType)}${suffix}` });
     return acc;
   }, []);
 
@@ -279,7 +392,12 @@ export default function ChaosBattleScreen() {
     try {
       const move = chess.move({ from, to, promotion: promotion ?? 'q' });
       if (!move) { setIsAIThinking(false); return; }
-      if (pieceUpgrades.length > 0) trackUpgradeMove(from, to);
+      if (pieceUpgrades.length > 0) {
+        trackUpgradeMove(from, to);
+        // Провокатор: после хода ИИ проверяем, не оказалась ли фигура под атакой чёрных
+        checkProvocateurBonus();
+        setGoldDisplay(goldRef.current);
+      }
       // Босс «Всадник»: каждый ход королём — новый конь на случайной клетке рядов 5-8,
       // появляется с плавным проявлением (анимация в ChessBoard через spawnedSquare)
       if (safeBattleNumber === 'boss') {
@@ -349,12 +467,17 @@ export default function ChaosBattleScreen() {
       goldRef.current += CHAOS_FORK_BONUS;
     }
     if (pieceUpgrades.length > 0) {
-      trackUpgradeMove(move.from as Square, move.to as Square);
-      tickUpgradeCounters();
+      // Снайпер и Засада оцениваются по состоянию ДО обновления счётчиков —
+      // turnsOnPosition должен отражать, сколько ходов фигура простояла на клетке, с которой берёт
       for (const trigger of processPlayerMove(move, liveUpgrades())) {
         goldRef.current += trigger.bonus;
         pushGoldToast(`+${trigger.bonus} золота — ${upgradeName(trigger.upgradeType)}`);
       }
+      // Берсерк: определяем серию по клетке ДО хода — тоже до обновления позиций
+      checkBerserkStreak(move);
+      trackUpgradeMove(move.from as Square, move.to as Square);
+      tickUpgradeCounters();
+      // Страж: считается по turnsAlive ПОСЛЕ инкремента (этот ход уже засчитан как «выживание»)
       checkGuardBonus();
     }
     setGoldDisplay(goldRef.current);
@@ -419,9 +542,21 @@ export default function ChaosBattleScreen() {
           opponentLastMove={opponentLastMove}
           upgradeHighlights={[...upgradeHighlights, ...bossHighlights]}
           spawnedSquare={spawnedSquare}
+          forcedSquares={berserkForce?.forcedSquares}
+          forcedMoves={berserkForce?.forcedMoves}
         />
         <ChaosGoldToastStack items={goldToasts} onExpire={removeGoldToast} />
       </View>
+
+      {pieceUpgrades.length > 0 && (
+        <View style={styles.upgradePanel} testID="chaos-upgrade-panel">
+          {upgradePanelLines.map((line, i) => (
+            <Text key={i} style={styles.upgradePanelLine} numberOfLines={1}>
+              {line.icon} {line.text}
+            </Text>
+          ))}
+        </View>
+      )}
 
       <View style={styles.footer}>
         <Text style={styles.goal}>{BATTLE_GOALS[safeBattleNumber]}</Text>
@@ -455,6 +590,8 @@ const styles = StyleSheet.create({
   goldBadge:       { color: '#f59e0b', fontSize: 15, fontWeight: '700' },
   thinking:        { fontSize: 20 },
   boardWrap:       { flex: 1 },
+  upgradePanel:    { height: 92, paddingHorizontal: 16, paddingVertical: 6, justifyContent: 'flex-start' },
+  upgradePanelLine:{ color: '#94a3b8', fontSize: 11, lineHeight: 15 },
   footer:          { paddingHorizontal: 16, paddingVertical: 8 },
   goal:            { color: '#64748b', fontSize: 12, textAlign: 'center' },
   overlay:         { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', gap: 10 },

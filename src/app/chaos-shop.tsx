@@ -115,6 +115,7 @@ export default function ChaosShopScreen() {
       upgradeType: def.type,
       category: def.category,
       turnsOnPosition: 0,
+      turnsAlive: 0,
     });
     setSelectedUpgrade(null);
   }

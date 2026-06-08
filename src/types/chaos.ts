@@ -2,11 +2,11 @@ import type { PieceSymbol } from 'chess.js';
 
 // Типы улучшений фигур в режиме ХАОС
 export type UpgradeType =
-  | 'greedy'    // Жадный
-  | 'berserk'   // Берсерк
-  | 'sniper'    // Снайпер
-  | 'guard'     // Страж
-  | 'fortress'; // Крепость
+  | 'berserk'      // Берсерк
+  | 'sniper'       // Снайпер
+  | 'provocateur'  // Провокатор
+  | 'guard'        // Страж
+  | 'ambush';      // Засада
 
 export type UpgradeCategory = 'attack' | 'defense';
 
@@ -17,7 +17,8 @@ export interface PieceUpgrade {
   pieceIndex: number;      // если две одинаковые фигуры — 0 или 1
   upgradeType: UpgradeType;
   category: UpgradeCategory;
-  turnsOnPosition: number; // для Крепости и Стража — сколько ходов подряд фигура стоит на месте
+  turnsOnPosition: number; // для Засады — сколько ходов подряд фигура стоит на месте
+  turnsAlive: number;      // для Стража — сколько ходов фигура выживает без взятия
 }
 
 // Описание улучшения для магазина
