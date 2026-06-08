@@ -137,9 +137,13 @@ function isKnightFork(chess: Chess, square: Square): boolean {
 export default function ChaosBattleScreen() {
   const router = useRouter();
   const {
-    currentFloor, pieces, purchasedPieces, pieceUpgrades, artifacts, addGold, addScore, setPieces, savePurchasedPieces, nextFloor,
+    currentFloor, pieces, purchasedPieces, pieceUpgrades, artifacts, selectedCharacter,
+    addGold, addScore, setPieces, savePurchasedPieces, nextFloor, unlockGuardian,
     bossKnightSpawnsLeft, setBossKnightSpawnsLeft,
   } = useChaosModeStore();
+
+  // Каждые guardTriggerTurns ходов выживания срабатывает Страж — у персонажа «Страж» порог ниже стандартного
+  const guardTriggerTurns = selectedCharacter?.guardTriggerTurns ?? GUARD_TRIGGER_TURNS;
 
   const battleNumber = battleNumberForFloor(currentFloor);
   const safeBattleNumber: ChaosBattleNumber = battleNumber ?? 1;
@@ -263,7 +267,7 @@ export default function ChaosBattleScreen() {
       if (move.captured) {
         const streak = (berserkStreakRef.current[upgrade.id] ?? 0) + 1;
         berserkStreakRef.current[upgrade.id] = streak;
-        const bonus = berserkStreakBonus(streak);
+        const bonus = berserkStreakBonus(streak, selectedCharacter?.berserkStreakStartBonus);
         goldRef.current += bonus;
         pushGoldToast(berserkStreakPopupText(streak, bonus));
       } else {
@@ -278,7 +282,7 @@ export default function ChaosBattleScreen() {
       if (upgrade.upgradeType !== 'guard') continue;
       const state = upgradeStateRef.current.get(upgrade.id);
       if (!state || state.square === null) continue;
-      const bonus = guardSurvivalBonus(state.turnsAlive);
+      const bonus = guardSurvivalBonus(state.turnsAlive, guardTriggerTurns);
       if (bonus > 0) {
         goldRef.current += bonus;
         pushGoldToast(`+${bonus} золота — Страж`);
@@ -350,8 +354,8 @@ export default function ChaosBattleScreen() {
       const streak = berserkStreakRef.current[upgrade.id] ?? 0;
       if (streak > 0) suffix = ` (серия: ${streak})`;
     } else if (upgrade.upgradeType === 'guard') {
-      const step = state.turnsAlive % GUARD_TRIGGER_TURNS;
-      suffix = ` (ход ${step === 0 && state.turnsAlive > 0 ? GUARD_TRIGGER_TURNS : step}/${GUARD_TRIGGER_TURNS})`;
+      const step = state.turnsAlive % guardTriggerTurns;
+      suffix = ` (ход ${step === 0 && state.turnsAlive > 0 ? guardTriggerTurns : step}/${guardTriggerTurns})`;
     } else if (upgrade.upgradeType === 'ambush') {
       suffix = ` (на месте: ${state.turnsOnPosition} ${turnsWord(state.turnsOnPosition)})`;
     }
@@ -485,6 +489,11 @@ export default function ChaosBattleScreen() {
       if (KEY_CAPTURE_PIECES.includes(move.captured)) {
         pushGoldToast(`+${calcCaptureScore(move.captured)} золота`);
       }
+      // Купец: дополнительное золото за каждое взятие — независимо от типа взятой фигуры
+      if (selectedCharacter && selectedCharacter.captureGoldBonus > 0) {
+        goldRef.current += selectedCharacter.captureGoldBonus;
+        pushGoldToast(`+${selectedCharacter.captureGoldBonus} золота — Купец`);
+      }
     }
     if (move.piece === 'n' && artifacts.includes('fork_master') && isKnightFork(chess, move.to as Square)) {
       goldRef.current += CHAOS_FORK_BONUS;
@@ -507,6 +516,8 @@ export default function ChaosBattleScreen() {
 
     if (moveResult.isCheckmate) {
       const mateGold = newCount <= 10 ? CHAOS_GOLD.mateUnder10 : CHAOS_GOLD.mate11to20;
+      // Победа над боссом «Всадник» открывает персонажа «Страж» — сохраняется между сессиями
+      if (safeBattleNumber === 'boss') unlockGuardian();
       finishBattle('win', 'Мат противнику!', mateGold, newCount);
       return;
     }
@@ -517,7 +528,7 @@ export default function ChaosBattleScreen() {
 
     requestAIMove();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerMoves, chess, requestAIMove, artifacts, pieceUpgrades]);
+  }, [playerMoves, chess, requestAIMove, artifacts, pieceUpgrades, selectedCharacter]);
 
   function handleContinue() {
     // Превращённые во время боя ферзи возвращаются пешками — переходит только купленная армия

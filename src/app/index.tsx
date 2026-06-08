@@ -3,7 +3,6 @@ import { View, Text, TouchableOpacity, SafeAreaView, StyleSheet, ScrollView } fr
 import { useRouter } from 'expo-router';
 // TODO: классический режим — временно отключён (заменён режимом ХАОС)
 // import { useRunStore } from '../store/runStore';
-import { useChaosModeStore } from '../store/chaosModeStore';
 import { useMetaStore } from '../store/metaStore';
 import { HEROES } from '../data/heroes';
 import { CHAPTER_NAMES } from '../components/map/AdventureMap';
@@ -17,7 +16,6 @@ export default function MainMenuScreen() {
   const { theme } = useChapterTheme();
   // TODO: классический режим — временно отключён (заменён режимом ХАОС)
   // const startRun = useRunStore(s => s.startRun);
-  const resetChaosRun = useChaosModeStore(s => s.resetRun);
   const { isLoaded, loadMeta, meta } = useMetaStore();
   const [selectedHeroId, setSelectedHeroId] = useState<HeroId>('timmy_pawn');
   const [selectedChapter, setSelectedChapter] = useState(0);
@@ -40,8 +38,7 @@ export default function MainMenuScreen() {
   // }
 
   function handleStartChaos() {
-    resetChaosRun();
-    router.push('/chaos-tower');
+    router.push('/chaos-character-select');
   }
 
   if (!isLoaded) return null;

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { PieceSymbol } from 'chess.js';
-import type { PieceUpgrade } from '../types/chaos';
+import type { ChaosCharacter, PieceUpgrade, UpgradeCategory } from '../types/chaos';
 
 // Фигура армии — храним только тип; конкретные клетки расставляет buildPlayerFen
 export type ChessPiece = PieceSymbol;
@@ -14,6 +15,12 @@ export function pieceInstanceId(pieceType: ChessPiece, pieceIndex: number): stri
 export type ChaosArtifact = 'fork_master' | 'blitz_master';
 
 interface ChaosState {
+  // Выбранный персонаж забега — переживает resetRun (сбрасывается только при выборе нового)
+  selectedCharacter: ChaosCharacter | null;
+
+  // Разблокирован ли персонаж «Страж» — сохраняется в AsyncStorage между сессиями
+  guardianUnlocked: boolean;
+
   // Армия игрока
   pieces: ChessPiece[];
 
@@ -38,6 +45,11 @@ interface ChaosState {
   bossKnightSpawnsLeft: number;
 
   // Действия
+  setCharacter: (character: ChaosCharacter) => void;
+  loadGuardianUnlocked: () => Promise<void>;
+  unlockGuardian: () => Promise<void>;
+  getUpgradePrice: (basePrice: number, category: UpgradeCategory) => number;
+  isUpgradeAvailable: (category: UpgradeCategory) => boolean;
   addPiece: (piece: ChessPiece) => void;
   removePiece: (piece: ChessPiece) => void;
   setPieces: (pieces: ChessPiece[]) => void;
@@ -55,18 +67,22 @@ interface ChaosState {
   resetRun: () => void;
 }
 
-// Стартовый набор: король e1 + 4 пешки (a2-d2)
+// Стартовый набор по умолчанию (если персонаж ещё не выбран): король e1 + 4 пешки (a2-d2)
 const STARTING_PIECES: ChessPiece[] = ['k', 'p', 'p', 'p', 'p'];
 const STARTING_GOLD = 150;
 // Сколько раз босс «Всадник» может заспавнить коня за бой
 const BOSS_KNIGHT_SPAWNS = 5;
 
-function initialState() {
+const GUARDIAN_UNLOCKED_KEY = '@chess_quest_chaos_guardian_unlocked';
+
+// Состояние забега — пересоздаётся в resetRun(); набор и золото берутся из персонажа, если он выбран
+function runState(character: ChaosCharacter | null) {
+  const startingPieces = character ? character.startingPieces : STARTING_PIECES;
   return {
-    pieces: [...STARTING_PIECES],
-    purchasedPieces: [...STARTING_PIECES],
+    pieces: [...startingPieces],
+    purchasedPieces: [...startingPieces],
     pieceUpgrades: [] as PieceUpgrade[],
-    gold: STARTING_GOLD,
+    gold: character ? character.startingGold : STARTING_GOLD,
     artifacts: [] as ChaosArtifact[],
     currentFloor: 0,
     totalScore: 0,
@@ -76,7 +92,45 @@ function initialState() {
 }
 
 export const useChaosModeStore = create<ChaosState>((set, get) => ({
-  ...initialState(),
+  selectedCharacter: null,
+  guardianUnlocked: false,
+  ...runState(null),
+
+  setCharacter: (character) => set({ selectedCharacter: character }),
+
+  loadGuardianUnlocked: async () => {
+    try {
+      const raw = await AsyncStorage.getItem(GUARDIAN_UNLOCKED_KEY);
+      if (raw === 'true') set({ guardianUnlocked: true });
+    } catch {
+      // Persistence failure is non-fatal — Страж останется заблокирован до следующей загрузки
+    }
+  },
+
+  unlockGuardian: async () => {
+    set({ guardianUnlocked: true });
+    try {
+      await AsyncStorage.setItem(GUARDIAN_UNLOCKED_KEY, 'true');
+    } catch {
+      // Persistence failure is non-fatal — разблокировка останется в текущей сессии
+    }
+  },
+
+  // Скидка персонажа уменьшает цену, наценка — увеличивает (взаимоисключающе по спецификации персонажей)
+  getUpgradePrice: (basePrice, category) => {
+    const character = get().selectedCharacter;
+    if (!character) return basePrice;
+    const discount = category === 'attack' ? character.attackUpgradeDiscount : character.defenseUpgradeDiscount;
+    if (discount > 0) return Math.round(basePrice * (1 - discount));
+    if (character.upgradeMarkup > 0) return Math.round(basePrice * (1 + character.upgradeMarkup));
+    return basePrice;
+  },
+
+  isUpgradeAvailable: (category) => {
+    const character = get().selectedCharacter;
+    if (!character) return true;
+    return character.allowedUpgradeCategories === 'all' || character.allowedUpgradeCategories.includes(category);
+  },
 
   addPiece: (piece) => set(s => ({ pieces: [...s.pieces, piece] })),
 
@@ -131,5 +185,5 @@ export const useChaosModeStore = create<ChaosState>((set, get) => ({
 
   setBossKnightSpawnsLeft: (count) => set({ bossKnightSpawnsLeft: count }),
 
-  resetRun: () => set({ ...initialState() }),
+  resetRun: () => set(s => ({ ...runState(s.selectedCharacter) })),
 }));

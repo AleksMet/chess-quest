@@ -18,15 +18,18 @@ export interface UpgradeTrigger {
 // Золото за серию взятий Берсерка: серия 1→30, 2→35, 3→40, 4→50, 5→55, 6+→60
 const BERSERK_STREAK_GOLD = [30, 35, 40, 50, 55, 60];
 
-export function berserkStreakBonus(streak: number): number {
+// startBonus переопределяет награду за первое взятие серии — у персонажа «Берсерк» она выше стандартных 30
+export function berserkStreakBonus(streak: number, startBonus: number = BERSERK_STREAK_GOLD[0]): number {
   if (streak <= 0) return 0;
+  if (streak === 1) return startBonus;
   const index = Math.min(streak - 1, BERSERK_STREAK_GOLD.length - 1);
   return BERSERK_STREAK_GOLD[index];
 }
 
-// Страж: награда за каждые 5 ходов выживания (turnsAlive — счётчик ходов после обновления)
-export function guardSurvivalBonus(turnsAlive: number): number {
-  return turnsAlive > 0 && turnsAlive % 5 === 0 ? bonusGoldFor('guard') : 0;
+// Страж: награда за каждые triggerTurns ходов выживания (turnsAlive — счётчик ходов после обновления);
+// у персонажа «Страж» порог снижен до guardTriggerTurns вместо стандартных 5
+export function guardSurvivalBonus(turnsAlive: number, triggerTurns: number = 5): number {
+  return turnsAlive > 0 && turnsAlive % triggerTurns === 0 ? bonusGoldFor('guard') : 0;
 }
 
 // Провокатор: фигура стоит под атакой чёрных

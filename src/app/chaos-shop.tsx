@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { ChessPieceSVG, type PieceKey } from '../components/chess/ChessPieceSVG';
 import { useChaosModeStore, pieceInstanceId, type ChessPiece } from '../store/chaosModeStore';
 import { UPGRADE_DEFINITIONS } from '../data/chaosUpgrades';
-import type { UpgradeType } from '../types/chaos';
+import type { ChaosUpgradeDefinition, UpgradeType } from '../types/chaos';
 
 interface ShopItem {
   piece: ChessPiece;
@@ -81,6 +81,7 @@ export default function ChaosShopScreen() {
   const {
     currentFloor, pieces, gold, spendGold, addPiece, nextFloor,
     pieceUpgrades, addUpgrade, canAddUpgrade, getPieceUpgradeClass,
+    getUpgradePrice, isUpgradeAvailable,
   } = useChaosModeStore();
 
   const [tab, setTab] = useState<ShopTab>('pieces');
@@ -98,8 +99,9 @@ export default function ChaosShopScreen() {
     addPiece(item.piece);
   }
 
-  function handleSelectUpgrade(type: UpgradeType) {
-    setSelectedUpgrade(prev => (prev === type ? null : type));
+  function handleSelectUpgrade(def: ChaosUpgradeDefinition) {
+    if (!isUpgradeAvailable(def.category)) return;
+    setSelectedUpgrade(prev => (prev === def.type ? null : def.type));
   }
 
   // На фигуру можно вешать улучшения только одного класса — атакующие и защитные несовместимы
@@ -114,8 +116,9 @@ export default function ChaosShopScreen() {
     if (!selectedUpgrade) return;
     const def = UPGRADE_DEFINITIONS.find(d => d.type === selectedUpgrade);
     if (!def) return;
-    if (!canAddUpgrade(instance.id) || isClassLocked(instance, selectedUpgrade) || gold < def.price) return;
-    if (!spendGold(def.price)) return;
+    const price = getUpgradePrice(def.price, def.category);
+    if (!canAddUpgrade(instance.id) || isClassLocked(instance, selectedUpgrade) || gold < price) return;
+    if (!spendGold(price)) return;
     addUpgrade({
       id: `${instance.id}_${def.type}_${pieceUpgrades.length}`,
       pieceType: instance.pieceType,
@@ -223,24 +226,38 @@ export default function ChaosShopScreen() {
 
           {UPGRADE_DEFINITIONS.map(def => {
             const isSelected = selectedUpgrade === def.type;
-            const canAfford = gold >= def.price;
+            const available = isUpgradeAvailable(def.category);
+            const price = getUpgradePrice(def.price, def.category);
+            const hasPriceChange = price !== def.price;
+            const canAfford = gold >= price;
+
+            let buttonLabel = 'Выбрать';
+            if (!available) buttonLabel = 'Недоступно для персонажа';
+            else if (isSelected) buttonLabel = 'Выбрано';
+            else if (!canAfford) buttonLabel = 'Мало золота';
+
+            const cardDisabled = !available || !canAfford;
 
             return (
               <Pressable
                 key={def.type}
-                style={[styles.upgradeCard, isSelected && styles.upgradeCardSelected, !canAfford && styles.cardLocked]}
-                onPress={() => handleSelectUpgrade(def.type)}
+                style={[styles.upgradeCard, isSelected && styles.upgradeCardSelected, cardDisabled && styles.cardLocked]}
+                onPress={() => handleSelectUpgrade(def)}
+                disabled={!available}
                 testID={`chaos-shop-upgrade-${def.type}`}
               >
                 <Text style={styles.categoryIcon}>{CATEGORY_ICON[def.category]}</Text>
                 <View style={styles.cardInfo}>
                   <Text style={styles.cardName}>{def.name}</Text>
                   <Text style={styles.upgradeDesc}>{def.description}</Text>
-                  <Text style={styles.cardPrice}>💰 {def.price}</Text>
+                  <View style={styles.priceRow}>
+                    {hasPriceChange && <Text style={styles.priceOriginal}>💰 {def.price}</Text>}
+                    <Text style={[styles.cardPrice, hasPriceChange && styles.priceAccent]}>💰 {price}</Text>
+                  </View>
                 </View>
-                <View style={[styles.buyBtn, isSelected && styles.buyBtnSelected, !canAfford && styles.buyBtnDisabled]}>
-                  <Text style={[styles.buyBtnText, !canAfford && styles.buyBtnTextDisabled]}>
-                    {isSelected ? 'Выбрано' : !canAfford ? 'Мало золота' : 'Выбрать'}
+                <View style={[styles.buyBtn, isSelected && styles.buyBtnSelected, cardDisabled && styles.buyBtnDisabled]}>
+                  <Text style={[styles.buyBtnText, cardDisabled && styles.buyBtnTextDisabled]}>
+                    {buttonLabel}
                   </Text>
                 </View>
               </Pressable>
@@ -338,6 +355,9 @@ const styles = StyleSheet.create({
   cardInfo:   { flex: 1 },
   cardName:   { color: '#f1f5f9', fontSize: 16, fontWeight: '700' },
   cardPrice:  { color: '#94a3b8', fontSize: 12, marginTop: 2 },
+  priceRow:      { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  priceOriginal: { color: '#64748b', fontSize: 12, textDecorationLine: 'line-through' },
+  priceAccent:   { color: '#eab308', fontWeight: '800' },
 
   buyBtn:          { backgroundColor: '#7c3aed', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10 },
   buyBtnSelected:  { backgroundColor: '#eab308' },

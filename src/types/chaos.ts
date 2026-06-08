@@ -30,3 +30,23 @@ export interface ChaosUpgradeDefinition {
   price: number;
   bonusGold: number;
 }
+
+// Идентификатор персонажа режима ХАОС
+export type CharacterId = 'merchant' | 'berserk' | 'guardian';
+
+// Игровой персонаж режима ХАОС — задаёт стартовый набор и пассивки на весь забег
+export interface ChaosCharacter {
+  id: CharacterId;
+  name: string;
+  description: string;
+  startingGold: number;
+  startingPieces: PieceSymbol[];
+  allowedUpgradeCategories: UpgradeCategory[] | 'all';
+  attackUpgradeDiscount: number;   // 0.0 - 1.0 (0.3 = 30% скидка)
+  defenseUpgradeDiscount: number;
+  captureGoldBonus: number;        // бонус золота за каждое взятие
+  berserkStreakStartBonus: number; // с какого значения начинается серия Берсерка
+  guardTriggerTurns: number;       // каждые N ходов срабатывает Страж
+  upgradeMarkup: number;           // 0.0 - 1.0 (0.2 = 20% наценка)
+  unlocked: boolean;
+}
