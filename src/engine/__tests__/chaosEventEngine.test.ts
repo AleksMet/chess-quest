@@ -1,6 +1,7 @@
 import {
   shouldTriggerEvent,
   rollChaosEvent,
+  selectRandomEvent,
   findStrongestPieceId,
   pickAmbushVictim,
   pickTraitorVictimId,
@@ -35,6 +36,28 @@ describe('shouldTriggerEvent', () => {
   it('при псевдорандоме 0.7 (> 0.6) — не срабатывает', () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.7);
     expect(shouldTriggerEvent()).toBe(false);
+    jest.restoreAllMocks();
+  });
+});
+
+describe('selectRandomEvent', () => {
+  it('когда shouldTriggerEvent = true — возвращает валидный eventId', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.0); // 0.0 < любой вероятности → всегда true
+    const result = selectRandomEvent(BASE_CTX);
+    expect(result).not.toBeNull();
+    const KNOWN_IDS = [
+      'old_blacksmith', 'deserter', 'war_loot', 'secret_arsenal',
+      'relic_trader', 'alchemist', 'fortune_teller', 'recruiter',
+      'enemy_ambush', 'traitor', 'treasury_fire', 'curse',
+    ];
+    expect(KNOWN_IDS).toContain(result);
+    jest.restoreAllMocks();
+  });
+
+  it('когда shouldTriggerEvent = false — возвращает null', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.9999); // 0.9999 > 0.6 → shouldTriggerEvent = false
+    const result = selectRandomEvent(BASE_CTX);
+    expect(result).toBeNull();
     jest.restoreAllMocks();
   });
 });

@@ -4,11 +4,17 @@ import type { ChaosEventCategory, ChaosEventId } from '../types/chaos';
 import { CHAOS_EVENTS } from '../data/chaosEvents';
 import type { PieceUpgrade } from '../types/chaos';
 
-// 60% шанс события после каждого боя
+// 60% шанс события после каждого боя (по GDD §22)
 const EVENT_TRIGGER_CHANCE = 0.6;
 
 export function shouldTriggerEvent(): boolean {
   return Math.random() < EVENT_TRIGGER_CHANCE;
+}
+
+// Объединяет проверку вероятности и выбор события — возвращает eventId или null
+export function selectRandomEvent(ctx: RollCtx): ChaosEventId | null {
+  if (!shouldTriggerEvent()) return null;
+  return rollChaosEvent(ctx);
 }
 
 interface RollCtx {

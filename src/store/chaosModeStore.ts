@@ -46,6 +46,8 @@ interface ChaosState {
 
   // Случайные события: был ли последним событием отрицательный исход
   lastEventWasNegative: boolean;
+  // Ожидающее событие — устанавливается в handleContinue боя, читается экраном chaos-event
+  pendingEventId: string | null;
   // Проклятие: pieceId вида 'r_0' — самая ценная фигура лишается возможности брать сильные фигуры в следующем бою
   cursedPieceId: string | null;
 
@@ -70,6 +72,8 @@ interface ChaosState {
   nextFloor: () => void;
   setBossKnightSpawnsLeft: (count: number) => void;
   setLastEventWasNegative: (v: boolean) => void;
+  setPendingEvent: (id: string) => void;
+  clearPendingEvent: () => void;
   setCursedPiece: (id: string) => void;
   clearCursedPiece: () => void;
   resetRun: () => void;
@@ -97,6 +101,7 @@ function runState(character: ChaosCharacter | null) {
     floorScores: [] as number[],
     bossKnightSpawnsLeft: BOSS_KNIGHT_SPAWNS,
     lastEventWasNegative: false,
+    pendingEventId: null as string | null,
     cursedPieceId: null as string | null,
   };
 }
@@ -196,6 +201,8 @@ export const useChaosModeStore = create<ChaosState>((set, get) => ({
   setBossKnightSpawnsLeft: (count) => set({ bossKnightSpawnsLeft: count }),
 
   setLastEventWasNegative: (v) => set({ lastEventWasNegative: v }),
+  setPendingEvent: (id) => set({ pendingEventId: id }),
+  clearPendingEvent: () => set({ pendingEventId: null }),
   setCursedPiece: (id) => set({ cursedPieceId: id }),
   clearCursedPiece: () => set({ cursedPieceId: null }),
 

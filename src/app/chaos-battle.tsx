@@ -36,7 +36,7 @@ import type { PieceUpgrade } from '../types/chaos';
 import { UPGRADE_DEFINITIONS } from '../data/chaosUpgrades';
 import { useChaosModeStore } from '../store/chaosModeStore';
 import { eloToSkillLevel } from '../engine/stockfish';
-import { shouldTriggerEvent, rollChaosEvent, parsePieceId } from '../engine/chaosEventEngine';
+import { selectRandomEvent, parsePieceId } from '../engine/chaosEventEngine';
 
 // Бонус золота за «ключевые» взятия — независимо от улучшений (попап в правом верхнем углу);
 // пешки не учитываются (см. ЗАДАЧА 3 спецификации режима ХАОС)
@@ -138,6 +138,7 @@ export default function ChaosBattleScreen() {
     addGold, addScore, setPieces, savePurchasedPieces, nextFloor, unlockGuardian,
     bossKnightSpawnsLeft, setBossKnightSpawnsLeft,
     cursedPieceId, clearCursedPiece,
+    setPendingEvent,
   } = useChaosModeStore();
 
   // Каждые guardTriggerTurns ходов выживания срабатывает Страж — у персонажа «Страж» порог ниже стандартного
@@ -593,17 +594,19 @@ export default function ChaosBattleScreen() {
     // Проклятие действует ровно один бой — снимаем после его завершения
     clearCursedPiece();
 
-    // Случайное событие после обычных боёв (не после босса) — 60% вероятность
+    // Случайное событие после обычных боёв (не после босса)
+    // pendingEventId читает экран chaos-event из store — не через URL params
     if (safeBattleNumber !== 'boss') {
       const store = useChaosModeStore.getState();
-      if (shouldTriggerEvent()) {
-        const eventId = rollChaosEvent({
-          lastEventWasNegative: store.lastEventWasNegative,
-          pieces: store.pieces,
-          gold: store.gold,
-          pieceUpgrades: store.pieceUpgrades,
-        });
-        router.replace({ pathname: '/chaos-event', params: { eventId } });
+      const eventId = selectRandomEvent({
+        lastEventWasNegative: store.lastEventWasNegative,
+        pieces: store.pieces,
+        gold: store.gold,
+        pieceUpgrades: store.pieceUpgrades,
+      });
+      if (eventId) {
+        setPendingEvent(eventId);
+        router.replace('/chaos-event');
         return;
       }
     }

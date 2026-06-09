@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, Pressable, ScrollView, Animated,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { ChessPieceSVG, type PieceKey } from '../components/chess/ChessPieceSVG';
 import {
   useChaosModeStore, pieceInstanceId, type ChessPiece,
@@ -93,17 +93,18 @@ function pickRandomUpgrade(
 
 export default function ChaosEventScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ eventId: string }>();
-  const eventId = params.eventId as ChaosEventId;
-
-  const eventDef: ChaosEventDef | undefined = CHAOS_EVENTS.find(e => e.id === eventId);
 
   const {
     pieces, gold, pieceUpgrades, currentFloor,
+    pendingEventId, clearPendingEvent,
     addPiece, removePiece, addGold, spendGold, addUpgrade, removeUpgrade,
     canAddUpgrade, getPieceUpgradeClass, isUpgradeAvailable,
     setLastEventWasNegative, setCursedPiece,
   } = useChaosModeStore();
+
+  // eventId берётся из Zustand store (не из URL params — надёжнее при router.replace)
+  const eventId = pendingEventId as ChaosEventId;
+  const eventDef: ChaosEventDef | undefined = CHAOS_EVENTS.find(e => e.id === eventId);
 
   const [phase, setPhase] = useState<EventPhase>('intro');
   const [resultText, setResultText] = useState('');
@@ -403,6 +404,7 @@ export default function ChaosEventScreen() {
   // ────── навигация после события ──────
 
   function handleFinish() {
+    clearPendingEvent();
     router.replace('/chaos-tower');
   }
 
