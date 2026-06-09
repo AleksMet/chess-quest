@@ -44,10 +44,6 @@ const KEY_CAPTURE_PIECES: PieceSymbol[] = ['n', 'b', 'r', 'q'];
 
 // Страж награждает каждые 5 ходов выживания (см. guardSurvivalBonus в движке улучшений)
 const GUARD_TRIGGER_TURNS = 5;
-// Динамическая подсветка Стража: цикл по turnsAlive % 5 — нарастает к награде на 5-м ходу, затем сброс
-const GUARD_HIGHLIGHT_OPACITY = [0.10, 0.20, 0.30, 0.40, 0.60];
-// Подсветка Засады: 0/1/2 хода на месте → 0.10/0.20/0.30, 3+ хода → 0.50 (готова удвоить золото за взятие)
-const AMBUSH_HIGHLIGHT_OPACITY = [0.10, 0.20, 0.30, 0.50];
 
 const PIECE_DISPLAY_NAME: Record<PieceSymbol, string> = {
   k: 'Король', q: 'Ферзь', r: 'Ладья', b: 'Слон', n: 'Конь', p: 'Пешка',
@@ -337,34 +333,20 @@ export default function ChaosBattleScreen() {
     }
   }
 
-  // Подсветка клеток улучшенных фигур игрока:
-  // Берсерк/Снайпер/Провокатор — красная, фиксированная opacity 0.35;
-  // Страж — синяя, цикличная по числу ходов БЕЗ движения (нарастает к награде на guardTriggerTurns-м ходу);
-  // Засада — синяя, по числу ходов на месте (0/1/2/3+ → 0.10/0.20/0.30/0.50, «готова удвоить золото»).
-  // Пересчитывается на каждый ход (boardKey).
+  // Подсветка клеток улучшенных фигур игрока — все статичные:
+  // атака (берсерк/снайпер/провокатор) — красная 0.35, защита (страж/засада) — синяя 0.35.
   const upgradeHighlights = pieceUpgrades.reduce<{ square: Square; color: 'red' | 'blue' | 'gold' | 'purple'; opacity: number }[]>((acc, upgrade) => {
     const state = upgradeStateRef.current.get(upgrade.id);
     if (!state?.square) return acc;
-    switch (upgrade.upgradeType) {
-      case 'guard': {
-        const guardTurns = guardTurnsRef.current[upgrade.id] ?? 0;
-        acc.push({ square: state.square, color: 'blue', opacity: GUARD_HIGHLIGHT_OPACITY[guardTurns % GUARD_HIGHLIGHT_OPACITY.length] });
-        break;
-      }
-      case 'ambush':
-        acc.push({ square: state.square, color: 'blue', opacity: AMBUSH_HIGHLIGHT_OPACITY[Math.min(state.turnsOnPosition, AMBUSH_HIGHLIGHT_OPACITY.length - 1)] });
-        break;
-      default:
-        acc.push({ square: state.square, color: 'red', opacity: 0.35 });
-        break;
-    }
+    const color = upgrade.category === 'attack' ? 'red' : 'blue';
+    acc.push({ square: state.square, color, opacity: 0.35 });
     return acc;
   }, []);
 
   // Проклятие: пурпурная (#9333EA) подсветка проклятой фигуры
   const cursedSquare = cursedSquareRef.current;
   if (cursedSquare) {
-    upgradeHighlights.push({ square: cursedSquare, color: 'purple', opacity: 0.55 });
+    upgradeHighlights.push({ square: cursedSquare, color: 'purple', opacity: 0.45 });
   }
 
   // Берсерк: если хотя бы одна берсерк-фигура игрока может взять — она обязана это сделать.

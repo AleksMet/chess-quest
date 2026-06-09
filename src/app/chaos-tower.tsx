@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useCallback } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useChaosModeStore } from '../store/chaosModeStore';
 import { CHAOS_TOWER_NODES } from '../data/chaosTowerConfig';
 
@@ -8,10 +8,14 @@ export default function ChaosTowerScreen() {
   const router = useRouter();
   const { currentFloor, gold, totalScore, resetRun } = useChaosModeStore();
 
-  useEffect(() => {
-    if (currentFloor === 0) router.replace('/chaos-shop');
-    else if (currentFloor >= CHAOS_TOWER_NODES.length) router.replace('/chaos-victory');
-  }, [currentFloor]); // eslint-disable-line react-hooks/exhaustive-deps
+  // useFocusEffect вместо useEffect: фоновые экземпляры башни не должны
+  // инициировать навигацию (иначе при resetRun() стек старых экранов редиректит в магазин)
+  useFocusEffect(
+    useCallback(() => {
+      if (currentFloor === 0) router.replace('/chaos-shop');
+      else if (currentFloor >= CHAOS_TOWER_NODES.length) router.replace('/chaos-victory');
+    }, [currentFloor]) // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   if (currentFloor === 0 || currentFloor >= CHAOS_TOWER_NODES.length) return null;
 
