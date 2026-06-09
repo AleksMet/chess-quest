@@ -48,6 +48,8 @@ interface ChaosState {
   lastEventCategory: ChaosEventCategory | null;
   // Ожидающее событие — устанавливается в handleForward башни, читается экраном chaos-event
   pendingEventId: string | null;
+  // Маршрут после события — куда перейти из chaos-event напрямую, минуя башню
+  nextRoute: string | null;
   // Проклятие: pieceId вида 'r_0' — самая ценная фигура лишается возможности брать сильные фигуры в следующем бою
   cursedPieceId: string | null;
 
@@ -74,6 +76,7 @@ interface ChaosState {
   setLastEventCategory: (cat: ChaosEventCategory) => void;
   setPendingEventId: (id: string) => void;
   clearPendingEvent: () => void;
+  setNextRoute: (route: string | null) => void;
   setCursedPiece: (id: string) => void;
   clearCursedPiece: () => void;
   resetRun: () => void;
@@ -102,6 +105,7 @@ function runState(character: ChaosCharacter | null) {
     bossKnightSpawnsLeft: BOSS_KNIGHT_SPAWNS,
     lastEventCategory: null as ChaosEventCategory | null,
     pendingEventId: null as string | null,
+    nextRoute: null as string | null,
     cursedPieceId: null as string | null,
   };
 }
@@ -203,6 +207,7 @@ export const useChaosModeStore = create<ChaosState>((set, get) => ({
   setLastEventCategory: (cat) => set({ lastEventCategory: cat }),
   setPendingEventId: (id) => set({ pendingEventId: id }),
   clearPendingEvent: () => set({ pendingEventId: null }),
+  setNextRoute: (route) => set({ nextRoute: route }),
   setCursedPiece: (id) => set({ cursedPieceId: id }),
   clearCursedPiece: () => set({ cursedPieceId: null }),
 

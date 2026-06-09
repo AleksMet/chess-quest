@@ -97,6 +97,7 @@ export default function ChaosEventScreen() {
   const {
     pieces, gold, pieceUpgrades, currentFloor,
     pendingEventId, clearPendingEvent,
+    nextRoute, setNextRoute,
     addPiece, removePiece, addGold, spendGold, addUpgrade, removeUpgrade,
     canAddUpgrade, getPieceUpgradeClass, isUpgradeAvailable,
     setLastEventCategory, setCursedPiece,
@@ -404,8 +405,10 @@ export default function ChaosEventScreen() {
   // ────── навигация после события ──────
 
   function handleFinish() {
+    const destination = nextRoute ?? '/chaos-tower';
     clearPendingEvent();
-    router.replace('/chaos-tower');
+    setNextRoute(null);
+    router.replace(destination);
   }
 
   // ────── рендер ──────
