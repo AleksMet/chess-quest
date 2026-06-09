@@ -99,7 +99,7 @@ export default function ChaosEventScreen() {
     pendingEventId, clearPendingEvent,
     addPiece, removePiece, addGold, spendGold, addUpgrade, removeUpgrade,
     canAddUpgrade, getPieceUpgradeClass, isUpgradeAvailable,
-    setLastEventWasNegative, setCursedPiece,
+    setLastEventCategory, setCursedPiece,
   } = useChaosModeStore();
 
   // eventId берётся из Zustand store (не из URL params — надёжнее при router.replace)
@@ -141,7 +141,7 @@ export default function ChaosEventScreen() {
       case 'war_loot': {
         const amount = 70 + Math.floor(Math.random() * 51); // 70-120
         addGold(amount);
-        setLastEventWasNegative(false);
+        setLastEventCategory('positive');
         return `+${amount} золота`;
       }
       case 'deserter': {
@@ -152,7 +152,7 @@ export default function ChaosEventScreen() {
         if (bCount < 2) candidates.push('b');
         const gained = candidates[Math.floor(Math.random() * candidates.length)] ?? 'n';
         addPiece(gained);
-        setLastEventWasNegative(false);
+        setLastEventCategory('positive');
         return `${PIECE_DISPLAY_NAME[gained]} присоединился к твоей армии!`;
       }
       case 'enemy_ambush': {
@@ -165,7 +165,7 @@ export default function ChaosEventScreen() {
             .filter(u => `${u.pieceType}_${u.pieceIndex}` === victimId)
             .forEach(u => removeUpgrade(u.id));
         }
-        setLastEventWasNegative(true);
+        setLastEventCategory('negative');
         return victimId
           ? `Твой ${PIECE_DISPLAY_NAME[parsePieceId(victimId).pieceType] ?? '?'} был потерян.`
           : 'Армия отбила атаку без потерь.';
@@ -176,7 +176,7 @@ export default function ChaosEventScreen() {
           const { pieceType } = parsePieceId(victimId);
           removePiece(pieceType);
         }
-        setLastEventWasNegative(true);
+        setLastEventCategory('negative');
         return victimId
           ? `Твой ${PIECE_DISPLAY_NAME[parsePieceId(victimId).pieceType] ?? '?'} оказался предателем.`
           : 'Предателя разоблачили до побега.';
@@ -185,7 +185,7 @@ export default function ChaosEventScreen() {
         const lossRatio = 0.25 + Math.random() * 0.15; // 25-40%
         const lost = Math.round(gold * lossRatio);
         addGold(-lost);
-        setLastEventWasNegative(true);
+        setLastEventCategory('negative');
         return `−${lost} золота сгорело в пожаре.`;
       }
       case 'curse': {
@@ -193,10 +193,10 @@ export default function ChaosEventScreen() {
         if (strongestId) {
           setCursedPiece(strongestId);
           const { pieceType } = parsePieceId(strongestId);
-          setLastEventWasNegative(true);
+          setLastEventCategory('negative');
           return `${PIECE_DISPLAY_NAME[pieceType] ?? '?'} проклята. В следующем бою она не сможет брать сильные фигуры.`;
         }
-        setLastEventWasNegative(true);
+        setLastEventCategory('negative');
         return 'Проклятие не нашло достойной жертвы.';
       }
       default:
@@ -259,7 +259,7 @@ export default function ChaosEventScreen() {
             });
           }
         }
-        setLastEventWasNegative(false);
+        setLastEventCategory('positive');
         setResultText('Ладья ушла. Два коня-берсерка присоединились к армии.');
         setPhase('result');
         break;
@@ -277,7 +277,7 @@ export default function ChaosEventScreen() {
         // currentFloor уже увеличен после боя: 2 → следующий бой = 2, 4 → босс
         const nextBattle: ChaosBattleNumber = currentFloor <= 2 ? 2 : 'boss';
         setArmyDescription(describeAiBattle(nextBattle));
-        setLastEventWasNegative(false);
+        setLastEventCategory('positive');
         setPhase('show_army');
         break;
       }
@@ -286,7 +286,7 @@ export default function ChaosEventScreen() {
         removePiece('p');
         const gained: ChessPiece = Math.random() < 0.5 ? 'n' : 'b';
         addPiece(gained);
-        setLastEventWasNegative(false);
+        setLastEventCategory('positive');
         setResultText(`Две пешки ушли. ${PIECE_DISPLAY_NAME[gained]} вступил в армию.`);
         setPhase('result');
         break;
@@ -295,7 +295,7 @@ export default function ChaosEventScreen() {
   }
 
   function handleNeutralDecline() {
-    setLastEventWasNegative(false);
+    setLastEventCategory('positive');
     setResultText('Ты отказался. Продолжаем путь.');
     setPhase('result');
   }
@@ -327,7 +327,7 @@ export default function ChaosEventScreen() {
         turnsOnPosition: 0,
         turnsAlive: 0,
       });
-      setLastEventWasNegative(false);
+      setLastEventCategory('positive');
       setResultText(`${instance.label} получил улучшение «${def.name}» бесплатно!`);
       setPhase('result');
     } else {
@@ -362,7 +362,7 @@ export default function ChaosEventScreen() {
           results.push(def.name);
         }
       }
-      setLastEventWasNegative(false);
+      setLastEventCategory('positive');
       setResultText(
         results.length > 0
           ? `«${removed.upgradeType}» снято. Получено: ${results.join(', ')}.`
@@ -382,7 +382,7 @@ export default function ChaosEventScreen() {
       (!getPieceUpgradeClass(inst.id) || getPieceUpgradeClass(inst.id) === def.category),
     );
     if (!target) {
-      setLastEventWasNegative(false);
+      setLastEventCategory('positive');
       setResultText(`«${def.name}» — нет подходящей фигуры для применения.`);
       setPhase('result');
       return;
@@ -396,7 +396,7 @@ export default function ChaosEventScreen() {
       turnsOnPosition: 0,
       turnsAlive: 0,
     });
-    setLastEventWasNegative(false);
+    setLastEventCategory('positive');
     setResultText(`${target.label} получил «${def.name}» бесплатно!`);
     setPhase('result');
   }

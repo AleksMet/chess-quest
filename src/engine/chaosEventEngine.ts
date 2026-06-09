@@ -18,7 +18,7 @@ export function selectRandomEvent(ctx: RollCtx): ChaosEventId | null {
 }
 
 interface RollCtx {
-  lastEventWasNegative: boolean;
+  lastEventCategory: ChaosEventCategory | null;
   pieces: ChessPiece[];
   gold: number;
   pieceUpgrades: PieceUpgrade[];
@@ -28,7 +28,7 @@ interface RollCtx {
 // Если отрицательное заблокировано — перераспределяем оставшиеся 25% поровну.
 function rollCategory(ctx: RollCtx): ChaosEventCategory {
   const nonKingPieces = ctx.pieces.filter(p => p !== 'k');
-  const canNegative = !ctx.lastEventWasNegative && nonKingPieces.length > 2;
+  const canNegative = ctx.lastEventCategory !== 'negative' && nonKingPieces.length > 2;
 
   const roll = Math.random();
   if (!canNegative) {

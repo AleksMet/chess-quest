@@ -3,10 +3,11 @@ import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Alert } fr
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useChaosModeStore } from '../store/chaosModeStore';
 import { CHAOS_TOWER_NODES } from '../data/chaosTowerConfig';
+import { selectRandomEvent } from '../engine/chaosEventEngine';
 
 export default function ChaosTowerScreen() {
   const router = useRouter();
-  const { currentFloor, gold, totalScore, resetRun } = useChaosModeStore();
+  const { currentFloor, gold, totalScore, resetRun, setPendingEventId } = useChaosModeStore();
 
   // useFocusEffect вместо useEffect: фоновые экземпляры башни не должны
   // инициировать навигацию (иначе при resetRun() стек старых экранов редиректит в магазин)
@@ -22,6 +23,24 @@ export default function ChaosTowerScreen() {
   const current = CHAOS_TOWER_NODES[currentFloor];
 
   function handleForward() {
+    const isBattleNode = current.type === 'battle';
+
+    if (isBattleNode) {
+      const store = useChaosModeStore.getState();
+      const eventId = selectRandomEvent({
+        gold: store.gold,
+        pieces: store.pieces,
+        pieceUpgrades: store.pieceUpgrades,
+        lastEventCategory: store.lastEventCategory,
+      });
+
+      if (eventId) {
+        setPendingEventId(eventId);
+        router.push('/chaos-event');
+        return;
+      }
+    }
+
     router.push(current.route);
   }
 

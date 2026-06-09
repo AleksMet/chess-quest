@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { PieceSymbol } from 'chess.js';
-import type { ChaosCharacter, PieceUpgrade, UpgradeCategory } from '../types/chaos';
+import type { ChaosCharacter, PieceUpgrade, UpgradeCategory, ChaosEventCategory } from '../types/chaos';
 
 // Фигура армии — храним только тип; конкретные клетки расставляет buildPlayerFen
 export type ChessPiece = PieceSymbol;
@@ -44,9 +44,9 @@ interface ChaosState {
   // Сколько раз босс «Всадник» ещё может заспавнить коня (стартует с 5, обнуляется до конца боя)
   bossKnightSpawnsLeft: number;
 
-  // Случайные события: был ли последним событием отрицательный исход
-  lastEventWasNegative: boolean;
-  // Ожидающее событие — устанавливается в handleContinue боя, читается экраном chaos-event
+  // Случайные события: категория последнего события (null = ещё не было)
+  lastEventCategory: ChaosEventCategory | null;
+  // Ожидающее событие — устанавливается в handleForward башни, читается экраном chaos-event
   pendingEventId: string | null;
   // Проклятие: pieceId вида 'r_0' — самая ценная фигура лишается возможности брать сильные фигуры в следующем бою
   cursedPieceId: string | null;
@@ -71,8 +71,8 @@ interface ChaosState {
   addScore: (score: number) => void;
   nextFloor: () => void;
   setBossKnightSpawnsLeft: (count: number) => void;
-  setLastEventWasNegative: (v: boolean) => void;
-  setPendingEvent: (id: string) => void;
+  setLastEventCategory: (cat: ChaosEventCategory) => void;
+  setPendingEventId: (id: string) => void;
   clearPendingEvent: () => void;
   setCursedPiece: (id: string) => void;
   clearCursedPiece: () => void;
@@ -100,7 +100,7 @@ function runState(character: ChaosCharacter | null) {
     totalScore: 0,
     floorScores: [] as number[],
     bossKnightSpawnsLeft: BOSS_KNIGHT_SPAWNS,
-    lastEventWasNegative: false,
+    lastEventCategory: null as ChaosEventCategory | null,
     pendingEventId: null as string | null,
     cursedPieceId: null as string | null,
   };
@@ -200,8 +200,8 @@ export const useChaosModeStore = create<ChaosState>((set, get) => ({
 
   setBossKnightSpawnsLeft: (count) => set({ bossKnightSpawnsLeft: count }),
 
-  setLastEventWasNegative: (v) => set({ lastEventWasNegative: v }),
-  setPendingEvent: (id) => set({ pendingEventId: id }),
+  setLastEventCategory: (cat) => set({ lastEventCategory: cat }),
+  setPendingEventId: (id) => set({ pendingEventId: id }),
   clearPendingEvent: () => set({ pendingEventId: null }),
   setCursedPiece: (id) => set({ cursedPieceId: id }),
   clearCursedPiece: () => set({ cursedPieceId: null }),

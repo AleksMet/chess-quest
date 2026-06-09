@@ -15,7 +15,7 @@ import { CHAOS_EVENTS } from '../../data/chaosEvents';
 const NO_UPGRADES: PieceUpgrade[] = [];
 
 const BASE_CTX = {
-  lastEventWasNegative: false,
+  lastEventCategory: null as import('../../types/chaos').ChaosEventCategory | null,
   pieces: ['k', 'r', 'r', 'p', 'p', 'p', 'p'] as ChessPiece[],
   gold: 150,
   pieceUpgrades: NO_UPGRADES,
@@ -76,7 +76,7 @@ describe('rollChaosEvent', () => {
 
   it('после отрицательного события — не выбирает отрицательную категорию', () => {
     const negativeIds = new Set(CHAOS_EVENTS.filter(e => e.category === 'negative').map(e => e.id));
-    const ctx = { ...BASE_CTX, lastEventWasNegative: true };
+    const ctx = { ...BASE_CTX, lastEventCategory: 'negative' as const };
 
     for (let i = 0; i < 50; i++) {
       expect(negativeIds.has(rollChaosEvent(ctx))).toBe(false);
