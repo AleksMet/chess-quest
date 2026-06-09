@@ -44,6 +44,11 @@ interface ChaosState {
   // Сколько раз босс «Всадник» ещё может заспавнить коня (стартует с 5, обнуляется до конца боя)
   bossKnightSpawnsLeft: number;
 
+  // Случайные события: был ли последним событием отрицательный исход
+  lastEventWasNegative: boolean;
+  // Проклятие: pieceId вида 'r_0' — самая ценная фигура лишается возможности брать сильные фигуры в следующем бою
+  cursedPieceId: string | null;
+
   // Действия
   setCharacter: (character: ChaosCharacter) => void;
   loadGuardianUnlocked: () => Promise<void>;
@@ -64,6 +69,9 @@ interface ChaosState {
   addScore: (score: number) => void;
   nextFloor: () => void;
   setBossKnightSpawnsLeft: (count: number) => void;
+  setLastEventWasNegative: (v: boolean) => void;
+  setCursedPiece: (id: string) => void;
+  clearCursedPiece: () => void;
   resetRun: () => void;
 }
 
@@ -88,6 +96,8 @@ function runState(character: ChaosCharacter | null) {
     totalScore: 0,
     floorScores: [] as number[],
     bossKnightSpawnsLeft: BOSS_KNIGHT_SPAWNS,
+    lastEventWasNegative: false,
+    cursedPieceId: null as string | null,
   };
 }
 
@@ -184,6 +194,10 @@ export const useChaosModeStore = create<ChaosState>((set, get) => ({
   nextFloor: () => set(s => ({ currentFloor: s.currentFloor + 1 })),
 
   setBossKnightSpawnsLeft: (count) => set({ bossKnightSpawnsLeft: count }),
+
+  setLastEventWasNegative: (v) => set({ lastEventWasNegative: v }),
+  setCursedPiece: (id) => set({ cursedPieceId: id }),
+  clearCursedPiece: () => set({ cursedPieceId: null }),
 
   resetRun: () => set(s => ({ ...runState(s.selectedCharacter) })),
 }));

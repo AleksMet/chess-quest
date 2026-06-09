@@ -14,7 +14,7 @@ const PIECE_SIZE = CELL_SIZE * 0.88;
 
 interface UpgradeHighlight {
   square: Square;
-  color: 'red' | 'blue' | 'gold';
+  color: 'red' | 'blue' | 'gold' | 'purple';
   opacity: number;
 }
 
@@ -32,9 +32,10 @@ interface ChessBoardProps {
 }
 
 const UPGRADE_HIGHLIGHT_COLOR: Record<UpgradeHighlight['color'], string> = {
-  red:  '#FF4444',
-  blue: '#4444FF',
-  gold: '#FFD700',
+  red:    '#FF4444',
+  blue:   '#4444FF',
+  gold:   '#FFD700',
+  purple: '#9333EA',
 };
 
 const SPAWN_FADE_IN_MS = 500;

@@ -36,6 +36,7 @@ import type { PieceUpgrade } from '../types/chaos';
 import { UPGRADE_DEFINITIONS } from '../data/chaosUpgrades';
 import { useChaosModeStore } from '../store/chaosModeStore';
 import { eloToSkillLevel } from '../engine/stockfish';
+import { shouldTriggerEvent, rollChaosEvent, parsePieceId } from '../engine/chaosEventEngine';
 
 // Бонус золота за «ключевые» взятия — независимо от улучшений (попап в правом верхнем углу);
 // пешки не учитываются (см. ЗАДАЧА 3 спецификации режима ХАОС)
@@ -140,6 +141,7 @@ export default function ChaosBattleScreen() {
     currentFloor, pieces, purchasedPieces, pieceUpgrades, artifacts, selectedCharacter,
     addGold, addScore, setPieces, savePurchasedPieces, nextFloor, unlockGuardian,
     bossKnightSpawnsLeft, setBossKnightSpawnsLeft,
+    cursedPieceId, clearCursedPiece,
   } = useChaosModeStore();
 
   // Каждые guardTriggerTurns ходов выживания срабатывает Страж — у персонажа «Страж» порог ниже стандартного
@@ -178,6 +180,8 @@ export default function ChaosBattleScreen() {
   const guardPositionsRef = useRef<Record<string, Square>>({});
   const guardTurnsRef = useRef<Record<string, number>>({});
   const goldToastIdRef = useRef(0);
+  // Проклятие: текущая клетка проклятой фигуры — обновляется после каждого хода
+  const cursedSquareRef = useRef<Square | null>(null);
 
   // Показывает золотой попап в правом верхнем углу — стекается с предыдущими, исчезает через 1.5с
   const pushGoldToast = useCallback((text: string) => {
@@ -230,6 +234,12 @@ export default function ChaosBattleScreen() {
     berserkStreakRef.current = {};
     guardPositionsRef.current = guardPositions;
     guardTurnsRef.current = {};
+
+    // Инициализируем стартовую клетку проклятой фигуры (если есть проклятие на этот бой)
+    if (cursedPieceId) {
+      const { pieceType, pieceIndex } = parsePieceId(cursedPieceId);
+      cursedSquareRef.current = pieceStartingSquare(pieceType, pieceIndex);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -246,6 +256,9 @@ export default function ChaosBattleScreen() {
         state.turnsOnPosition = 0;
       }
     }
+    // Обновляем клетку проклятой фигуры — она взята, если оказалась на «to»
+    if (cursedSquareRef.current === to) cursedSquareRef.current = null;
+    if (cursedSquareRef.current === from) cursedSquareRef.current = to;
   }
 
   // Раз за ход игрока — продлеваем счётчики живым улучшенным фигурам:
@@ -329,7 +342,7 @@ export default function ChaosBattleScreen() {
   // Страж — синяя, цикличная по числу ходов БЕЗ движения (нарастает к награде на guardTriggerTurns-м ходу);
   // Засада — синяя, по числу ходов на месте (0/1/2/3+ → 0.10/0.20/0.30/0.50, «готова удвоить золото»).
   // Пересчитывается на каждый ход (boardKey).
-  const upgradeHighlights = pieceUpgrades.reduce<{ square: Square; color: 'red' | 'blue' | 'gold'; opacity: number }[]>((acc, upgrade) => {
+  const upgradeHighlights = pieceUpgrades.reduce<{ square: Square; color: 'red' | 'blue' | 'gold' | 'purple'; opacity: number }[]>((acc, upgrade) => {
     const state = upgradeStateRef.current.get(upgrade.id);
     if (!state?.square) return acc;
     switch (upgrade.upgradeType) {
@@ -347,6 +360,12 @@ export default function ChaosBattleScreen() {
     }
     return acc;
   }, []);
+
+  // Проклятие: пурпурная (#9333EA) подсветка проклятой фигуры
+  const cursedSquare = cursedSquareRef.current;
+  if (cursedSquare) {
+    upgradeHighlights.push({ square: cursedSquare, color: 'purple', opacity: 0.55 });
+  }
 
   // Берсерк: если хотя бы одна берсерк-фигура игрока может взять — она обязана это сделать.
   // Возвращает клетки и список разрешённых ходов (LAN), которые ChessBoard примет как форсированные.
@@ -387,6 +406,32 @@ export default function ChaosBattleScreen() {
     acc.push({ icon, text: `${label} — ${upgradeName(upgrade.upgradeType)}${suffix}` });
     return acc;
   }, []);
+
+  // Проклятие: ходы проклятой фигуры, захватывающие ценные фигуры (n/b/r/q), блокируются.
+  // Объединяем с берсерком: если берсерк активен — фильтруем его список; иначе строим allMoves.
+  const activeForcedMoves: string[] | undefined = (() => {
+    const CURSE_BLOCKED: Partial<Record<PieceSymbol, boolean>> = { n: true, b: true, r: true, q: true };
+    const filterCurse = (lans: string[]): string[] => {
+      if (!cursedSquare) return lans;
+      return lans.filter(lan => {
+        if (!lan.startsWith(cursedSquare)) return true;
+        const toSq = lan.slice(2, 4) as Square;
+        const target = chess.get(toSq);
+        return !target || !CURSE_BLOCKED[target.type];
+      });
+    };
+
+    if (berserkForce) {
+      return filterCurse(berserkForce.forcedMoves);
+    }
+    if (cursedSquare) {
+      const allVerbose = chess.moves({ verbose: true }).filter(m => m.color === 'w');
+      const filtered = filterCurse(allVerbose.map(m => `${m.from}${m.to}${m.promotion ?? ''}`));
+      // Только если хотя бы один ход был заблокирован — иначе undefined (без ограничений)
+      return filtered.length < allVerbose.length ? filtered : undefined;
+    }
+    return undefined;
+  })();
 
   // Подсветка ключевых фигур босса «Всадник»: ферзь-берсерк — красным, король-спавнер коней — золотым.
   // Защитные улучшения боссу не нужны (ладья-страж не подсвечивается). Видна с первого хода игрока.
@@ -563,6 +608,23 @@ export default function ChaosBattleScreen() {
     if (finalGoldRef.current > 0) addGold(finalGoldRef.current);
     addScore(finalGoldRef.current);
     nextFloor();
+    // Проклятие действует ровно один бой — снимаем после его завершения
+    clearCursedPiece();
+
+    // Случайное событие после обычных боёв (не после босса) — 60% вероятность
+    if (safeBattleNumber !== 'boss') {
+      const store = useChaosModeStore.getState();
+      if (shouldTriggerEvent()) {
+        const eventId = rollChaosEvent({
+          lastEventWasNegative: store.lastEventWasNegative,
+          pieces: store.pieces,
+          gold: store.gold,
+          pieceUpgrades: store.pieceUpgrades,
+        });
+        router.replace(`/chaos-event?eventId=${eventId}`);
+        return;
+      }
+    }
     router.replace('/chaos-tower');
   }
 
@@ -607,7 +669,7 @@ export default function ChaosBattleScreen() {
           upgradeHighlights={[...upgradeHighlights, ...bossHighlights]}
           spawnedSquare={spawnedSquare}
           forcedSquares={berserkForce?.forcedSquares}
-          forcedMoves={berserkForce?.forcedMoves}
+          forcedMoves={activeForcedMoves}
         />
         <ChaosGoldToastStack items={goldToasts} onExpire={removeGoldToast} />
         {showKnightsOutBanner && (

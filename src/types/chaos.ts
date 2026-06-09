@@ -1,5 +1,22 @@
 import type { PieceSymbol } from 'chess.js';
 
+export type ChaosEventId =
+  | 'old_blacksmith' | 'deserter' | 'war_loot' | 'secret_arsenal'
+  | 'relic_trader'   | 'alchemist' | 'fortune_teller' | 'recruiter'
+  | 'enemy_ambush'   | 'traitor'   | 'treasury_fire'  | 'curse';
+
+export type ChaosEventCategory = 'positive' | 'neutral' | 'negative';
+
+export interface ChaosEventDef {
+  id: ChaosEventId;
+  category: ChaosEventCategory;
+  icon: string;
+  name: string;
+  description: string;
+  optionAccept?: string;
+  optionDecline?: string;
+}
+
 // Типы улучшений фигур в режиме ХАОС
 export type UpgradeType =
   | 'berserk'      // Берсерк
