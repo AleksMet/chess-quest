@@ -621,7 +621,7 @@ export default function ChaosBattleScreen() {
           gold: store.gold,
           pieceUpgrades: store.pieceUpgrades,
         });
-        router.replace(`/chaos-event?eventId=${eventId}`);
+        router.replace({ pathname: '/chaos-event', params: { eventId } });
         return;
       }
     }

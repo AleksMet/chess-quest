@@ -120,11 +120,15 @@ export default function ChaosEventScreen() {
     Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
   }, [fadeAnim]);
 
-  // Безопасный возврат если eventId неизвестен
-  if (!eventDef) {
-    router.replace('/chaos-tower');
-    return null;
-  }
+  // Безопасный выход если eventId неизвестен — через useEffect чтобы не вызывать навигацию в рендере
+  useEffect(() => {
+    if (!eventDef) {
+      router.replace('/chaos-tower');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (!eventDef) return null;
 
   const isNegative = eventDef.category === 'negative';
   const isNeutral = eventDef.category === 'neutral';
