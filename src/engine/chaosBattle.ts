@@ -109,7 +109,9 @@ function buildAiBoard(battleNumber: ChaosBattleNumber): Board {
     case 1:
       place(board, 'e8', 'k');
       sixPawnFiles.forEach(f => place(board, `${f}7`, 'p'));
-      place(board, 'b8', 'n');
+      // Конь на g8, а не b8 — иначе открытая линия «h» ведёт прямо на пустое h8,
+      // и Ладья игрока даёт мат в 1 ход (Rh8#); конь на g8 закрывает 8-ю горизонталь.
+      place(board, 'g8', 'n');
       place(board, 'c8', 'b');
       place(board, 'a8', 'r');
       break;

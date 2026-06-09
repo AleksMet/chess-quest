@@ -84,6 +84,34 @@ describe('buildChaosFen', () => {
       expect((board.match(/k/g) ?? []).length).toBe(1);
     }
   });
+
+  // Король ИИ не должен получать мат первым же ходом игрока — иначе бой завершается
+  // до того, как успевает начаться. Самый частый случай: 2 ладьи игрока бьют по
+  // открытой линии «h» прямо на пустое h8 (Rh8#), если на 8-й горизонтали ИИ нет фигуры-блокера.
+  function isMateInOne(fen: string): boolean {
+    const chess = new Chess(fen);
+    for (const move of chess.moves({ verbose: true })) {
+      chess.move(move);
+      const mate = chess.isCheckmate();
+      chess.undo();
+      if (mate) return true;
+    }
+    return false;
+  }
+
+  const TWO_ROOKS_ARMY: ChessPiece[] = ['k', 'r', 'r', 'p', 'p', 'p', 'p'];
+
+  it.each(battles)('never allows mate-in-one for the starting army in battle %s', (battleNumber) => {
+    expect(isMateInOne(buildChaosFen(STARTING_PIECES, battleNumber))).toBe(false);
+  });
+
+  it.each(battles)('never allows mate-in-one for a fully equipped army in battle %s', (battleNumber) => {
+    expect(isMateInOne(buildChaosFen(FULL_ARMY, battleNumber))).toBe(false);
+  });
+
+  it.each(battles)('never allows mate-in-one for a two-rook army with an open h-file in battle %s', (battleNumber) => {
+    expect(isMateInOne(buildChaosFen(TWO_ROOKS_ARMY, battleNumber))).toBe(false);
+  });
 });
 
 describe('resolveArmyAfterBattle', () => {

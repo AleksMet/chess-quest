@@ -40,6 +40,41 @@ index 97f26dd..55eeda4 100644
  var _default = exports.default = DelayedFreeze;
 -//# sourceMappingURL=DelayedFreeze.js.map
 \ No newline at end of file
+diff --git a/node_modules/react-native-screens/lib/commonjs/components/safe-area/SafeAreaView.js b/node_modules/react-native-screens/lib/commonjs/components/safe-area/SafeAreaView.js
+index 8cc31db..f825ebf 100644
+--- a/node_modules/react-native-screens/lib/commonjs/components/safe-area/SafeAreaView.js
++++ b/node_modules/react-native-screens/lib/commonjs/components/safe-area/SafeAreaView.js
+@@ -8,25 +8,17 @@ Object.defineProperty(exports, "__esModule", {
+ });
+ exports.SafeAreaView = SafeAreaView;
+ var _react = _interopRequireDefault(require("react"));
+-var _SafeAreaViewNativeComponent = _interopRequireDefault(require("../../fabric/safe-area/SafeAreaViewNativeComponent"));
+ var _reactNative = require("react-native");
+ function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+ function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
++// RNSSafeAreaView (Fabric) is missing from the Expo Go SDK 54 binary on iOS 26+, so it renders
++// as an unimplemented-component placeholder ("RNS SAFE AREA VIEW"). Delegate to React Native's
++// built-in SafeAreaView, which ships in Expo Go.
+ function SafeAreaView(props) {
+-  return /*#__PURE__*/_react.default.createElement(_SafeAreaViewNativeComponent.default, _extends({}, props, {
+-    style: [styles.flex, props.style],
+-    edges: getNativeEdgesProp(props.edges)
++  return /*#__PURE__*/_react.default.createElement(_reactNative.SafeAreaView, _extends({}, props, {
++    style: [styles.flex, props.style]
+   }));
+ }
+-function getNativeEdgesProp(edges) {
+-  return {
+-    top: false,
+-    bottom: false,
+-    left: false,
+-    right: false,
+-    ...edges
+-  };
+-}
+ const styles = _reactNative.StyleSheet.create({
+   flex: {
+     flex: 1
 diff --git a/node_modules/react-native-screens/lib/commonjs/utils.js b/node_modules/react-native-screens/lib/commonjs/utils.js
 index 713c71f..51f67d1 100644
 --- a/node_modules/react-native-screens/lib/commonjs/utils.js
@@ -93,6 +128,40 @@ index 06f08d0..6ff76f2 100644
  export default DelayedFreeze;
 -//# sourceMappingURL=DelayedFreeze.js.map
 \ No newline at end of file
+diff --git a/node_modules/react-native-screens/lib/module/components/safe-area/SafeAreaView.js b/node_modules/react-native-screens/lib/module/components/safe-area/SafeAreaView.js
+index 13f09da..99e55de 100644
+--- a/node_modules/react-native-screens/lib/module/components/safe-area/SafeAreaView.js
++++ b/node_modules/react-native-screens/lib/module/components/safe-area/SafeAreaView.js
+@@ -4,23 +4,15 @@
+ 
+ function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+ import React from 'react';
+-import SafeAreaViewNativeComponent from '../../fabric/safe-area/SafeAreaViewNativeComponent';
+-import { StyleSheet } from 'react-native';
++import { SafeAreaView as RNSafeAreaView, StyleSheet } from 'react-native';
++// RNSSafeAreaView (Fabric) is missing from the Expo Go SDK 54 binary on iOS 26+, so it renders
++// as an unimplemented-component placeholder ("RNS SAFE AREA VIEW"). Delegate to React Native's
++// built-in SafeAreaView, which ships in Expo Go.
+ export function SafeAreaView(props) {
+-  return /*#__PURE__*/React.createElement(SafeAreaViewNativeComponent, _extends({}, props, {
+-    style: [styles.flex, props.style],
+-    edges: getNativeEdgesProp(props.edges)
++  return /*#__PURE__*/React.createElement(RNSafeAreaView, _extends({}, props, {
++    style: [styles.flex, props.style]
+   }));
+ }
+-function getNativeEdgesProp(edges) {
+-  return {
+-    top: false,
+-    bottom: false,
+-    left: false,
+-    right: false,
+-    ...edges
+-  };
+-}
+ const styles = StyleSheet.create({
+   flex: {
+     flex: 1
 diff --git a/node_modules/react-native-screens/lib/module/utils.js b/node_modules/react-native-screens/lib/module/utils.js
 index 9f4bb00..8c1eaca 100644
 --- a/node_modules/react-native-screens/lib/module/utils.js
@@ -148,6 +217,47 @@ index 443da63..7dcdf4f 100644
  }
  
  export default DelayedFreeze;
+diff --git a/node_modules/react-native-screens/src/components/safe-area/SafeAreaView.tsx b/node_modules/react-native-screens/src/components/safe-area/SafeAreaView.tsx
+index a127f0c..59cd286 100644
+--- a/node_modules/react-native-screens/src/components/safe-area/SafeAreaView.tsx
++++ b/node_modules/react-native-screens/src/components/safe-area/SafeAreaView.tsx
+@@ -4,31 +4,13 @@
+ 
+ import React from 'react';
+ import { SafeAreaViewProps } from './SafeAreaView.types';
+-import SafeAreaViewNativeComponent, {
+-  NativeProps as SafeAreaViewNativeComponentProps,
+-} from '../../fabric/safe-area/SafeAreaViewNativeComponent';
+-import { StyleSheet } from 'react-native';
++import { SafeAreaView as RNSafeAreaView, StyleSheet } from 'react-native';
+ 
++// RNSSafeAreaView (Fabric) is missing from the Expo Go SDK 54 binary on iOS 26+,
++// so it renders as an unimplemented-component placeholder ("RNS SAFE AREA VIEW") instead
++// of the screen. Delegate to React Native's built-in SafeAreaView, which ships in Expo Go.
+ export function SafeAreaView(props: SafeAreaViewProps) {
+-  return (
+-    <SafeAreaViewNativeComponent
+-      {...props}
+-      style={[styles.flex, props.style]}
+-      edges={getNativeEdgesProp(props.edges)}
+-    />
+-  );
+-}
+-
+-function getNativeEdgesProp(
+-  edges: SafeAreaViewProps['edges'],
+-): SafeAreaViewNativeComponentProps['edges'] {
+-  return {
+-    top: false,
+-    bottom: false,
+-    left: false,
+-    right: false,
+-    ...edges,
+-  };
++  return <RNSafeAreaView {...props} style={[styles.flex, props.style]} />;
+ }
+ 
+ const styles = StyleSheet.create({
 diff --git a/node_modules/react-native-screens/src/utils.ts b/node_modules/react-native-screens/src/utils.ts
 index 02ad04e..7f746d7 100644
 --- a/node_modules/react-native-screens/src/utils.ts

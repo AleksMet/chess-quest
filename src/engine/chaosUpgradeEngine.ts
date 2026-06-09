@@ -1,6 +1,10 @@
 import type { Chess, Move, PieceSymbol, Square } from 'chess.js';
 import type { PieceUpgrade, UpgradeType } from '../types/chaos';
 import { UPGRADE_DEFINITIONS } from '../data/chaosUpgrades';
+import { calcCaptureScore } from './scoreEngine';
+
+// Порог «Засады»: фигура должна простоять на месте без движения столько ходов, прежде чем взятие удвоит золото
+const AMBUSH_TRIGGER_TURNS = 3;
 
 // Ценность фигур для улучшения «Снайпер»
 const PIECE_VALUES: Record<PieceSymbol, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
@@ -54,8 +58,9 @@ export function processPlayerMove(move: Move, upgrades: PieceUpgrade[]): Upgrade
         }
         break;
       case 'ambush':
-        if (move.captured && upgrade.pieceType === move.piece && upgrade.turnsOnPosition >= 2) {
-          triggers.push({ upgradeType: 'ambush', bonus: bonusGoldFor('ambush') });
+        // Бонус равен золоту за само взятие — вместе с базовым начислением получается ×2
+        if (move.captured && upgrade.pieceType === move.piece && upgrade.turnsOnPosition >= AMBUSH_TRIGGER_TURNS) {
+          triggers.push({ upgradeType: 'ambush', bonus: calcCaptureScore(move.captured) });
         }
         break;
     }

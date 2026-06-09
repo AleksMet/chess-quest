@@ -35,21 +35,22 @@ describe('processPlayerMove', () => {
     expect(processPlayerMove(move, upgrades)).toEqual([]);
   });
 
-  it('Засада: фигура простояла на месте 2+ хода и берёт оттуда — приносит +35 золота', () => {
+  it('Засада: фигура простояла на месте 3+ хода и берёт оттуда — бонус удваивает золото за взятие', () => {
+    const chess = new Chess('k7/8/8/3p4/4P3/8/8/7K w - - 0 1');
+    const move = chess.move({ from: 'e4', to: 'd5' })!;
+    const upgrades = [makeUpgrade({ id: 'p_0_ambush', pieceType: 'p', upgradeType: 'ambush', category: 'defense', turnsOnPosition: 3 })];
+    // Взята пешка (10 золота за взятие) — бонус Засады равен этой же сумме, итог ×2
+    expect(processPlayerMove(move, upgrades)).toEqual([{ upgradeType: 'ambush', bonus: 10 }]);
+  });
+
+  it('Засада: фигура простояла меньше 3 ходов — бонус не начисляется', () => {
     const chess = new Chess('k7/8/8/3p4/4P3/8/8/7K w - - 0 1');
     const move = chess.move({ from: 'e4', to: 'd5' })!;
     const upgrades = [makeUpgrade({ id: 'p_0_ambush', pieceType: 'p', upgradeType: 'ambush', category: 'defense', turnsOnPosition: 2 })];
-    expect(processPlayerMove(move, upgrades)).toEqual([{ upgradeType: 'ambush', bonus: 35 }]);
-  });
-
-  it('Засада: фигура простояла меньше 2 ходов — бонус не начисляется', () => {
-    const chess = new Chess('k7/8/8/3p4/4P3/8/8/7K w - - 0 1');
-    const move = chess.move({ from: 'e4', to: 'd5' })!;
-    const upgrades = [makeUpgrade({ id: 'p_0_ambush', pieceType: 'p', upgradeType: 'ambush', category: 'defense', turnsOnPosition: 1 })];
     expect(processPlayerMove(move, upgrades)).toEqual([]);
   });
 
-  it('Засада: фигура простояла 2+ хода, но ход без взятия — бонус не начисляется', () => {
+  it('Засада: фигура простояла 3+ хода, но ход без взятия — бонус не начисляется', () => {
     const chess = new Chess();
     const move = chess.move({ from: 'e2', to: 'e4' })!;
     const upgrades = [makeUpgrade({ id: 'p_0_ambush', pieceType: 'p', upgradeType: 'ambush', category: 'defense', turnsOnPosition: 3 })];

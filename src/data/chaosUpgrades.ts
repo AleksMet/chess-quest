@@ -37,8 +37,8 @@ export const UPGRADE_DEFINITIONS: ChaosUpgradeDefinition[] = [
     type: 'ambush',
     category: 'defense',
     name: 'Засада',
-    description: 'Фигура стоит на месте 2+ хода и берёт оттуда — огромная награда. Терпи и жди.',
+    description: 'Фигура стоит на месте 3+ хода — следующее взятие даёт ×2 золота. Терпи и выбирай момент.',
     price: 65,
-    bonusGold: 35,
+    bonusGold: 0, // бонус начисляется множителем к золоту за взятие, не фиксированной суммой
   },
 ];
