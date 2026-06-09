@@ -24,7 +24,7 @@ export default function ChaosTowerScreen() {
   function handleExit() {
     Alert.alert('Выйти из забега?', 'Прогресс будет потерян.', [
       { text: 'Остаться', style: 'cancel' },
-      { text: 'Выйти', style: 'destructive', onPress: () => { resetRun(); router.replace('/'); } },
+      { text: 'Выйти', style: 'destructive', onPress: () => { resetRun(); router.replace('/chaos-character-select'); } },
     ]);
   }
 

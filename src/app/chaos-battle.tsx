@@ -45,8 +45,8 @@ const KEY_CAPTURE_PIECES: PieceSymbol[] = ['n', 'b', 'r', 'q'];
 const GUARD_TRIGGER_TURNS = 5;
 // Динамическая подсветка Стража: цикл по turnsAlive % 5 — нарастает к награде на 5-м ходу, затем сброс
 const GUARD_HIGHLIGHT_OPACITY = [0.10, 0.20, 0.30, 0.40, 0.60];
-// Подсветка Засады: 0 ходов на месте → 0.10, 1 ход → 0.20, 2+ хода → 0.40 (готова к удару)
-const AMBUSH_HIGHLIGHT_OPACITY = [0.10, 0.20, 0.40];
+// Подсветка Засады: 0/1/2 хода на месте → 0.10/0.20/0.30, 3+ хода → 0.50 (готова удвоить золото за взятие)
+const AMBUSH_HIGHLIGHT_OPACITY = [0.10, 0.20, 0.30, 0.50];
 
 const PIECE_DISPLAY_NAME: Record<PieceSymbol, string> = {
   k: 'Король', q: 'Ферзь', r: 'Ладья', b: 'Слон', n: 'Конь', p: 'Пешка',
@@ -327,7 +327,7 @@ export default function ChaosBattleScreen() {
   // Подсветка клеток улучшенных фигур игрока:
   // Берсерк/Снайпер/Провокатор — красная, фиксированная opacity 0.35;
   // Страж — синяя, цикличная по числу ходов БЕЗ движения (нарастает к награде на guardTriggerTurns-м ходу);
-  // Засада — синяя, по числу ходов на месте (0/1/2+ → 0.10/0.20/0.40, «готова к удару»).
+  // Засада — синяя, по числу ходов на месте (0/1/2/3+ → 0.10/0.20/0.30/0.50, «готова удвоить золото»).
   // Пересчитывается на каждый ход (boardKey).
   const upgradeHighlights = pieceUpgrades.reduce<{ square: Square; color: 'red' | 'blue' | 'gold'; opacity: number }[]>((acc, upgrade) => {
     const state = upgradeStateRef.current.get(upgrade.id);
@@ -569,7 +569,7 @@ export default function ChaosBattleScreen() {
   function handleExit() {
     Alert.alert('Выйти из боя?', 'Прогресс забега будет потерян.', [
       { text: 'Остаться', style: 'cancel' },
-      { text: 'Выйти', style: 'destructive', onPress: () => { useChaosModeStore.getState().resetRun(); router.replace('/'); } },
+      { text: 'Выйти', style: 'destructive', onPress: () => { useChaosModeStore.getState().resetRun(); router.replace('/chaos-character-select'); } },
     ]);
   }
 
