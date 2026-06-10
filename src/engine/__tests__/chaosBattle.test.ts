@@ -1,6 +1,7 @@
 import { Chess } from 'chess.js';
-import { buildChaosFen, resolveArmyAfterBattle, spawnKnightOnKingMove } from '../chaosBattle';
+import { buildChaosFen, buildLevel2AiFen, resolveArmyAfterBattle, spawnKnightOnKingMove } from '../chaosBattle';
 import type { ChessPiece } from '../../store/chaosModeStore';
+import { LEVEL_CONFIGS } from '../../data/chaosLevelConfig';
 
 const STARTING_PIECES: ChessPiece[] = ['k', 'p', 'p', 'p', 'p'];
 const FULL_ARMY: ChessPiece[] = ['k', 'q', 'r', 'r', 'b', 'b', 'n', 'n', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'];
@@ -111,6 +112,31 @@ describe('buildChaosFen', () => {
 
   it.each(battles)('never allows mate-in-one for a two-rook army with an open h-file in battle %s', (battleNumber) => {
     expect(isMateInOne(buildChaosFen(TWO_ROOKS_ARMY, battleNumber))).toBe(false);
+  });
+});
+
+describe('buildLevel2AiFen', () => {
+  const level2 = LEVEL_CONFIGS[1];
+  const allBattleConfigs = [...level2.battles, level2.eliteBattle, level2.bossConfig];
+
+  it.each(allBattleConfigs.map((c, i) => [i, c.aiUpgrades] as const))(
+    'produces a valid FEN with white to move for battle config %i',
+    (_i, aiUpgrades) => {
+      const fen = buildLevel2AiFen(STARTING_PIECES, aiUpgrades);
+      expect(() => new Chess(fen)).not.toThrow();
+      const chess = new Chess(fen);
+      expect(chess.turn()).toBe('w');
+    }
+  );
+
+  it('places a piece for each AI upgrade on the board', () => {
+    const fen = buildLevel2AiFen(STARTING_PIECES, level2.bossConfig.aiUpgrades);
+    const chess = new Chess(fen);
+    const board = chess.board().flat().filter(c => c && c.color === 'b');
+    // 2x knight (берсерк), слон (снайпер), ферзь (страж) + король + 6 пешек
+    expect(board.filter(c => c?.type === 'n')).toHaveLength(2);
+    expect(board.filter(c => c?.type === 'b')).toHaveLength(1);
+    expect(board.filter(c => c?.type === 'q')).toHaveLength(1);
   });
 });
 

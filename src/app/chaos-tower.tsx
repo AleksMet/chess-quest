@@ -2,29 +2,30 @@ import { useCallback } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Alert } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useChaosModeStore } from '../store/chaosModeStore';
-import { CHAOS_TOWER_NODES } from '../data/chaosTowerConfig';
+import { getTowerNodes } from '../data/chaosTowerConfig';
 import { selectRandomEvent } from '../engine/chaosEventEngine';
 
 export default function ChaosTowerScreen() {
   const router = useRouter();
-  const { currentFloor, gold, totalScore, resetRun, setPendingEventId, setNextRoute } = useChaosModeStore();
+  const { currentFloor, currentLevel, gold, totalScore, resetRun, setPendingEventId, setNextRoute } = useChaosModeStore();
+  const towerNodes = getTowerNodes(currentLevel);
 
   // useFocusEffect вместо useEffect: фоновые экземпляры башни не должны
   // инициировать навигацию (иначе при resetRun() стек старых экранов редиректит в магазин)
   useFocusEffect(
     useCallback(() => {
       if (currentFloor === 0) router.replace('/chaos-shop');
-      else if (currentFloor >= CHAOS_TOWER_NODES.length) router.replace('/chaos-victory');
-    }, [currentFloor]) // eslint-disable-line react-hooks/exhaustive-deps
+      else if (currentFloor >= towerNodes.length) router.replace('/chaos-victory');
+    }, [currentFloor, towerNodes.length]) // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  if (currentFloor === 0 || currentFloor >= CHAOS_TOWER_NODES.length) return null;
+  if (currentFloor === 0 || currentFloor >= towerNodes.length) return null;
 
-  const current = CHAOS_TOWER_NODES[currentFloor];
+  const current = towerNodes[currentFloor];
 
   function handleForward() {
     // Событие появляется только если предыдущий узел был боем (события «после боя»)
-    const prevNode = CHAOS_TOWER_NODES[currentFloor - 1];
+    const prevNode = towerNodes[currentFloor - 1];
     const isBattleNode = prevNode?.type === 'battle';
 
     if (isBattleNode) {
@@ -55,7 +56,7 @@ export default function ChaosTowerScreen() {
   }
 
   // Отображаем сверху вниз: Босс наверху, Магазин 1 внизу — как в спецификации
-  const displayNodes = CHAOS_TOWER_NODES
+  const displayNodes = towerNodes
     .map((node, index) => ({ ...node, index }))
     .reverse();
 
@@ -90,7 +91,7 @@ export default function ChaosTowerScreen() {
                 <Text style={styles.nodeIcon}>{isDone ? '✅' : icon}</Text>
                 <Text style={[styles.nodeLabel, isCurrent && styles.nodeLabelCurrent]}>{label}</Text>
               </View>
-              {index < CHAOS_TOWER_NODES.length - 1 && <View style={styles.connector} />}
+              {index < towerNodes.length - 1 && <View style={styles.connector} />}
             </View>
           );
         })}

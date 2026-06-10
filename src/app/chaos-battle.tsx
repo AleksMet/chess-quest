@@ -11,6 +11,7 @@ import type { GoldToastItem } from '../components/ui/ChaosGoldToast';
 import type { MoveResult } from '../engine/chessLogic';
 import {
   buildChaosFen,
+  buildLevel2AiFen,
   resolveArmyAfterBattle,
   pieceStartingSquare,
   findPieceSquare,
@@ -32,8 +33,11 @@ import {
   guardSurvivalBonus,
   isProvocateurThreatened,
 } from '../engine/chaosUpgradeEngine';
+import { applyAIUpgrades, type AIUpgrade } from '../engine/chaosAIUpgrades';
 import type { PieceUpgrade } from '../types/chaos';
 import { UPGRADE_DEFINITIONS } from '../data/chaosUpgrades';
+import { LEVEL_CONFIGS, getBattleConfig } from '../data/chaosLevelConfig';
+import { getTowerNodes } from '../data/chaosTowerConfig';
 import { useChaosModeStore } from '../store/chaosModeStore';
 import { eloToSkillLevel } from '../engine/stockfish';
 import { parsePieceId } from '../engine/chaosEventEngine';
@@ -44,6 +48,9 @@ const KEY_CAPTURE_PIECES: PieceSymbol[] = ['n', 'b', 'r', 'q'];
 
 // Страж награждает каждые 5 ходов выживания (см. guardSurvivalBonus в движке улучшений)
 const GUARD_TRIGGER_TURNS = 5;
+
+// Лимит призывов коней боссом «Всадник» (уровень 1) — для уровня 2+ берётся из spawnMechanic.maxSpawns
+const BOSS_KNIGHT_SPAWNS_LEVEL1 = 5;
 
 const PIECE_DISPLAY_NAME: Record<PieceSymbol, string> = {
   k: 'Король', q: 'Ферзь', r: 'Ладья', b: 'Слон', n: 'Конь', p: 'Пешка',
@@ -134,7 +141,7 @@ function isKnightFork(chess: Chess, square: Square): boolean {
 export default function ChaosBattleScreen() {
   const router = useRouter();
   const {
-    currentFloor, pieces, purchasedPieces, pieceUpgrades, artifacts, selectedCharacter,
+    currentFloor, currentLevel, chosenPath, pieces, purchasedPieces, pieceUpgrades, artifacts, selectedCharacter,
     addGold, addScore, setPieces, savePurchasedPieces, nextFloor, unlockGuardian,
     bossKnightSpawnsLeft, setBossKnightSpawnsLeft,
     cursedPieceId, clearCursedPiece,
@@ -143,12 +150,34 @@ export default function ChaosBattleScreen() {
   // Каждые guardTriggerTurns ходов выживания срабатывает Страж — у персонажа «Страж» порог ниже стандартного
   const guardTriggerTurns = selectedCharacter?.guardTriggerTurns ?? GUARD_TRIGGER_TURNS;
 
-  const battleNumber = battleNumberForFloor(currentFloor);
+  // Уровень 1 проходит по старой логике без изменений (battleNumberForFloor → 1|2|'boss')
+  const battleNumber = currentLevel === 1 ? battleNumberForFloor(currentFloor) : null;
   const safeBattleNumber: ChaosBattleNumber = battleNumber ?? 1;
-  const opponentElo = CHAOS_BATTLE_ELO[safeBattleNumber];
-  const skillLevel = eloToSkillLevel(opponentElo);
 
-  const [startFen] = useState(() => buildChaosFen(pieces, safeBattleNumber));
+  // Уровень 2+: узел текущего этажа определяет конфигурацию боя из LEVEL_CONFIGS;
+  // для узла выбора маршрута (choice) индекс боя берётся из chosenPath
+  const towerNodes = getTowerNodes(currentLevel);
+  const node = towerNodes[currentFloor];
+  const levelConfig = LEVEL_CONFIGS[currentLevel - 1];
+  const battleKey: number | 'elite' | 'boss' | null = (() => {
+    if (!node) return null;
+    if (node.type === 'choice') return chosenPath;
+    return node.battleIndex ?? null;
+  })();
+  const battleConfig = currentLevel !== 1 && levelConfig && battleKey !== null
+    ? getBattleConfig(levelConfig, battleKey)
+    : null;
+
+  const isValidFloor = currentLevel === 1 ? battleNumber !== null : battleKey !== null;
+
+  const isBossBattle = currentLevel === 1 ? safeBattleNumber === 'boss' : battleKey === 'boss';
+  const opponentElo = currentLevel === 1 ? CHAOS_BATTLE_ELO[safeBattleNumber] : (battleConfig?.elo ?? 1000);
+  const skillLevel = eloToSkillLevel(opponentElo);
+  const aiUpgrades: AIUpgrade[] = battleConfig?.aiUpgrades ?? [];
+
+  const [startFen] = useState(() =>
+    currentLevel === 1 ? buildChaosFen(pieces, safeBattleNumber) : buildLevel2AiFen(pieces, aiUpgrades)
+  );
   const [chess] = useState(() => new Chess(startFen));
   const [boardKey, setBoardKey] = useState(0);
   const [playerMoves, setPlayerMoves] = useState(0);
@@ -163,6 +192,8 @@ export default function ChaosBattleScreen() {
   const [goldToasts, setGoldToasts] = useState<GoldToastItem[]>([]);
   // Баннер «Кони закончились!» — показывается на 1с, когда счётчик призывов босса достигает 0
   const [showKnightsOutBanner, setShowKnightsOutBanner] = useState(false);
+  // Уровень 2+: дополнительные улучшения ИИ, выданные во время боя (специальная механика босса)
+  const [extraAiUpgrades, setExtraAiUpgrades] = useState<AIUpgrade[]>([]);
   const goldRef = useRef(0);
   const finalGoldRef = useRef(0);
   const engineRef = useRef<StockfishBridgeRef>(null);
@@ -178,6 +209,8 @@ export default function ChaosBattleScreen() {
   const goldToastIdRef = useRef(0);
   // Проклятие: текущая клетка проклятой фигуры — обновляется после каждого хода
   const cursedSquareRef = useRef<Square | null>(null);
+  // Уровень 2+, босс «Двуглавый Рыцарь»: счётчик ходов королём — спавн коня раз в spawnMechanic.intervalMoves
+  const kingMoveCountRef = useRef(0);
 
   // Показывает золотой попап в правом верхнем углу — стекается с предыдущими, исчезает через 1.5с
   const pushGoldToast = useCallback((text: string) => {
@@ -205,6 +238,14 @@ export default function ChaosBattleScreen() {
 
   useEffect(() => {
     savePurchasedPieces();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Сбрасываем счётчик призывов коней боссом на лимит из spawnMechanic (5 — Всадник, 4 — Двуглавый Рыцарь)
+  useEffect(() => {
+    if (!isBossBattle) return;
+    const max = currentLevel === 1 ? BOSS_KNIGHT_SPAWNS_LEVEL1 : (levelConfig.bossConfig.spawnMechanic?.maxSpawns ?? BOSS_KNIGHT_SPAWNS_LEVEL1);
+    setBossKnightSpawnsLeft(max);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -418,13 +459,29 @@ export default function ChaosBattleScreen() {
   // Подсветка ключевых фигур босса «Всадник»: ферзь-берсерк — красным, король-спавнер коней — золотым.
   // Защитные улучшения боссу не нужны (ладья-страж не подсвечивается). Видна с первого хода игрока.
   const bossHighlights: typeof upgradeHighlights = [];
-  if (safeBattleNumber === 'boss') {
+  if (currentLevel === 1 && safeBattleNumber === 'boss') {
     for (const square of findAllPieceSquares(chess, 'q', 'b')) {
       bossHighlights.push({ square, color: 'red', opacity: 0.35 });
     }
     const bossKingSquare = findPieceSquare(chess, 'k', 'b');
     if (bossKingSquare) bossHighlights.push({ square: bossKingSquare, color: 'gold', opacity: 0.45 });
   }
+
+  // Уровень 2+: симметрия — улучшения ИИ подсвечиваются так же, как у игрока:
+  // Берсерк/Снайпер — красным (#FF4444), Страж — синим (#4444FF), opacity 0.35.
+  // Доп. улучшения, выданные во время боя (специальная механика босса), идут первыми в currentAiUpgrades.
+  const currentAiUpgrades: AIUpgrade[] = currentLevel === 1 ? [] : [...extraAiUpgrades, ...aiUpgrades];
+  const aiUpgradeHighlights: typeof upgradeHighlights = (() => {
+    if (currentAiUpgrades.length === 0) return [];
+    const map = new Map<Square, { square: Square; color: 'red' | 'blue' | 'gold' | 'purple'; opacity: number }>();
+    for (const upgrade of currentAiUpgrades) {
+      const color = upgrade.upgradeType === 'guard' ? 'blue' : 'red';
+      for (const square of findAllPieceSquares(chess, upgrade.pieceType, 'b')) {
+        map.set(square, { square, color, opacity: 0.35 });
+      }
+    }
+    return [...map.values()];
+  })();
 
   const sendToEngine = useCallback((cmd: string) => engineRef.current?.send(cmd), []);
 
@@ -450,14 +507,20 @@ export default function ChaosBattleScreen() {
 
   const applyAIMove = useCallback((uci: string) => {
     if (aiTimeoutRef.current) { clearTimeout(aiTimeoutRef.current); aiTimeoutRef.current = null; }
+
+    // Уровень 2+: симметричные улучшения ИИ — Берсерк/Снайпер/Страж — переопределяют ход Stockfish
+    const finalUci = currentLevel >= 2 && currentAiUpgrades.length > 0
+      ? applyAIUpgrades(chess, uci, currentAiUpgrades)
+      : uci;
+
     let candidate: BossMoveCandidate = {
-      from: uci.slice(0, 2) as Square,
-      to: uci.slice(2, 4) as Square,
-      promotion: uci[4] as PieceSymbol | undefined,
+      from: finalUci.slice(0, 2) as Square,
+      to: finalUci.slice(2, 4) as Square,
+      promotion: finalUci[4] as PieceSymbol | undefined,
     };
 
     // Босс «Всадник»: ферзь-берсерк форсирует взятие, ладья-страж не уходит от короля
-    if (safeBattleNumber === 'boss') {
+    if (currentLevel === 1 && safeBattleNumber === 'boss') {
       candidate = getGuardRookMove(chess, getBerserkQueenMove(chess, candidate));
     }
 
@@ -474,13 +537,28 @@ export default function ChaosBattleScreen() {
       // Босс «Всадник»: каждый ход королём — новый конь на случайной клетке рядов 5-8,
       // появляется с плавным проявлением (анимация в ChessBoard через spawnedSquare).
       // Лимит призывов — bossKnightSpawnsLeft, проверяем ДО мутации доски в spawnKnightOnKingMove
-      if (safeBattleNumber === 'boss' && bossKnightSpawnsLeft > 0) {
+      if (currentLevel === 1 && safeBattleNumber === 'boss' && bossKnightSpawnsLeft > 0) {
         const spawnSquare = spawnKnightOnKingMove(chess, move);
         if (spawnSquare) {
           setSpawnedSquare(spawnSquare);
           const remaining = bossKnightSpawnsLeft - 1;
           setBossKnightSpawnsLeft(remaining);
           if (remaining === 0) setShowKnightsOutBanner(true);
+        }
+      } else if (currentLevel >= 2 && isBossBattle && levelConfig.bossConfig.spawnMechanic) {
+        // Уровень 2+, босс «Двуглавый Рыцарь»: спавн коня раз в spawnMechanic.intervalMoves ходов королём
+        const spawnMechanic = levelConfig.bossConfig.spawnMechanic;
+        if (move.piece === spawnMechanic.triggerPiece && move.color === 'b') {
+          kingMoveCountRef.current += 1;
+          if (bossKnightSpawnsLeft > 0 && kingMoveCountRef.current % spawnMechanic.intervalMoves === 0) {
+            const spawnSquare = spawnKnightOnKingMove(chess, move);
+            if (spawnSquare) {
+              setSpawnedSquare(spawnSquare);
+              const remaining = bossKnightSpawnsLeft - 1;
+              setBossKnightSpawnsLeft(remaining);
+              if (remaining === 0) setShowKnightsOutBanner(true);
+            }
+          }
         }
       }
       setOpponentLastMove({ from, to });
@@ -497,7 +575,7 @@ export default function ChaosBattleScreen() {
       }
     } catch { setIsAIThinking(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chess, playerMoves, pieceUpgrades]);
+  }, [chess, playerMoves, pieceUpgrades, currentLevel, currentAiUpgrades, isBossBattle, levelConfig, safeBattleNumber, bossKnightSpawnsLeft]);
 
   const requestAIMove = useCallback(() => {
     if (chess.isGameOver() || chess.turn() === PLAYER_COLOR) return;
@@ -566,6 +644,16 @@ export default function ChaosBattleScreen() {
     }
     setGoldDisplay(goldRef.current);
 
+    // Уровень 2+, босс «Двуглавый Рыцарь»: раз в specialMechanic.intervalMoves ходов
+    // случайный конь ИИ получает дополнительное улучшение (Снайпер)
+    if (currentLevel >= 2 && isBossBattle && levelConfig.bossConfig.specialMechanic) {
+      const specialMechanic = levelConfig.bossConfig.specialMechanic;
+      if (newCount % specialMechanic.intervalMoves === 0) {
+        setExtraAiUpgrades(prev => [{ pieceType: specialMechanic.targetPiece, upgradeType: specialMechanic.addUpgrade }, ...prev]);
+        pushGoldToast(`${PIECE_DISPLAY_NAME[specialMechanic.targetPiece]} получил улучшение ${upgradeName(specialMechanic.addUpgrade)}! 🔴`);
+      }
+    }
+
     if (moveResult.isCheckmate) {
       const mateGold = newCount <= 10 ? CHAOS_GOLD.mateUnder10 : CHAOS_GOLD.mate11to20;
       // Победа над боссом «Всадник» открывает персонажа «Страж» — сохраняется между сессиями
@@ -603,9 +691,27 @@ export default function ChaosBattleScreen() {
   }
 
   // Хуки уже объявлены — теперь можно безопасно делать условный return
-  if (battleNumber === null) { router.replace('/chaos-tower'); return null; }
+  if (!isValidFloor) { router.replace('/chaos-tower'); return null; }
 
   const boardDisabled = result !== null || isAIThinking || chess.turn() !== PLAYER_COLOR;
+
+  // Заголовок и цель боя: уровень 1 — фиксированные тексты по номеру боя;
+  // уровень 2+ — по узлу башни (имя босса, «Элита» или название узла обычного боя)
+  const battleTitle = currentLevel === 1
+    ? BATTLE_TITLES[safeBattleNumber]
+    : isBossBattle
+      ? `👑 Финальный бой — ${levelConfig.bossConfig.name}`
+      : battleKey === 'elite'
+        ? '💀 Элита'
+        : `⚔️ ${node?.label ?? 'Бой'}`;
+
+  const battleGoal = currentLevel === 1
+    ? BATTLE_GOALS[safeBattleNumber]
+    : isBossBattle
+      ? 'Финальный бой. Удачи!'
+      : battleKey === 'elite'
+        ? 'Сложный противник с улучшениями — действуй решительно'
+        : 'Поставь мат сопернику';
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -613,8 +719,8 @@ export default function ChaosBattleScreen() {
 
       <View style={styles.header}>
         <View style={styles.titleBlock}>
-          <Text style={styles.title}>{BATTLE_TITLES[safeBattleNumber]}</Text>
-          {safeBattleNumber === 'boss' && (
+          <Text style={styles.title}>{battleTitle}</Text>
+          {isBossBattle && (
             <Text style={styles.knightCounter}>{knightSpawnCounterText(bossKnightSpawnsLeft)}</Text>
           )}
         </View>
@@ -633,7 +739,7 @@ export default function ChaosBattleScreen() {
           onMove={handleMove}
           disabled={boardDisabled}
           opponentLastMove={opponentLastMove}
-          upgradeHighlights={[...upgradeHighlights, ...bossHighlights]}
+          upgradeHighlights={[...upgradeHighlights, ...bossHighlights, ...aiUpgradeHighlights]}
           spawnedSquare={spawnedSquare}
           forcedSquares={berserkForce?.forcedSquares}
           forcedMoves={activeForcedMoves}
@@ -657,7 +763,7 @@ export default function ChaosBattleScreen() {
       )}
 
       <View style={styles.footer}>
-        <Text style={styles.goal}>{BATTLE_GOALS[safeBattleNumber]}</Text>
+        <Text style={styles.goal}>{battleGoal}</Text>
       </View>
 
       {result && (

@@ -38,8 +38,12 @@ interface ChaosState {
 
   // Прогресс забега
   currentFloor: number;
+  currentLevel: number; // 1, 2, 3
   totalScore: number;
   floorScores: number[];
+
+  // Выбор маршрута на узле choice (Долина Коней) — battleIndex выбранного боя ('elite' или индекс)
+  chosenPath: number | 'elite' | null;
 
   // Сколько раз босс «Всадник» ещё может заспавнить коня (стартует с 5, обнуляется до конца боя)
   bossKnightSpawnsLeft: number;
@@ -72,6 +76,9 @@ interface ChaosState {
   addArtifact: (artifact: ChaosArtifact) => void;
   addScore: (score: number) => void;
   nextFloor: () => void;
+  setLevel: (level: number) => void;
+  resetFloor: () => void;
+  setChosenPath: (path: number | 'elite' | null) => void;
   setBossKnightSpawnsLeft: (count: number) => void;
   setLastEventCategory: (cat: ChaosEventCategory) => void;
   setPendingEventId: (id: string) => void;
@@ -100,8 +107,10 @@ function runState(character: ChaosCharacter | null) {
     gold: character ? character.startingGold : STARTING_GOLD,
     artifacts: [] as ChaosArtifact[],
     currentFloor: 0,
+    currentLevel: 1,
     totalScore: 0,
     floorScores: [] as number[],
+    chosenPath: null as number | 'elite' | null,
     bossKnightSpawnsLeft: BOSS_KNIGHT_SPAWNS,
     lastEventCategory: null as ChaosEventCategory | null,
     pendingEventId: null as string | null,
@@ -201,6 +210,10 @@ export const useChaosModeStore = create<ChaosState>((set, get) => ({
   })),
 
   nextFloor: () => set(s => ({ currentFloor: s.currentFloor + 1 })),
+
+  setLevel: (level) => set({ currentLevel: level }),
+  resetFloor: () => set({ currentFloor: 0 }),
+  setChosenPath: (path) => set({ chosenPath: path }),
 
   setBossKnightSpawnsLeft: (count) => set({ bossKnightSpawnsLeft: count }),
 

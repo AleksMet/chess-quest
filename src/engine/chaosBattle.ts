@@ -1,6 +1,7 @@
 import { Chess } from 'chess.js';
 import type { PieceSymbol, Square } from 'chess.js';
 import type { ChessPiece } from '../store/chaosModeStore';
+import type { AIUpgrade } from './chaosAIUpgrades';
 
 // Режим «ХАОС»: бои собранной игроком армией против фиксированных составов ИИ
 export type ChaosBattleNumber = 1 | 2 | 'boss';
@@ -151,6 +152,44 @@ function mergeBoards(white: Board, black: Board): Board {
 // Невалидный результат (что в теории невозможно при штатной расстановке) → fallback на стандартную позицию
 export function buildChaosFen(playerPieces: ChessPiece[], battleNumber: ChaosBattleNumber): string {
   const merged = mergeBoards(buildPlayerBoard(playerPieces), buildAiBoard(battleNumber));
+  const fen = `${boardToFenRows(merged)} w - - 0 1`;
+
+  try {
+    new Chess(fen);
+    return fen;
+  } catch {
+    return FALLBACK_FEN;
+  }
+}
+
+// Клетки чёрной задней линии по типу фигуры — для расстановки состава ИИ уровня 2+ по улучшениям
+const LEVEL2_BACK_RANK_POOL: Partial<Record<PieceSymbol, Square[]>> = {
+  r: ['a8', 'h8'],
+  b: ['c8', 'f8'],
+  n: ['b8', 'g8'],
+  q: ['d8'],
+};
+
+// Собирает позицию для боёв уровня 2+: армия игрока (белые) против состава ИИ —
+// король e8 + 6 пешек a7-f7 + по фигуре на каждое улучшение из aiUpgrades (расставляются
+// на задней линии по типу фигуры, см. LEVEL2_BACK_RANK_POOL)
+export function buildLevel2AiFen(playerPieces: ChessPiece[], aiUpgrades: AIUpgrade[]): string {
+  const aiBoard = emptyBoard();
+  place(aiBoard, 'e8', 'k');
+  ['a', 'b', 'c', 'd', 'e', 'f'].forEach(f => place(aiBoard, `${f}7`, 'p'));
+
+  const used: Partial<Record<PieceSymbol, number>> = {};
+  for (const upgrade of aiUpgrades) {
+    const pool = LEVEL2_BACK_RANK_POOL[upgrade.pieceType];
+    if (!pool) continue;
+    const idx = used[upgrade.pieceType] ?? 0;
+    const square = pool[idx];
+    if (!square) continue;
+    place(aiBoard, square, upgrade.pieceType);
+    used[upgrade.pieceType] = idx + 1;
+  }
+
+  const merged = mergeBoards(buildPlayerBoard(playerPieces), aiBoard);
   const fen = `${boardToFenRows(merged)} w - - 0 1`;
 
   try {

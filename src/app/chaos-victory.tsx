@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useChaosModeStore } from '../store/chaosModeStore';
+import { LEVEL_CONFIGS } from '../data/chaosLevelConfig';
 
 const BATTLE_LABELS = ['Бой 1', 'Бой 2', 'Финальный бой'];
 
@@ -13,13 +14,25 @@ function calcChaosStars(totalScore: number): 1 | 2 | 3 {
 
 export default function ChaosVictoryScreen() {
   const router = useRouter();
-  const { totalScore, gold, floorScores, resetRun } = useChaosModeStore();
+  const { totalScore, gold, floorScores, currentLevel, resetRun, setLevel, resetFloor, addGold } = useChaosModeStore();
 
   const stars = calcChaosStars(totalScore);
+  // Армия и золото переходят на следующий уровень — следующий уровень есть, пока для него
+  // настроен LEVEL_CONFIGS; стартовое золото уровня добавляется ПОВЕРХ имеющегося
+  const nextLevelConfig = LEVEL_CONFIGS[currentLevel];
+  const hasNextLevel = !!nextLevelConfig;
 
   function handleNewRun() {
     resetRun();
     router.replace('/chaos-character-select');
+  }
+
+  function handleNextLevel() {
+    if (!nextLevelConfig) return;
+    addGold(nextLevelConfig.startingGold);
+    setLevel(currentLevel + 1);
+    resetFloor();
+    router.replace('/chaos-tower');
   }
 
   return (
@@ -50,6 +63,11 @@ export default function ChaosVictoryScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
+        {hasNextLevel && (
+          <Pressable style={styles.nextLevelBtn} onPress={handleNextLevel} testID="chaos-victory-next-level-btn">
+            <Text style={styles.newRunBtnText}>➡️ Следующий уровень</Text>
+          </Pressable>
+        )}
         <Pressable style={styles.newRunBtn} onPress={handleNewRun} testID="chaos-victory-new-run-btn">
           <Text style={styles.newRunBtnText}>🌀 Новый забег</Text>
         </Pressable>
@@ -79,7 +97,8 @@ const styles = StyleSheet.create({
   breakdownName:  { color: '#cbd5e1', fontSize: 14, fontWeight: '600' },
   breakdownScore: { color: '#f59e0b', fontSize: 14, fontWeight: '800' },
 
-  footer:        { paddingHorizontal: 24, paddingVertical: 18 },
+  footer:        { paddingHorizontal: 24, paddingVertical: 18, gap: 12 },
+  nextLevelBtn:  { backgroundColor: '#22c55e', borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
   newRunBtn:     { backgroundColor: '#7c3aed', borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
   newRunBtnText: { color: '#fff', fontSize: 17, fontWeight: '900', letterSpacing: 0.5 },
 });
