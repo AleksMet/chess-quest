@@ -483,6 +483,28 @@ export default function ChaosBattleScreen() {
     return [...map.values()];
   })();
 
+  // Панель улучшений противника — зеркало панели игрока: только живые улучшенные фигуры,
+  // дубликаты типа+улучшения (например, 2x конь-Берсерк у Двуглавого Рыцаря) сворачиваются в одну строку.
+  const aiUpgradePanelLines = (() => {
+    if (currentAiUpgrades.length === 0) return [];
+    const seen = new Set<string>();
+    const lines: { icon: string; text: string }[] = [];
+    for (const upgrade of currentAiUpgrades) {
+      const key = `${upgrade.pieceType}_${upgrade.upgradeType}`;
+      if (seen.has(key)) continue;
+      if (findAllPieceSquares(chess, upgrade.pieceType, 'b').length === 0) continue;
+      seen.add(key);
+      const icon = upgrade.upgradeType === 'guard' ? '🔵' : '🔴';
+      lines.push({ icon, text: `${PIECE_DISPLAY_NAME[upgrade.pieceType]} — ${upgradeName(upgrade.upgradeType)}` });
+    }
+    return lines;
+  })();
+
+  // Уровень 2+, босс «Двуглавый Рыцарь»: предупреждение о специальной механике — выдаче Снайпера коню
+  const bossSpecialWarning = currentLevel >= 2 && isBossBattle && levelConfig.bossConfig.specialMechanic
+    ? `⚠️ Каждые ${levelConfig.bossConfig.specialMechanic.intervalMoves} ходов ${PIECE_DISPLAY_NAME[levelConfig.bossConfig.specialMechanic.targetPiece].toLowerCase()} получает ${upgradeName(levelConfig.bossConfig.specialMechanic.addUpgrade)}`
+    : null;
+
   const sendToEngine = useCallback((cmd: string) => engineRef.current?.send(cmd), []);
 
   const handleEngineReady = useCallback(() => {
@@ -762,6 +784,20 @@ export default function ChaosBattleScreen() {
         </View>
       )}
 
+      {(aiUpgradePanelLines.length > 0 || bossSpecialWarning) && (
+        <View style={styles.enemyUpgradePanel} testID="chaos-enemy-upgrade-panel">
+          <Text style={styles.enemyUpgradePanelTitle}>Противник:</Text>
+          {aiUpgradePanelLines.map((line, i) => (
+            <Text key={i} style={styles.upgradePanelLine} numberOfLines={1}>
+              {line.icon} {line.text}
+            </Text>
+          ))}
+          {bossSpecialWarning && (
+            <Text style={styles.enemyUpgradeWarning} numberOfLines={1}>{bossSpecialWarning}</Text>
+          )}
+        </View>
+      )}
+
       <View style={styles.footer}>
         <Text style={styles.goal}>{battleGoal}</Text>
       </View>
@@ -804,6 +840,9 @@ const styles = StyleSheet.create({
   knightsOutBannerText: { color: '#fff', fontSize: 16, fontWeight: '800' },
   upgradePanel:    { height: 92, paddingHorizontal: 16, paddingVertical: 6, justifyContent: 'flex-start' },
   upgradePanelLine:{ color: '#94a3b8', fontSize: 11, lineHeight: 15 },
+  enemyUpgradePanel:      { height: 92, paddingHorizontal: 16, paddingVertical: 6, justifyContent: 'flex-start' },
+  enemyUpgradePanelTitle: { color: '#f87171', fontSize: 11, fontWeight: '800', lineHeight: 15, marginBottom: 2 },
+  enemyUpgradeWarning:    { color: '#f59e0b', fontSize: 10, lineHeight: 14, marginTop: 2 },
   footer:          { paddingHorizontal: 16, paddingVertical: 8 },
   goal:            { color: '#64748b', fontSize: 12, textAlign: 'center' },
   overlay:         { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', gap: 10 },
