@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Alert } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useChaosModeStore } from '../store/chaosModeStore';
 import { getTowerNodes } from '../data/chaosTowerConfig';
@@ -73,6 +74,7 @@ export default function ChaosTowerScreen() {
     .reverse();
 
   return (
+    <LinearGradient colors={['#2a1f3d', '#1a1423']} start={{ x: 0.5, y: 0.3 }} end={{ x: 0.5, y: 1 }} style={styles.gradient}>
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -118,11 +120,13 @@ export default function ChaosTowerScreen() {
         </Pressable>
       </View>
     </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: '#0f172a' },
+  gradient: { flex: 1 },
+  safe:    { flex: 1 },
 
   header:      {
     flexDirection: 'row', alignItems: 'center',

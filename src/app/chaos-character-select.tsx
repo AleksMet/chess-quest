@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import type { PieceSymbol } from 'chess.js';
 import { ChessPieceSVG, type PieceKey } from '../components/chess/ChessPieceSVG';
@@ -72,6 +73,7 @@ export default function ChaosCharacterSelectScreen() {
   }
 
   return (
+    <LinearGradient colors={['#2a1f3d', '#1a1423']} start={{ x: 0.5, y: 0.3 }} end={{ x: 0.5, y: 1 }} style={styles.gradient}>
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <Text style={styles.title}>🌀 Выбери персонажа</Text>
@@ -129,11 +131,13 @@ export default function ChaosCharacterSelectScreen() {
         })}
       </ScrollView>
     </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: '#0f172a' },
+  gradient: { flex: 1 },
+  safe:    { flex: 1 },
 
   header:  { alignItems: 'center', paddingTop: 24, paddingBottom: 12, paddingHorizontal: 20 },
   title:   { color: '#f1f5f9', fontSize: 22, fontWeight: '900' },

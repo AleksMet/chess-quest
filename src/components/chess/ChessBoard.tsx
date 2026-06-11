@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { Animated, Image, View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import type { ImageSourcePropType, ImageStyle, ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Chess } from 'chess.js';
 import type { Square, Color } from 'chess.js';
 import { getLegalMovesFrom, attemptMove } from '../../engine/chessLogic';
@@ -63,9 +64,9 @@ const LAST_MOVE_HIGHLIGHT_COLOR: Record<LastMoveHighlight['color'], string> = {
 
 const SPAWN_FADE_IN_MS = 500;
 
-// Цвета клеток доски — взяты из Board Blue.svg (cls-1/cls-2)
-const LIGHT_SQUARE_COLOR = '#ffffff';
-const DARK_SQUARE_COLOR = '#96dbff';
+// Градиенты клеток доски
+const LIGHT_SQUARE_GRADIENT = ['#a8a8d8', '#8b8bc0', '#6060a0'] as const;
+const DARK_SQUARE_GRADIENT = ['#8080b8', '#6b6b9e', '#4a4a80'] as const;
 
 // Изображения атакующих улучшений (Берсерк/Снайпер) — заменяют SVG фигуры игрока.
 // bN отсутствует в ассетах (не используется — атакующие улучшения только у игрока, белые фигуры).
@@ -192,12 +193,11 @@ const Cell = memo(function Cell({
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <View
-        style={[
-          styles.squareImage,
-          squareStyle,
-          { backgroundColor: isLight ? LIGHT_SQUARE_COLOR : DARK_SQUARE_COLOR },
-        ]}
+      <LinearGradient
+        colors={isLight ? LIGHT_SQUARE_GRADIENT : DARK_SQUARE_GRADIENT}
+        start={{ x: 0.5, y: 0.5 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.squareImage, squareStyle]}
       />
       {squareTintColor && (
         <View style={[styles.upgradeOverlay, { backgroundColor: squareTintColor, opacity: 0.55 }]} />
@@ -340,10 +340,8 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
   }), [boardSize, cellSize, pieceSize]);
 
   return (
-    <View
-      style={[styles.container, dynamicStyles.container, { borderColor: theme.boardBorder }]}
-      testID="chess-board"
-    >
+    <View style={[styles.boardFrame, dynamicStyles.container]}>
+      <View testID="chess-board">
       {ranks.map((rank, rankIdx) => (
         <View key={rank} style={styles.row}>
           {orderedFiles.map((file, fileIdx) => {
@@ -410,13 +408,22 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
           })}
         </View>
       ))}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  boardFrame: {
     borderWidth: 2,
+    borderColor: '#3a3060',
+    borderRadius: 4,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
   },
   row: {
     flexDirection: 'row',

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, TouchableOpacity } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ChessPieceSVG, type PieceKey } from '../components/chess/ChessPieceSVG';
 import { useChaosModeStore, pieceInstanceId, type ChessPiece } from '../store/chaosModeStore';
@@ -144,6 +145,7 @@ export default function ChaosShopScreen() {
   const upgradableInstances = buildUpgradableInstances(pieces);
 
   return (
+    <LinearGradient colors={['#2a1f3d', '#1a1423']} start={{ x: 0.5, y: 0.3 }} end={{ x: 0.5, y: 1 }} style={styles.gradient}>
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <Text style={styles.title}>{title}</Text>
@@ -327,11 +329,13 @@ export default function ChaosShopScreen() {
         </Pressable>
       </View>
     </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: '#0f172a' },
+  gradient: { flex: 1 },
+  safe:    { flex: 1 },
 
   header:  {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

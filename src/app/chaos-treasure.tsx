@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, Pressable } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useChaosModeStore, type ChaosArtifact } from '../store/chaosModeStore';
 import { CHAOS_FORK_BONUS, CHAOS_TREASURY_GOLD, CHAOS_BLITZ_MOVE_LIMIT } from '../engine/chaosBattle';
@@ -53,6 +54,7 @@ export default function ChaosTreasureScreen() {
   }
 
   return (
+    <LinearGradient colors={['#2a1f3d', '#1a1423']} start={{ x: 0.5, y: 0.3 }} end={{ x: 0.5, y: 1 }} style={styles.gradient}>
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <Text style={styles.title}>💎 Сокровище</Text>
@@ -81,11 +83,13 @@ export default function ChaosTreasureScreen() {
         })}
       </View>
     </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: '#0f172a' },
+  gradient: { flex: 1 },
+  safe:    { flex: 1 },
 
   header:  { alignItems: 'center', paddingTop: 28, paddingBottom: 8 },
   title:   { color: '#f1f5f9', fontSize: 22, fontWeight: '900' },

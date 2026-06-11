@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Alert, SafeAreaView, View, Text, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Chess } from 'chess.js';
 import type { Square, PieceSymbol, Move } from 'chess.js';
@@ -771,6 +772,7 @@ export default function ChaosBattleScreen() {
         : 'Поставь мат сопернику';
 
   return (
+    <LinearGradient colors={['#2a1f3d', '#1a1423']} start={{ x: 0.5, y: 0.3 }} end={{ x: 0.5, y: 1 }} style={styles.gradient}>
     <SafeAreaView style={styles.safe}>
       <StockfishBridgeView ref={engineRef} onMessage={handleEngineMessage} onReady={handleEngineReady} />
 
@@ -870,11 +872,13 @@ export default function ChaosBattleScreen() {
         </View>
       )}
     </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  safe:            { flex: 1, backgroundColor: '#0d1117' },
+  gradient:        { flex: 1 },
+  safe:            { flex: 1 },
   header:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
   titleBlock:      { flex: 1 },
   title:           { color: '#f1f5f9', fontSize: 18, fontWeight: '700' },
