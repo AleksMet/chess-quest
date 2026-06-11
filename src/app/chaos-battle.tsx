@@ -34,7 +34,7 @@ import {
   guardSurvivalBonus,
   isProvocateurThreatened,
 } from '../engine/chaosUpgradeEngine';
-import { applyAIUpgrades, evolvePiece, type AIUpgrade } from '../engine/chaosAIUpgrades';
+import { applyAIUpgrades, evolvePiece, teleportAttackingPieces, type AIUpgrade } from '../engine/chaosAIUpgrades';
 import type { PieceUpgrade } from '../types/chaos';
 import { UPGRADE_DEFINITIONS } from '../data/chaosUpgrades';
 import { LEVEL_CONFIGS, getBattleConfig } from '../data/chaosLevelConfig';
@@ -186,6 +186,8 @@ export default function ChaosBattleScreen() {
   const [playerMoves, setPlayerMoves] = useState(0);
   // Уровень 2+, босс с эволюцией: сколько ходов осталось до следующей эволюции фигуры ИИ
   const [movesUntilEvolution, setMovesUntilEvolution] = useState(levelConfig?.bossConfig?.evolutionMechanic?.intervalMoves ?? 5);
+  // Уровень 3, Ведьма Диагоналей: сколько ходов осталось до следующей телепортации атакующих фигур
+  const [movesUntilTeleport, setMovesUntilTeleport] = useState(levelConfig?.bossConfig?.teleportMechanic?.intervalMoves ?? 5);
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [engineReady, setEngineReady] = useState(false);
   const [result, setResult] = useState<'win' | 'lose' | 'draw' | null>(null);
@@ -509,6 +511,12 @@ export default function ChaosBattleScreen() {
     : null;
   const evolutionCounterUrgent = movesUntilEvolution <= 2;
 
+  // Уровень 3, «Ведьма Диагоналей»: счётчик ходов до следующей телепортации атакующих фигур
+  const teleportCounterText = isBossBattle && levelConfig.bossConfig.teleportMechanic
+    ? `🌀 Телепортация через: ${movesUntilTeleport} ${turnsWord(movesUntilTeleport)}`
+    : null;
+  const teleportCounterUrgent = movesUntilTeleport <= 2;
+
   const sendToEngine = useCallback((cmd: string) => engineRef.current?.send(cmd), []);
 
   const handleEngineReady = useCallback(() => {
@@ -573,6 +581,21 @@ export default function ChaosBattleScreen() {
         }
       }
       setLastMoveHighlight({ from, to, color: 'opponent' });
+
+      // Уровень 3, Ведьма Диагоналей: раз в teleportMechanic.intervalMoves ходов
+      // атакующие фигуры (слоны-снайперы, конь-берсерк) телепортируются на ряды 5-8
+      if (isBossBattle && levelConfig.bossConfig.teleportMechanic) {
+        const teleportMechanic = levelConfig.bossConfig.teleportMechanic;
+        if (playerMoves > 0 && playerMoves % teleportMechanic.intervalMoves === 0) {
+          const teleported = teleportAttackingPieces(chess, teleportMechanic.targetPieces, teleportMechanic.excludePieces);
+          if (teleported !== chess) {
+            chess.load(teleported.fen());
+            pushGoldToast('🌀 Ведьма телепортировала своих воинов!');
+          }
+        }
+        setMovesUntilTeleport(teleportMechanic.intervalMoves - (playerMoves % teleportMechanic.intervalMoves));
+      }
+
       setBoardKey(k => k + 1);
       setIsAIThinking(false);
 
@@ -586,7 +609,7 @@ export default function ChaosBattleScreen() {
       }
     } catch { setIsAIThinking(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chess, playerMoves, pieceUpgrades, currentLevel, currentAiUpgrades, isBossBattle, levelConfig, safeBattleNumber, bossKnightSpawnsLeft]);
+  }, [chess, playerMoves, pieceUpgrades, currentLevel, currentAiUpgrades, isBossBattle, levelConfig, safeBattleNumber, bossKnightSpawnsLeft, pushGoldToast]);
 
   const requestAIMove = useCallback(() => {
     if (chess.isGameOver() || chess.turn() === PLAYER_COLOR) return;
@@ -768,7 +791,7 @@ export default function ChaosBattleScreen() {
         )}
       </View>
 
-      {(upgradePanelLines.length > 0 || aiUpgradePanelLines.length > 0 || evolutionCounterText) && (
+      {(upgradePanelLines.length > 0 || aiUpgradePanelLines.length > 0 || evolutionCounterText || teleportCounterText) && (
         <View style={styles.upgradePanel} testID="chaos-upgrade-panel">
           <View style={styles.upgradeColumn}>
             <Text style={styles.upgradePanelHeader}>Мои фигуры</Text>
@@ -791,6 +814,14 @@ export default function ChaosBattleScreen() {
                 numberOfLines={1}
               >
                 {evolutionCounterText}
+              </Text>
+            )}
+            {teleportCounterText && (
+              <Text
+                style={[styles.evolutionCounter, teleportCounterUrgent && styles.evolutionCounterUrgent, styles.textRight]}
+                numberOfLines={1}
+              >
+                {teleportCounterText}
               </Text>
             )}
           </View>

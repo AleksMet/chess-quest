@@ -1,5 +1,5 @@
 import { Chess } from 'chess.js';
-import { applyAIUpgrades, evolvePiece } from '../chaosAIUpgrades';
+import { applyAIUpgrades, evolvePiece, teleportAttackingPieces } from '../chaosAIUpgrades';
 import type { AIUpgrade } from '../chaosAIUpgrades';
 
 describe('applyAIUpgrades', () => {
@@ -87,5 +87,48 @@ describe('evolvePiece', () => {
   it('Ферзь и король не эволюционируют', () => {
     const chess = new Chess('4k3/8/8/8/8/8/8/4K2q b - - 0 1');
     expect(evolvePiece(chess, 3)).toBeNull();
+  });
+});
+
+describe('teleportAttackingPieces', () => {
+  // Слон b1 и конь g1 чёрных — атакующие фигуры, ферзь d8 и король e8 исключены
+  const ATTACKER_FEN = '3qk3/8/8/8/8/8/8/1b2K1n1 b - - 0 1';
+
+  it('телепортирует атакующие фигуры на ряды 5-8', () => {
+    const chess = new Chess(ATTACKER_FEN);
+    const result = teleportAttackingPieces(chess, ['b', 'n'], ['k', 'q']);
+
+    expect(result.get('b1')).toBeUndefined();
+    expect(result.get('g1')).toBeUndefined();
+
+    const blackBishops = result.board().flat().filter(c => c?.type === 'b' && c?.color === 'b');
+    const blackKnights = result.board().flat().filter(c => c?.type === 'n' && c?.color === 'b');
+    expect(blackBishops).toHaveLength(1);
+    expect(blackKnights).toHaveLength(1);
+    expect(blackBishops[0]!.square[1]).toMatch(/[5-8]/);
+    expect(blackKnights[0]!.square[1]).toMatch(/[5-8]/);
+  });
+
+  it('король и страж-ферзь остаются на месте', () => {
+    const chess = new Chess(ATTACKER_FEN);
+    const result = teleportAttackingPieces(chess, ['b', 'n'], ['k', 'q']);
+
+    expect(result.get('e8')).toEqual({ type: 'k', color: 'b' });
+    expect(result.get('d8')).toEqual({ type: 'q', color: 'b' });
+  });
+
+  it('если нет свободных клеток — фигуры не телепортируются', () => {
+    const fen = 'rrrrrrrr/rrrrrrrr/rrrrrrrr/rrrrrrrr/1b2K1n1/8/8/4k3 b - - 0 1';
+    const chess = new Chess(fen);
+    const result = teleportAttackingPieces(chess, ['b', 'n'], ['k', 'q']);
+
+    expect(result.fen()).toBe(chess.fen());
+  });
+
+  it('FEN после телепортации валиден', () => {
+    const chess = new Chess(ATTACKER_FEN);
+    const result = teleportAttackingPieces(chess, ['b', 'n'], ['k', 'q']);
+
+    expect(() => new Chess(result.fen())).not.toThrow();
   });
 });

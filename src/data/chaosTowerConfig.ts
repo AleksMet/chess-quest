@@ -65,9 +65,43 @@ export const LEVEL_2_TOWER: ChaosNodeDef[] = [
   { type: 'boss',     icon: '👑', label: 'Босс',      route: '/chaos-boss-intro', battleIndex: 'boss' },
 ];
 
+// Уровень 3 — Храм Диагоналей: после Боя 4 — обязательная элита перед вторым магазином и боссом
+export const LEVEL_3_TOWER: ChaosNodeDef[] = [
+  { type: 'shop',     icon: '🏪', label: 'Магазин 1', route: '/chaos-shop' },
+  { type: 'battle',   icon: '⚔️', label: 'Бой 1',     route: '/chaos-battle', battleIndex: 0 },
+  {
+    type: 'choice',
+    icon: '🔀',
+    label: 'Выбор маршрута',
+    route: '/chaos-choice',
+    options: [
+      {
+        label: '⚔️ Элита',
+        sublabel: 'Сложнее, но после победы — бесплатный магазин',
+        route: '/chaos-battle',
+        battleIndex: 'elite',
+        style: 'danger',
+      },
+      {
+        label: '🛡️ Обычный бой',
+        sublabel: 'Безопаснее',
+        route: '/chaos-battle',
+        battleIndex: 1,
+        style: 'normal',
+      },
+    ],
+  },
+  { type: 'battle',   icon: '⚔️', label: 'Бой 3',     route: '/chaos-battle', battleIndex: 2 },
+  { type: 'battle',   icon: '⚔️', label: 'Бой 4',     route: '/chaos-battle', battleIndex: 3 },
+  { type: 'battle',   icon: '💀', label: 'Элита',     route: '/chaos-battle', battleIndex: 'elite' },
+  { type: 'shop',     icon: '🏪', label: 'Магазин 2', route: '/chaos-shop' },
+  { type: 'boss',     icon: '👑', label: 'Босс',      route: '/chaos-boss-intro', battleIndex: 'boss' },
+];
+
 const TOWER_CONFIGS: Record<number, ChaosNodeDef[]> = {
   1: CHAOS_TOWER_NODES,
   2: LEVEL_2_TOWER,
+  3: LEVEL_3_TOWER,
 };
 
 export function getTowerNodes(level: number): ChaosNodeDef[] {

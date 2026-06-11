@@ -1,7 +1,7 @@
-import type { AIUpgrade, AIUpgradeType } from '../engine/chaosAIUpgrades';
+import type { AIUpgrade, AIUpgradeType, TeleportMechanic } from '../engine/chaosAIUpgrades';
 import type { PieceSymbol } from 'chess.js';
 
-export type { AIUpgrade, AIUpgradeType };
+export type { AIUpgrade, AIUpgradeType, TeleportMechanic };
 
 // Спавн фигур ИИ во время боя — например, король-Всадник призывает коней каждый ход
 export interface SpawnMechanic {
@@ -29,6 +29,7 @@ export interface BossConfig extends BattleConfig {
   intro: string;
   spawnMechanic?: SpawnMechanic;
   evolutionMechanic?: EvolutionMechanic;
+  teleportMechanic?: TeleportMechanic;
 }
 
 export interface LevelConfig {
@@ -115,6 +116,73 @@ export const LEVEL_CONFIGS: LevelConfig[] = [
       evolutionMechanic: {
         intervalMoves: 5,
         maxQueens: 3,
+      },
+    },
+  },
+  {
+    level: 3,
+    startingGold: 100,
+    battles: [
+      {
+        elo: 1200,
+        aiUpgrades: [
+          { pieceType: 'b', upgradeType: 'sniper' },
+          { pieceType: 'n', upgradeType: 'berserk' },
+        ],
+      },
+      {
+        elo: 1300,
+        aiUpgrades: [
+          { pieceType: 'b', upgradeType: 'sniper' },
+          { pieceType: 'b', upgradeType: 'sniper' },
+          { pieceType: 'r', upgradeType: 'guard' },
+        ],
+      },
+      {
+        elo: 1400,
+        aiUpgrades: [
+          { pieceType: 'n', upgradeType: 'berserk' },
+          { pieceType: 'n', upgradeType: 'berserk' },
+          { pieceType: 'b', upgradeType: 'sniper' },
+          { pieceType: 'b', upgradeType: 'sniper' },
+          { pieceType: 'r', upgradeType: 'guard' },
+        ],
+      },
+      {
+        elo: 1500,
+        aiUpgrades: [
+          { pieceType: 'n', upgradeType: 'berserk' },
+          { pieceType: 'b', upgradeType: 'sniper' },
+          { pieceType: 'b', upgradeType: 'sniper' },
+          { pieceType: 'r', upgradeType: 'guard' },
+          { pieceType: 'q', upgradeType: 'guard' },
+        ],
+      },
+    ],
+    eliteBattle: {
+      elo: 1600,
+      aiUpgrades: [
+        { pieceType: 'n', upgradeType: 'berserk' },
+        { pieceType: 'n', upgradeType: 'berserk' },
+        { pieceType: 'b', upgradeType: 'sniper' },
+        { pieceType: 'b', upgradeType: 'sniper' },
+        { pieceType: 'q', upgradeType: 'guard' },
+      ],
+    },
+    bossConfig: {
+      elo: 1800,
+      name: 'Ведьма Диагоналей',
+      intro: 'Ты уже связан. Ты просто ещё не знаешь этого.',
+      aiUpgrades: [
+        { pieceType: 'b', upgradeType: 'sniper' },
+        { pieceType: 'b', upgradeType: 'sniper' },
+        { pieceType: 'n', upgradeType: 'berserk' },
+        { pieceType: 'q', upgradeType: 'guard' },
+      ],
+      teleportMechanic: {
+        intervalMoves: 5,
+        targetPieces: ['b', 'n'], // снайперы и берсерк телепортируются
+        excludePieces: ['k', 'q'], // король и страж-ферзь остаются
       },
     },
   },

@@ -8,6 +8,7 @@ export default function ChaosBossIntroScreen() {
   const { currentLevel } = useChaosModeStore();
   const bossConfig = LEVEL_CONFIGS[currentLevel - 1].bossConfig;
   const isLevel1 = currentLevel === 1;
+  const isLevel3 = currentLevel === 3;
 
   function handleStart() {
     router.push('/chaos-battle');
@@ -25,6 +26,11 @@ export default function ChaosBossIntroScreen() {
             Король, 8 пешек, 2 ладьи, конь и 2 ферзя. Каждый ход короля призывает
             нового коня на одну из дальних горизонталей.
           </Text>
+        ) : isLevel3 ? (
+          <Text style={styles.armyDesc}>
+            Полный стандартный состав + улучшения: 2 слона-снайпера 🔴, конь-берсерк 🔴, ♛ Ферзь-Страж 🔵.{'\n'}
+            Каждые {bossConfig.teleportMechanic?.intervalMoves} ходов атакующие фигуры телепортируются!
+          </Text>
         ) : (
           <Text style={styles.armyDesc}>
             Стандартная армия + ♛ Ферзь-Страж 🔵.{'\n'}
@@ -35,6 +41,11 @@ export default function ChaosBossIntroScreen() {
         {isLevel1 && (
           <Text style={styles.warning}>
             ⚠️ Берегись берсерк-ферзя! Убей его первым.
+          </Text>
+        )}
+        {isLevel3 && (
+          <Text style={styles.warning}>
+            ⚠️ Берегись снайперов! Они охотятся за твоими ценными фигурами.
           </Text>
         )}
 

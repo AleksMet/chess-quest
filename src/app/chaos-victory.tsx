@@ -63,7 +63,7 @@ export default function ChaosVictoryScreen() {
           <Text style={styles.armyNote}>
             {currentLevel === 1
               ? 'Твоя армия распущена. На следующем уровне всё начнётся заново.'
-              : 'Твоя армия переходит на следующий уровень!'}
+              : 'Твоя армия переходит на следующий уровень! ⚔️'}
           </Text>
         )}
 

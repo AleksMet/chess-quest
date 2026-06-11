@@ -9,6 +9,14 @@ export interface AIUpgrade {
   upgradeType: AIUpgradeType;
 }
 
+// Телепортация атакующих фигур босса — раз в intervalMoves ходов фигуры типов
+// targetPieces (кроме excludePieces) перемещаются на случайные свободные клетки рядов 5-8
+export interface TeleportMechanic {
+  intervalMoves: number;
+  targetPieces: PieceSymbol[];
+  excludePieces: PieceSymbol[];
+}
+
 // Ценность фигур для улучшения «Снайпер»
 const PIECE_VALUES: Record<PieceSymbol, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 
@@ -119,6 +127,52 @@ export function evolvePiece(chess: Chess, maxQueens: number): Chess | null {
   newChess.remove(target.square);
   newChess.put({ type: newType, color: 'b' }, target.square);
   return newChess;
+}
+
+// Телепортация атакующих фигур босса (см. TeleportMechanic, GDD «Ведьма Диагоналей»):
+// фигуры targetPieces (кроме excludePieces — обычно король и ферзь-страж) перемещаются
+// на случайные свободные клетки рядов 5-8. Если свободных клеток не хватает — ничего не делает.
+export function teleportAttackingPieces(
+  chess: Chess,
+  targetPieces: PieceSymbol[],
+  excludePieces: PieceSymbol[]
+): Chess {
+  const piecesToTeleport = getAllPieces(chess, 'b')
+    .filter(p => targetPieces.includes(p.type))
+    .filter(p => !excludePieces.includes(p.type));
+
+  if (piecesToTeleport.length === 0) return chess;
+
+  const emptySquares = getEmptySquaresOnRanks(chess, [5, 6, 7, 8]);
+  if (emptySquares.length < piecesToTeleport.length) return chess;
+
+  const shuffled = [...emptySquares].sort(() => Math.random() - 0.5).slice(0, piecesToTeleport.length);
+
+  const newChess = new Chess(chess.fen());
+  piecesToTeleport.forEach((piece, index) => {
+    newChess.remove(piece.square);
+    newChess.put({ type: piece.type, color: 'b' }, shuffled[index]);
+  });
+
+  try {
+    new Chess(newChess.fen());
+    return newChess;
+  } catch {
+    return chess;
+  }
+}
+
+// Пустые клетки на указанных горизонталях (1-8)
+function getEmptySquaresOnRanks(chess: Chess, ranks: number[]): Square[] {
+  const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+  const squares: Square[] = [];
+  for (const file of files) {
+    for (const rank of ranks) {
+      const square = `${file}${rank}` as Square;
+      if (!chess.get(square)) squares.push(square);
+    }
+  }
+  return squares;
 }
 
 // Все фигуры цвета `color` с их клетками
