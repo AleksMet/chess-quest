@@ -33,7 +33,7 @@ import {
   guardSurvivalBonus,
   isProvocateurThreatened,
 } from '../engine/chaosUpgradeEngine';
-import { applyAIUpgrades, type AIUpgrade } from '../engine/chaosAIUpgrades';
+import { applyAIUpgrades, evolvePiece, type AIUpgrade } from '../engine/chaosAIUpgrades';
 import type { PieceUpgrade } from '../types/chaos';
 import { UPGRADE_DEFINITIONS } from '../data/chaosUpgrades';
 import { LEVEL_CONFIGS, getBattleConfig } from '../data/chaosLevelConfig';
@@ -49,7 +49,7 @@ const KEY_CAPTURE_PIECES: PieceSymbol[] = ['n', 'b', 'r', 'q'];
 // Страж награждает каждые 5 ходов выживания (см. guardSurvivalBonus в движке улучшений)
 const GUARD_TRIGGER_TURNS = 5;
 
-// Лимит призывов коней боссом «Всадник» (уровень 1) — для уровня 2+ берётся из spawnMechanic.maxSpawns
+// Лимит призывов коней боссом «Всадник» (уровень 1)
 const BOSS_KNIGHT_SPAWNS_LEVEL1 = 5;
 
 const PIECE_DISPLAY_NAME: Record<PieceSymbol, string> = {
@@ -192,8 +192,6 @@ export default function ChaosBattleScreen() {
   const [goldToasts, setGoldToasts] = useState<GoldToastItem[]>([]);
   // Баннер «Кони закончились!» — показывается на 1с, когда счётчик призывов босса достигает 0
   const [showKnightsOutBanner, setShowKnightsOutBanner] = useState(false);
-  // Уровень 2+: дополнительные улучшения ИИ, выданные во время боя (специальная механика босса)
-  const [extraAiUpgrades, setExtraAiUpgrades] = useState<AIUpgrade[]>([]);
   const goldRef = useRef(0);
   const finalGoldRef = useRef(0);
   const engineRef = useRef<StockfishBridgeRef>(null);
@@ -209,8 +207,6 @@ export default function ChaosBattleScreen() {
   const goldToastIdRef = useRef(0);
   // Проклятие: текущая клетка проклятой фигуры — обновляется после каждого хода
   const cursedSquareRef = useRef<Square | null>(null);
-  // Уровень 2+, босс «Двуглавый Рыцарь»: счётчик ходов королём — спавн коня раз в spawnMechanic.intervalMoves
-  const kingMoveCountRef = useRef(0);
 
   // Показывает золотой попап в правом верхнем углу — стекается с предыдущими, исчезает через 1.5с
   const pushGoldToast = useCallback((text: string) => {
@@ -241,11 +237,10 @@ export default function ChaosBattleScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Сбрасываем счётчик призывов коней боссом на лимит из spawnMechanic (5 — Всадник, 4 — Двуглавый Рыцарь)
+  // Сбрасываем счётчик призывов коней боссом «Всадник» (уровень 1) на стартовый лимит
   useEffect(() => {
-    if (!isBossBattle) return;
-    const max = currentLevel === 1 ? BOSS_KNIGHT_SPAWNS_LEVEL1 : (levelConfig.bossConfig.spawnMechanic?.maxSpawns ?? BOSS_KNIGHT_SPAWNS_LEVEL1);
-    setBossKnightSpawnsLeft(max);
+    if (!isBossBattle || currentLevel !== 1) return;
+    setBossKnightSpawnsLeft(BOSS_KNIGHT_SPAWNS_LEVEL1);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -469,8 +464,7 @@ export default function ChaosBattleScreen() {
 
   // Уровень 2+: симметрия — улучшения ИИ подсвечиваются так же, как у игрока:
   // Берсерк/Снайпер — красным (#FF4444), Страж — синим (#4444FF), opacity 0.35.
-  // Доп. улучшения, выданные во время боя (специальная механика босса), идут первыми в currentAiUpgrades.
-  const currentAiUpgrades: AIUpgrade[] = currentLevel === 1 ? [] : [...extraAiUpgrades, ...aiUpgrades];
+  const currentAiUpgrades: AIUpgrade[] = currentLevel === 1 ? [] : aiUpgrades;
   const aiUpgradeHighlights: typeof upgradeHighlights = (() => {
     if (currentAiUpgrades.length === 0) return [];
     const map = new Map<Square, { square: Square; color: 'red' | 'blue' | 'gold' | 'purple'; opacity: number }>();
@@ -500,9 +494,9 @@ export default function ChaosBattleScreen() {
     return lines;
   })();
 
-  // Уровень 2+, босс «Двуглавый Рыцарь»: предупреждение о специальной механике — выдаче Снайпера коню
-  const bossSpecialWarning = currentLevel >= 2 && isBossBattle && levelConfig.bossConfig.specialMechanic
-    ? `⚠️ Каждые ${levelConfig.bossConfig.specialMechanic.intervalMoves} ходов ${PIECE_DISPLAY_NAME[levelConfig.bossConfig.specialMechanic.targetPiece].toLowerCase()} получает ${upgradeName(levelConfig.bossConfig.specialMechanic.addUpgrade)}`
+  // Уровень 2+, босс «Двуглавый Рыцарь»: предупреждение о механике эволюции фигур
+  const bossEvolutionWarning = currentLevel >= 2 && isBossBattle && levelConfig.bossConfig.evolutionMechanic
+    ? `⚠️ Каждые ${levelConfig.bossConfig.evolutionMechanic.intervalMoves} ходов случайная фигура противника эволюционирует`
     : null;
 
   const sendToEngine = useCallback((cmd: string) => engineRef.current?.send(cmd), []);
@@ -566,21 +560,6 @@ export default function ChaosBattleScreen() {
           const remaining = bossKnightSpawnsLeft - 1;
           setBossKnightSpawnsLeft(remaining);
           if (remaining === 0) setShowKnightsOutBanner(true);
-        }
-      } else if (currentLevel >= 2 && isBossBattle && levelConfig.bossConfig.spawnMechanic) {
-        // Уровень 2+, босс «Двуглавый Рыцарь»: спавн коня раз в spawnMechanic.intervalMoves ходов королём
-        const spawnMechanic = levelConfig.bossConfig.spawnMechanic;
-        if (move.piece === spawnMechanic.triggerPiece && move.color === 'b') {
-          kingMoveCountRef.current += 1;
-          if (bossKnightSpawnsLeft > 0 && kingMoveCountRef.current % spawnMechanic.intervalMoves === 0) {
-            const spawnSquare = spawnKnightOnKingMove(chess, move);
-            if (spawnSquare) {
-              setSpawnedSquare(spawnSquare);
-              const remaining = bossKnightSpawnsLeft - 1;
-              setBossKnightSpawnsLeft(remaining);
-              if (remaining === 0) setShowKnightsOutBanner(true);
-            }
-          }
         }
       }
       setOpponentLastMove({ from, to });
@@ -666,13 +645,16 @@ export default function ChaosBattleScreen() {
     }
     setGoldDisplay(goldRef.current);
 
-    // Уровень 2+, босс «Двуглавый Рыцарь»: раз в specialMechanic.intervalMoves ходов
-    // случайный конь ИИ получает дополнительное улучшение (Снайпер)
-    if (currentLevel >= 2 && isBossBattle && levelConfig.bossConfig.specialMechanic) {
-      const specialMechanic = levelConfig.bossConfig.specialMechanic;
-      if (newCount % specialMechanic.intervalMoves === 0) {
-        setExtraAiUpgrades(prev => [{ pieceType: specialMechanic.targetPiece, upgradeType: specialMechanic.addUpgrade }, ...prev]);
-        pushGoldToast(`${PIECE_DISPLAY_NAME[specialMechanic.targetPiece]} получил улучшение ${upgradeName(specialMechanic.addUpgrade)}! 🔴`);
+    // Уровень 2+, босс «Двуглавый Рыцарь»: раз в evolutionMechanic.intervalMoves ходов
+    // случайная фигура ИИ эволюционирует по цепочке (см. evolvePiece)
+    if (currentLevel >= 2 && isBossBattle && levelConfig.bossConfig.evolutionMechanic) {
+      const evolutionMechanic = levelConfig.bossConfig.evolutionMechanic;
+      if (newCount % evolutionMechanic.intervalMoves === 0) {
+        const evolved = evolvePiece(chess, evolutionMechanic.maxQueens);
+        if (evolved) {
+          chess.load(evolved.fen());
+          pushGoldToast('Фигура противника эволюционировала! 🔴');
+        }
       }
     }
 
@@ -742,7 +724,7 @@ export default function ChaosBattleScreen() {
       <View style={styles.header}>
         <View style={styles.titleBlock}>
           <Text style={styles.title}>{battleTitle}</Text>
-          {isBossBattle && (
+          {currentLevel === 1 && isBossBattle && (
             <Text style={styles.knightCounter}>{knightSpawnCounterText(bossKnightSpawnsLeft)}</Text>
           )}
         </View>
@@ -784,7 +766,7 @@ export default function ChaosBattleScreen() {
         </View>
       )}
 
-      {(aiUpgradePanelLines.length > 0 || bossSpecialWarning) && (
+      {(aiUpgradePanelLines.length > 0 || bossEvolutionWarning) && (
         <View style={styles.enemyUpgradePanel} testID="chaos-enemy-upgrade-panel">
           <Text style={styles.enemyUpgradePanelTitle}>Противник:</Text>
           {aiUpgradePanelLines.map((line, i) => (
@@ -792,8 +774,8 @@ export default function ChaosBattleScreen() {
               {line.icon} {line.text}
             </Text>
           ))}
-          {bossSpecialWarning && (
-            <Text style={styles.enemyUpgradeWarning} numberOfLines={1}>{bossSpecialWarning}</Text>
+          {bossEvolutionWarning && (
+            <Text style={styles.enemyUpgradeWarning} numberOfLines={1}>{bossEvolutionWarning}</Text>
           )}
         </View>
       )}

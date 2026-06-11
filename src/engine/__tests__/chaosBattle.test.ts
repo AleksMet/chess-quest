@@ -133,9 +133,7 @@ describe('buildLevel2AiFen', () => {
     const fen = buildLevel2AiFen(STARTING_PIECES, level2.bossConfig.aiUpgrades);
     const chess = new Chess(fen);
     const board = chess.board().flat().filter(c => c && c.color === 'b');
-    // 2x knight (берсерк), слон (снайпер), ферзь (страж) + король + 6 пешек
-    expect(board.filter(c => c?.type === 'n')).toHaveLength(2);
-    expect(board.filter(c => c?.type === 'b')).toHaveLength(1);
+    // ферзь-страж + король + 6 пешек
     expect(board.filter(c => c?.type === 'q')).toHaveLength(1);
   });
 });

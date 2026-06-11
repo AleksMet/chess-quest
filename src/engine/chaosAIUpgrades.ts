@@ -1,4 +1,5 @@
-import type { Chess, Move, PieceSymbol, Square } from 'chess.js';
+import { Chess } from 'chess.js';
+import type { Move, PieceSymbol, Square } from 'chess.js';
 
 // Типы улучшений ИИ режима ХАОС — симметричны улучшениям игрока (см. GDD §6 «Улучшения AI»)
 export type AIUpgradeType = 'berserk' | 'sniper' | 'guard';
@@ -76,6 +77,59 @@ function applyGuard(chess: Chess, move: Move, fallback: string): string {
   }
 
   return fallback;
+}
+
+// Цепочка эволюции фигур ИИ — пешка эволюционирует в коня или слона (случайно),
+// конь и слон — в ладью, ладья — в ферзя; ферзь и король не эволюционируют
+const EVOLUTION_CHAIN: Record<PieceSymbol, PieceSymbol[]> = {
+  p: ['n', 'b'],
+  n: ['r'],
+  b: ['r'],
+  r: ['q'],
+  q: [],
+  k: [],
+};
+
+// Эволюция фигуры ИИ — раз в evolutionMechanic.intervalMoves ходов (см. GDD «Двуглавый Рыцарь»).
+// Выбирает случайную фигуру чёрных, способную эволюционировать, и заменяет её следующей
+// по цепочке. При достижении лимита ферзей (maxQueens) исключает превращение в ферзя
+// и при необходимости выбирает другую фигуру. Возвращает null, если эволюция невозможна.
+export function evolvePiece(chess: Chess, maxQueens: number): Chess | null {
+  const blackPieces = getAllPieces(chess, 'b');
+  const evolvable = blackPieces.filter(p => EVOLUTION_CHAIN[p.type].length > 0);
+  if (evolvable.length === 0) return null;
+
+  let target = evolvable[Math.floor(Math.random() * evolvable.length)];
+  let candidates = EVOLUTION_CHAIN[target.type];
+
+  const currentQueens = blackPieces.filter(p => p.type === 'q').length;
+  if (currentQueens >= maxQueens) {
+    candidates = candidates.filter(c => c !== 'q');
+    if (candidates.length === 0) {
+      const otherEvolvable = evolvable.filter(p => EVOLUTION_CHAIN[p.type].some(c => c !== 'q'));
+      if (otherEvolvable.length === 0) return null;
+      target = otherEvolvable[Math.floor(Math.random() * otherEvolvable.length)];
+      candidates = EVOLUTION_CHAIN[target.type].filter(c => c !== 'q');
+    }
+  }
+
+  const newType = candidates[Math.floor(Math.random() * candidates.length)];
+
+  const newChess = new Chess(chess.fen());
+  newChess.remove(target.square);
+  newChess.put({ type: newType, color: 'b' }, target.square);
+  return newChess;
+}
+
+// Все фигуры цвета `color` с их клетками
+function getAllPieces(chess: Chess, color: 'w' | 'b'): { type: PieceSymbol; square: Square }[] {
+  const pieces: { type: PieceSymbol; square: Square }[] = [];
+  for (const row of chess.board()) {
+    for (const cell of row) {
+      if (cell && cell.color === color) pieces.push({ type: cell.type, square: cell.square });
+    }
+  }
+  return pieces;
 }
 
 // Вспомогательные функции

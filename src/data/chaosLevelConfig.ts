@@ -11,13 +11,11 @@ export interface SpawnMechanic {
   intervalMoves: number;
 }
 
-// Дополнительное улучшение, выдаваемое фигуре ИИ во время боя — например, конь
-// Двуглавого Рыцаря получает Снайпер каждые 5 ходов
-export interface SpecialMechanic {
-  type: 'upgrade_on_interval';
+// Эволюция фигур ИИ во время боя — раз в intervalMoves ходов случайная фигура
+// эволюционирует по цепочке (пешка → конь/слон → ладья → ферзь), не превышая maxQueens ферзей
+export interface EvolutionMechanic {
   intervalMoves: number;
-  targetPiece: PieceSymbol;
-  addUpgrade: AIUpgradeType;
+  maxQueens: number;
 }
 
 export interface BattleConfig {
@@ -30,7 +28,7 @@ export interface BossConfig extends BattleConfig {
   name: string;
   intro: string;
   spawnMechanic?: SpawnMechanic;
-  specialMechanic?: SpecialMechanic;
+  evolutionMechanic?: EvolutionMechanic;
 }
 
 export interface LevelConfig {
@@ -112,22 +110,11 @@ export const LEVEL_CONFIGS: LevelConfig[] = [
       name: 'Двуглавый Рыцарь',
       intro: 'Два коня лучше одного. Сдавайся!',
       aiUpgrades: [
-        { pieceType: 'n', upgradeType: 'berserk' },
-        { pieceType: 'n', upgradeType: 'berserk' },
-        { pieceType: 'b', upgradeType: 'sniper' },
         { pieceType: 'q', upgradeType: 'guard' },
       ],
-      spawnMechanic: {
-        type: 'knight',
-        triggerPiece: 'k',
-        maxSpawns: 4,
-        intervalMoves: 2,
-      },
-      specialMechanic: {
-        type: 'upgrade_on_interval',
+      evolutionMechanic: {
         intervalMoves: 5,
-        targetPiece: 'n',
-        addUpgrade: 'sniper',
+        maxQueens: 3,
       },
     },
   },

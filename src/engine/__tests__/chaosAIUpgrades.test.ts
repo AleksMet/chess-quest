@@ -1,5 +1,5 @@
 import { Chess } from 'chess.js';
-import { applyAIUpgrades } from '../chaosAIUpgrades';
+import { applyAIUpgrades, evolvePiece } from '../chaosAIUpgrades';
 import type { AIUpgrade } from '../chaosAIUpgrades';
 
 describe('applyAIUpgrades', () => {
@@ -41,5 +41,51 @@ describe('applyAIUpgrades', () => {
     const chess = new Chess('4k3/8/4r3/8/8/8/8/K7 b - - 0 1');
     const upgrades: AIUpgrade[] = [{ pieceType: 'r', upgradeType: 'guard' }];
     expect(applyAIUpgrades(chess, 'e6e1', upgrades)).toBe('e6e7');
+  });
+});
+
+describe('evolvePiece', () => {
+  it('Пешка эволюционирует в коня или слона', () => {
+    const chess = new Chess('4k3/4p3/8/8/8/8/8/4K3 b - - 0 1');
+    const evolved = evolvePiece(chess, 3);
+    expect(evolved).not.toBeNull();
+    expect(evolved!.get('e7')?.color).toBe('b');
+    expect(['n', 'b']).toContain(evolved!.get('e7')?.type);
+  });
+
+  it('Конь эволюционирует в ладью', () => {
+    const chess = new Chess('4k3/8/4n3/8/8/8/8/4K3 b - - 0 1');
+    const evolved = evolvePiece(chess, 3);
+    expect(evolved).not.toBeNull();
+    expect(evolved!.get('e6')).toEqual({ type: 'r', color: 'b' });
+  });
+
+  it('Слон эволюционирует в ладью', () => {
+    const chess = new Chess('4k3/8/4b3/8/8/8/8/4K3 b - - 0 1');
+    const evolved = evolvePiece(chess, 3);
+    expect(evolved).not.toBeNull();
+    expect(evolved!.get('e6')).toEqual({ type: 'r', color: 'b' });
+  });
+
+  it('Ладья эволюционирует в ферзя (лимит не достигнут)', () => {
+    const chess = new Chess('4k3/8/4r3/8/8/8/8/4K3 b - - 0 1');
+    const evolved = evolvePiece(chess, 3);
+    expect(evolved).not.toBeNull();
+    expect(evolved!.get('e6')).toEqual({ type: 'q', color: 'b' });
+  });
+
+  it('При лимите ферзей — ладья остаётся, эволюционирует другая фигура', () => {
+    // Уже 1 ферзь, лимит 1 — ладья e6 не может стать ферзём, эволюционирует конь g6
+    const chess = new Chess('4k3/8/4r1n1/8/8/4q3/8/4K3 b - - 0 1');
+    const evolved = evolvePiece(chess, 1);
+    expect(evolved).not.toBeNull();
+    expect(evolved!.get('e6')).toEqual({ type: 'r', color: 'b' });
+    expect(evolved!.get('e3')).toEqual({ type: 'q', color: 'b' });
+    expect(evolved!.get('g6')).toEqual({ type: 'r', color: 'b' });
+  });
+
+  it('Ферзь и король не эволюционируют', () => {
+    const chess = new Chess('4k3/8/8/8/8/8/8/4K2q b - - 0 1');
+    expect(evolvePiece(chess, 3)).toBeNull();
   });
 });

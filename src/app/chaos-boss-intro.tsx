@@ -1,8 +1,13 @@
 import { View, Text, StyleSheet, SafeAreaView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
+import { LEVEL_CONFIGS } from '../data/chaosLevelConfig';
+import { useChaosModeStore } from '../store/chaosModeStore';
 
 export default function ChaosBossIntroScreen() {
   const router = useRouter();
+  const { currentLevel } = useChaosModeStore();
+  const bossConfig = LEVEL_CONFIGS[currentLevel - 1].bossConfig;
+  const isLevel1 = currentLevel === 1;
 
   function handleStart() {
     router.push('/chaos-battle');
@@ -12,20 +17,29 @@ export default function ChaosBossIntroScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.content}>
         <Text style={styles.crown}>👑</Text>
-        <Text style={styles.title}>ВСАДНИК</Text>
+        <Text style={styles.title}>{bossConfig.name.toUpperCase()}</Text>
 
-        <Text style={styles.armyLabel}>Армия Всадника</Text>
-        <Text style={styles.armyDesc}>
-          Король, 8 пешек, 2 ладьи, конь и 2 ферзя. Каждый ход короля призывает
-          нового коня на одну из дальних горизонталей.
-        </Text>
+        <Text style={styles.armyLabel}>Армия босса</Text>
+        {isLevel1 ? (
+          <Text style={styles.armyDesc}>
+            Король, 8 пешек, 2 ладьи, конь и 2 ферзя. Каждый ход короля призывает
+            нового коня на одну из дальних горизонталей.
+          </Text>
+        ) : (
+          <Text style={styles.armyDesc}>
+            Стандартная армия + ♛ Ферзь-Страж 🔵.{'\n'}
+            Каждые {bossConfig.evolutionMechanic?.intervalMoves} ходов случайная фигура эволюционирует!
+          </Text>
+        )}
 
-        <Text style={styles.warning}>
-          ⚠️ Берегись берсерк-ферзя! Убей его первым.
-        </Text>
+        {isLevel1 && (
+          <Text style={styles.warning}>
+            ⚠️ Берегись берсерк-ферзя! Убей его первым.
+          </Text>
+        )}
 
         <Text style={styles.taunt}>
-          «Мои всадники сомнут тебя волной!»
+          «{bossConfig.intro}»
         </Text>
       </View>
 
