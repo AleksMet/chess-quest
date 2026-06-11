@@ -14,7 +14,7 @@ function calcChaosStars(totalScore: number): 1 | 2 | 3 {
 
 export default function ChaosVictoryScreen() {
   const router = useRouter();
-  const { totalScore, gold, floorScores, currentLevel, resetRun, setLevel, resetFloor, addGold } = useChaosModeStore();
+  const { totalScore, gold, floorScores, currentLevel, resetRun, setLevel, resetFloor, setGold } = useChaosModeStore();
 
   const stars = calcChaosStars(totalScore);
   // Армия и золото переходят на следующий уровень — следующий уровень есть, пока для него
@@ -29,9 +29,17 @@ export default function ChaosVictoryScreen() {
 
   function handleNextLevel() {
     if (!nextLevelConfig) return;
-    addGold(nextLevelConfig.startingGold);
-    setLevel(currentLevel + 1);
-    resetFloor();
+    if (currentLevel === 1) {
+      // Победа над боссом уровня 1: армия распускается, уровень 2 начинается с нуля
+      // (король + стартовые пешки персонажа) и со стартовым золотом уровня 2
+      resetRun();
+      setLevel(2);
+      setGold(nextLevelConfig.startingGold);
+    } else {
+      // Победа над боссом уровня 2+: армия, улучшения и золото переходят дальше — сбрасывается только этаж
+      resetFloor();
+      setLevel(currentLevel + 1);
+    }
     router.replace('/chaos-tower');
   }
 
@@ -50,6 +58,14 @@ export default function ChaosVictoryScreen() {
         <Text style={styles.totalLabel}>Итоговый счёт</Text>
         <Text style={styles.totalScore}>{totalScore}</Text>
         <Text style={styles.goldTotal}>💰 Золота на руках: {gold}</Text>
+
+        {hasNextLevel && (
+          <Text style={styles.armyNote}>
+            {currentLevel === 1
+              ? 'Твоя армия распущена. На следующем уровне всё начнётся заново.'
+              : 'Твоя армия переходит на следующий уровень!'}
+          </Text>
+        )}
 
         <View style={styles.breakdown}>
           <Text style={styles.breakdownLabel}>Бои</Text>
@@ -90,6 +106,7 @@ const styles = StyleSheet.create({
   totalLabel: { color: '#94a3b8', fontSize: 13, fontWeight: '600', marginTop: 8 },
   totalScore: { color: '#38bdf8', fontSize: 44, fontWeight: '900' },
   goldTotal:  { color: '#f59e0b', fontSize: 16, fontWeight: '700', marginTop: 6 },
+  armyNote:   { color: '#94a3b8', fontSize: 13, textAlign: 'center', marginTop: 12, lineHeight: 19, paddingHorizontal: 12 },
 
   breakdown:      { width: '100%', marginTop: 28, backgroundColor: '#1e293b', borderRadius: 16, padding: 16 },
   breakdownLabel: { color: '#a78bfa', fontSize: 13, fontWeight: '800', marginBottom: 10 },

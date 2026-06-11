@@ -73,6 +73,7 @@ interface ChaosState {
   getPieceUpgradeClass: (pieceId: string) => 'attack' | 'defense' | null;
   spendGold: (amount: number) => boolean;
   addGold: (amount: number) => void;
+  setGold: (amount: number) => void;
   addArtifact: (artifact: ChaosArtifact) => void;
   addScore: (score: number) => void;
   nextFloor: () => void;
@@ -199,6 +200,8 @@ export const useChaosModeStore = create<ChaosState>((set, get) => ({
   },
 
   addGold: (amount) => set(s => ({ gold: s.gold + amount })),
+
+  setGold: (amount) => set({ gold: amount }),
 
   addArtifact: (artifact) => set(s =>
     s.artifacts.includes(artifact) ? s : { artifacts: [...s.artifacts, artifact] }
