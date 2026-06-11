@@ -12,10 +12,15 @@ function G({ children }) {
 
 const noop = () => null;
 
+function SvgXml({ width, height, testID }) {
+  return React.createElement(View, { testID, style: { width, height } });
+}
+
 module.exports = {
   __esModule: true,
   default: Svg,
   Svg,
+  SvgXml,
   G,
   Path: noop,
   Circle: noop,
