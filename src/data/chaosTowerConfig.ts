@@ -45,7 +45,7 @@ export const LEVEL_2_TOWER: ChaosNodeDef[] = [
     options: [
       {
         label: '⚔️ Элита',
-        sublabel: 'Сложнее, но лучшая награда',
+        sublabel: 'Сложнее, но после победы — бесплатный магазин',
         route: '/chaos-battle',
         battleIndex: 'elite',
         style: 'danger',

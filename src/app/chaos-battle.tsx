@@ -185,7 +185,8 @@ export default function ChaosBattleScreen() {
   const [engineReady, setEngineReady] = useState(false);
   const [result, setResult] = useState<'win' | 'lose' | 'draw' | null>(null);
   const [resultReason, setResultReason] = useState('');
-  const [opponentLastMove, setOpponentLastMove] = useState<{ from: string; to: string } | null>(null);
+  // Подсветка клеток последнего хода (своего или ИИ) — цвет зависит от того, кто ходил
+  const [lastMoveHighlight, setLastMoveHighlight] = useState<{ from: Square; to: Square; color: 'player' | 'opponent' } | null>(null);
 
   const [goldDisplay, setGoldDisplay] = useState(0);
   const [spawnedSquare, setSpawnedSquare] = useState<Square | null>(null);
@@ -458,6 +459,9 @@ export default function ChaosBattleScreen() {
     for (const square of findAllPieceSquares(chess, 'q', 'b')) {
       bossHighlights.push({ square, color: 'red', opacity: 0.35 });
     }
+  }
+  // Король босса всегда подсвечен золотым (#FFD700, 0.45) — единая система подсветки для всех уровней
+  if (isBossBattle) {
     const bossKingSquare = findPieceSquare(chess, 'k', 'b');
     if (bossKingSquare) bossHighlights.push({ square: bossKingSquare, color: 'gold', opacity: 0.45 });
   }
@@ -496,7 +500,7 @@ export default function ChaosBattleScreen() {
 
   // Уровень 2+, босс «Двуглавый Рыцарь»: предупреждение о механике эволюции фигур
   const bossEvolutionWarning = currentLevel >= 2 && isBossBattle && levelConfig.bossConfig.evolutionMechanic
-    ? `⚠️ Каждые ${levelConfig.bossConfig.evolutionMechanic.intervalMoves} ходов случайная фигура противника эволюционирует`
+    ? `⚠️ Эволюция каждые ${levelConfig.bossConfig.evolutionMechanic.intervalMoves} ходов`
     : null;
 
   const sendToEngine = useCallback((cmd: string) => engineRef.current?.send(cmd), []);
@@ -562,7 +566,7 @@ export default function ChaosBattleScreen() {
           if (remaining === 0) setShowKnightsOutBanner(true);
         }
       }
-      setOpponentLastMove({ from, to });
+      setLastMoveHighlight({ from, to, color: 'opponent' });
       setBoardKey(k => k + 1);
       setIsAIThinking(false);
 
@@ -608,12 +612,13 @@ export default function ChaosBattleScreen() {
 
   const handleMove = useCallback((moveResult: MoveResult) => {
     if (!moveResult.success || !moveResult.move) return;
-    setOpponentLastMove(null);
+    setLastMoveHighlight(null);
     const newCount = playerMoves + 1;
     setPlayerMoves(newCount);
     setBoardKey(k => k + 1);
 
     const move = moveResult.move;
+    setLastMoveHighlight({ from: move.from as Square, to: move.to as Square, color: 'player' });
     if (move.captured) {
       goldRef.current += calcCaptureScore(move.captured);
       // Ключевое взятие (конь/слон/ладья/ферзь) — попап с золотом независимо от улучшений; пешки не показываем
@@ -742,7 +747,7 @@ export default function ChaosBattleScreen() {
           playerColor={PLAYER_COLOR}
           onMove={handleMove}
           disabled={boardDisabled}
-          opponentLastMove={opponentLastMove}
+          lastMoveHighlight={lastMoveHighlight}
           upgradeHighlights={[...upgradeHighlights, ...bossHighlights, ...aiUpgradeHighlights]}
           spawnedSquare={spawnedSquare}
           forcedSquares={berserkForce?.forcedSquares}
@@ -756,27 +761,27 @@ export default function ChaosBattleScreen() {
         )}
       </View>
 
-      {pieceUpgrades.length > 0 && (
+      {(upgradePanelLines.length > 0 || aiUpgradePanelLines.length > 0 || bossEvolutionWarning) && (
         <View style={styles.upgradePanel} testID="chaos-upgrade-panel">
-          {upgradePanelLines.map((line, i) => (
-            <Text key={i} style={styles.upgradePanelLine} numberOfLines={1}>
-              {line.icon} {line.text}
-            </Text>
-          ))}
-        </View>
-      )}
-
-      {(aiUpgradePanelLines.length > 0 || bossEvolutionWarning) && (
-        <View style={styles.enemyUpgradePanel} testID="chaos-enemy-upgrade-panel">
-          <Text style={styles.enemyUpgradePanelTitle}>Противник:</Text>
-          {aiUpgradePanelLines.map((line, i) => (
-            <Text key={i} style={styles.upgradePanelLine} numberOfLines={1}>
-              {line.icon} {line.text}
-            </Text>
-          ))}
-          {bossEvolutionWarning && (
-            <Text style={styles.enemyUpgradeWarning} numberOfLines={1}>{bossEvolutionWarning}</Text>
-          )}
+          <View style={styles.upgradeColumn}>
+            <Text style={styles.upgradePanelHeader}>Мои фигуры</Text>
+            {upgradePanelLines.map((line, i) => (
+              <Text key={i} style={styles.upgradePanelLine} numberOfLines={1}>
+                {line.icon} {line.text}
+              </Text>
+            ))}
+          </View>
+          <View style={[styles.upgradeColumn, styles.upgradeColumnRight]} testID="chaos-enemy-upgrade-panel">
+            <Text style={[styles.upgradePanelHeader, styles.textRight]}>Противник</Text>
+            {aiUpgradePanelLines.map((line, i) => (
+              <Text key={i} style={[styles.upgradePanelLine, styles.textRight]} numberOfLines={1}>
+                {line.icon} {line.text}
+              </Text>
+            ))}
+            {bossEvolutionWarning && (
+              <Text style={[styles.enemyUpgradeWarning, styles.textRight]} numberOfLines={1}>{bossEvolutionWarning}</Text>
+            )}
+          </View>
         </View>
       )}
 
@@ -820,11 +825,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10, alignItems: 'center', zIndex: 50,
   },
   knightsOutBannerText: { color: '#fff', fontSize: 16, fontWeight: '800' },
-  upgradePanel:    { height: 92, paddingHorizontal: 16, paddingVertical: 6, justifyContent: 'flex-start' },
+  upgradePanel:    { flexDirection: 'row', height: 92, paddingHorizontal: 16, paddingVertical: 6 },
+  upgradeColumn:      { flex: 1, alignItems: 'flex-start' },
+  upgradeColumnRight: { alignItems: 'flex-end' },
+  upgradePanelHeader: { color: '#64748b', fontSize: 10, fontWeight: '700', marginBottom: 2 },
   upgradePanelLine:{ color: '#94a3b8', fontSize: 11, lineHeight: 15 },
-  enemyUpgradePanel:      { height: 92, paddingHorizontal: 16, paddingVertical: 6, justifyContent: 'flex-start' },
-  enemyUpgradePanelTitle: { color: '#f87171', fontSize: 11, fontWeight: '800', lineHeight: 15, marginBottom: 2 },
   enemyUpgradeWarning:    { color: '#f59e0b', fontSize: 10, lineHeight: 14, marginTop: 2 },
+  textRight:       { textAlign: 'right' },
   footer:          { paddingHorizontal: 16, paddingVertical: 8 },
   goal:            { color: '#64748b', fontSize: 12, textAlign: 'center' },
   overlay:         { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', gap: 10 },

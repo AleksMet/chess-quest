@@ -18,6 +18,12 @@ interface UpgradeHighlight {
   opacity: number;
 }
 
+interface LastMoveHighlight {
+  from: Square;
+  to: Square;
+  color: 'player' | 'opponent';
+}
+
 interface ChessBoardProps {
   chess: Chess;
   playerColor?: Color;
@@ -29,6 +35,7 @@ interface ChessBoardProps {
   spawnedSquare?: Square | null;      // клетка только что заспавненной фигуры — анимация появления opacity 0→1
   forcedSquares?: Square[];           // Берсерк игрока: ходить можно только этими фигурами (мигающая рамка)
   forcedMoves?: string[];             // Берсерк игрока: разрешены только эти ходы, в формате LAN ("e2e4")
+  lastMoveHighlight?: LastMoveHighlight | null; // подсветка клеток последнего хода (режим ХАОС)
 }
 
 const UPGRADE_HIGHLIGHT_COLOR: Record<UpgradeHighlight['color'], string> = {
@@ -36,6 +43,11 @@ const UPGRADE_HIGHLIGHT_COLOR: Record<UpgradeHighlight['color'], string> = {
   blue:   '#4444FF',
   gold:   '#FFD700',
   purple: '#9333EA',
+};
+
+const LAST_MOVE_HIGHLIGHT_COLOR: Record<LastMoveHighlight['color'], string> = {
+  player:   '#22C55E',
+  opponent: '#FFD700',
 };
 
 const SPAWN_FADE_IN_MS = 500;
@@ -87,7 +99,7 @@ function ForcedPieceBorder() {
   return <Animated.View style={[styles.forcedBorder, { opacity }]} pointerEvents="none" testID="forced-piece-border" />;
 }
 
-export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false, highlightSquare, opponentLastMove, upgradeHighlights, spawnedSquare, forcedSquares, forcedMoves }: ChessBoardProps) {
+export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false, highlightSquare, opponentLastMove, upgradeHighlights, spawnedSquare, forcedSquares, forcedMoves, lastMoveHighlight }: ChessBoardProps) {
   const { theme } = useChapterTheme();
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalTargets, setLegalTargets] = useState<Square[]>([]);
@@ -191,6 +203,7 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
             const isOpponentLastMove = opponentLastMove?.from === square || opponentLastMove?.to === square;
             const upgradeHighlight = upgradeHighlights?.find(h => h.square === square);
             const isForcedSquare = !!forcedSquares && forcedSquares.includes(square);
+            const isLastMoveHighlightSquare = lastMoveHighlight?.from === square || lastMoveHighlight?.to === square;
 
             const pieceKey = cell
               ? (`${cell.color}${cell.type.toUpperCase()}` as PieceKey)
@@ -224,6 +237,15 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
                       { backgroundColor: UPGRADE_HIGHLIGHT_COLOR[upgradeHighlight.color], opacity: upgradeHighlight.opacity },
                     ]}
                     testID={`upgrade-highlight-${square}`}
+                  />
+                )}
+                {isLastMoveHighlightSquare && lastMoveHighlight && (
+                  <View
+                    style={[
+                      styles.upgradeOverlay,
+                      { backgroundColor: LAST_MOVE_HIGHLIGHT_COLOR[lastMoveHighlight.color], opacity: 0.35 },
+                    ]}
+                    testID={`last-move-highlight-${square}`}
                   />
                 )}
                 {isLegalTarget && (

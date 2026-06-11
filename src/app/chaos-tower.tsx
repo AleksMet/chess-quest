@@ -24,12 +24,19 @@ export default function ChaosTowerScreen() {
   const current = towerNodes[currentFloor];
 
   function handleForward() {
-    // Событие появляется только если предыдущий узел был боем (события «после боя»)
     const prevNode = towerNodes[currentFloor - 1];
+    const store = useChaosModeStore.getState();
+
+    // После победы в элитном бою — гарантированный бесплатный магазин (без события и сокровища)
+    if (prevNode?.type === 'choice' && store.chosenPath === 'elite') {
+      router.replace('/chaos-shop');
+      return;
+    }
+
+    // Событие появляется только если предыдущий узел был боем (события «после боя»)
     const isBattleNode = prevNode?.type === 'battle';
 
     if (isBattleNode) {
-      const store = useChaosModeStore.getState();
       const eventId = selectRandomEvent({
         gold: store.gold,
         pieces: store.pieces,

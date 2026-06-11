@@ -32,7 +32,7 @@ export default function ChaosChoiceScreen() {
           <Text style={styles.cardIcon}>💀</Text>
           <Text style={styles.cardTitle}>Элита</Text>
           <Text style={styles.cardDesc}>Сложный противник с 4 улучшениями</Text>
-          <Text style={styles.cardReward}>Награда: +50% золота + гарантированное событие</Text>
+          <Text style={styles.cardReward}>Сложнее, но после победы — бесплатный магазин</Text>
           <View style={[styles.cardBtn, styles.cardBtnDanger]}>
             <Text style={styles.cardBtnText}>Рискнуть</Text>
           </View>
