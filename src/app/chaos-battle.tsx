@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Alert, SafeAreaView, View, Text, StyleSheet, Pressable } from 'react-native';
+import { Alert, SafeAreaView, View, Text, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Chess } from 'chess.js';
 import type { Square, PieceSymbol, Move } from 'chess.js';
@@ -183,6 +183,14 @@ export default function ChaosBattleScreen() {
   });
   const [chess] = useState(() => new Chess(startFen));
   const [boardKey, setBoardKey] = useState(0);
+
+  // Доска по центру между HUD сверху и панелью снизу — высоты HUD/панели измеряются
+  // через onLayout, размер доски = минимум из ширины экрана и доступной высоты
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [bottomHeight, setBottomHeight] = useState(0);
+  const availableHeight = screenHeight - headerHeight - bottomHeight;
+  const boardSize = Math.max(0, Math.min(screenWidth, availableHeight));
   const [playerMoves, setPlayerMoves] = useState(0);
   // Уровень 2+, босс с эволюцией: сколько ходов осталось до следующей эволюции фигуры ИИ
   const [movesUntilEvolution, setMovesUntilEvolution] = useState(levelConfig?.bossConfig?.evolutionMechanic?.intervalMoves ?? 5);
@@ -766,7 +774,7 @@ export default function ChaosBattleScreen() {
     <SafeAreaView style={styles.safe}>
       <StockfishBridgeView ref={engineRef} onMessage={handleEngineMessage} onReady={handleEngineReady} />
 
-      <View style={styles.header}>
+      <View style={styles.header} onLayout={e => setHeaderHeight(e.nativeEvent.layout.height)}>
         <View style={styles.titleBlock}>
           <Text style={styles.title}>{battleTitle}</Text>
           {currentLevel === 1 && isBossBattle && (
@@ -793,6 +801,7 @@ export default function ChaosBattleScreen() {
           forcedSquares={berserkForce?.forcedSquares}
           forcedMoves={activeForcedMoves}
           attackSquares={attackSquares}
+          size={boardSize > 0 ? boardSize : undefined}
         />
         <ChaosGoldToastStack items={goldToasts} onExpire={removeGoldToast} />
         {showKnightsOutBanner && (
@@ -802,45 +811,47 @@ export default function ChaosBattleScreen() {
         )}
       </View>
 
-      {(upgradePanelLines.length > 0 || aiUpgradePanelLines.length > 0 || evolutionCounterText || teleportCounterText) && (
-        <View style={styles.upgradePanel} testID="chaos-upgrade-panel">
-          <View style={styles.upgradeColumn}>
-            <Text style={styles.upgradePanelHeader}>Мои фигуры</Text>
-            {upgradePanelLines.map((line, i) => (
-              <Text key={i} style={styles.upgradePanelLine} numberOfLines={1}>
-                {line.icon} {line.text}
-              </Text>
-            ))}
+      <View onLayout={e => setBottomHeight(e.nativeEvent.layout.height)}>
+        {(upgradePanelLines.length > 0 || aiUpgradePanelLines.length > 0 || evolutionCounterText || teleportCounterText) && (
+          <View style={styles.upgradePanel} testID="chaos-upgrade-panel">
+            <View style={styles.upgradeColumn}>
+              <Text style={styles.upgradePanelHeader}>Мои фигуры</Text>
+              {upgradePanelLines.map((line, i) => (
+                <Text key={i} style={styles.upgradePanelLine} numberOfLines={1}>
+                  {line.icon} {line.text}
+                </Text>
+              ))}
+            </View>
+            <View style={[styles.upgradeColumn, styles.upgradeColumnRight]} testID="chaos-enemy-upgrade-panel">
+              <Text style={[styles.upgradePanelHeader, styles.textRight]}>Противник</Text>
+              {aiUpgradePanelLines.map((line, i) => (
+                <Text key={i} style={[styles.upgradePanelLine, styles.textRight]} numberOfLines={1}>
+                  {line.icon} {line.text}
+                </Text>
+              ))}
+              {evolutionCounterText && (
+                <Text
+                  style={[styles.evolutionCounter, evolutionCounterUrgent && styles.evolutionCounterUrgent, styles.textRight]}
+                  numberOfLines={1}
+                >
+                  {evolutionCounterText}
+                </Text>
+              )}
+              {teleportCounterText && (
+                <Text
+                  style={[styles.evolutionCounter, teleportCounterUrgent && styles.evolutionCounterUrgent, styles.textRight]}
+                  numberOfLines={1}
+                >
+                  {teleportCounterText}
+                </Text>
+              )}
+            </View>
           </View>
-          <View style={[styles.upgradeColumn, styles.upgradeColumnRight]} testID="chaos-enemy-upgrade-panel">
-            <Text style={[styles.upgradePanelHeader, styles.textRight]}>Противник</Text>
-            {aiUpgradePanelLines.map((line, i) => (
-              <Text key={i} style={[styles.upgradePanelLine, styles.textRight]} numberOfLines={1}>
-                {line.icon} {line.text}
-              </Text>
-            ))}
-            {evolutionCounterText && (
-              <Text
-                style={[styles.evolutionCounter, evolutionCounterUrgent && styles.evolutionCounterUrgent, styles.textRight]}
-                numberOfLines={1}
-              >
-                {evolutionCounterText}
-              </Text>
-            )}
-            {teleportCounterText && (
-              <Text
-                style={[styles.evolutionCounter, teleportCounterUrgent && styles.evolutionCounterUrgent, styles.textRight]}
-                numberOfLines={1}
-              >
-                {teleportCounterText}
-              </Text>
-            )}
-          </View>
-        </View>
-      )}
+        )}
 
-      <View style={styles.footer}>
-        <Text style={styles.goal}>{battleGoal}</Text>
+        <View style={styles.footer}>
+          <Text style={styles.goal}>{battleGoal}</Text>
+        </View>
       </View>
 
       {result && (
@@ -872,7 +883,7 @@ const styles = StyleSheet.create({
   exitBtnText:     { color: '#fca5a5', fontSize: 13, fontWeight: '600' },
   goldBadge:       { color: '#f59e0b', fontSize: 15, fontWeight: '700' },
   thinking:        { fontSize: 20 },
-  boardWrap:       { flex: 1 },
+  boardWrap:       { flex: 1, justifyContent: 'center', alignItems: 'center' },
   knightsOutBanner: {
     position: 'absolute', top: 60, left: 16, right: 16,
     backgroundColor: '#FF4444', borderRadius: 12,
