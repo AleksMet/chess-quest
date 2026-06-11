@@ -3,6 +3,7 @@
 // Запуск: node scripts/generate-rhosgfx-pieces.js <путь до vector-chess-pieces>
 const fs = require('fs');
 const path = require('path');
+const { inlineSvgStyles } = require('./lib/inlineSvgStyles');
 
 const sourceDir = process.argv[2];
 if (!sourceDir) {
@@ -48,14 +49,16 @@ const pieceSvgXml = {};
 
 for (const { src, white, green } of PIECE_FILES) {
   const content = fs.readFileSync(path.join(sourceDir, 'White', src), 'utf8');
-  fs.writeFileSync(path.join(whiteOutDir, white), content);
   // SvgXml не нуждается в XML-декларации — убираем её для встраиваемой строки
   const stripDeclaration = (svg) => svg.replace(/^<\?xml[^>]*\?>\s*/, '');
-  pieceSvgXml[white.replace('.svg', '')] = stripDeclaration(content);
+  // SvgXml не поддерживает <style> с CSS-классами — разворачиваем их в атрибуты
+  const whiteSvg = inlineSvgStyles(stripDeclaration(content));
+  fs.writeFileSync(path.join(whiteOutDir, white), whiteSvg);
+  pieceSvgXml[white.replace('.svg', '')] = whiteSvg;
 
-  const greenSvg = toGreen(content);
+  const greenSvg = inlineSvgStyles(toGreen(stripDeclaration(content)));
   fs.writeFileSync(path.join(greenOutDir, green), greenSvg);
-  pieceSvgXml[green.replace('.svg', '')] = stripDeclaration(greenSvg);
+  pieceSvgXml[green.replace('.svg', '')] = greenSvg;
 }
 
 fs.copyFileSync(path.join(sourceDir, 'Board Blue.svg'), path.join(boardOutDir, 'board.svg'));
