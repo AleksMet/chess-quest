@@ -12,6 +12,7 @@ import type { MoveResult } from '../engine/chessLogic';
 import {
   buildChaosFen,
   buildLevel2AiFen,
+  buildLevel2BossAiFen,
   resolveArmyAfterBattle,
   pieceStartingSquare,
   findPieceSquare,
@@ -175,12 +176,16 @@ export default function ChaosBattleScreen() {
   const skillLevel = eloToSkillLevel(opponentElo);
   const aiUpgrades: AIUpgrade[] = battleConfig?.aiUpgrades ?? [];
 
-  const [startFen] = useState(() =>
-    currentLevel === 1 ? buildChaosFen(pieces, safeBattleNumber) : buildLevel2AiFen(pieces, aiUpgrades)
-  );
+  const [startFen] = useState(() => {
+    if (currentLevel === 1) return buildChaosFen(pieces, safeBattleNumber);
+    if (isBossBattle) return buildLevel2BossAiFen(pieces);
+    return buildLevel2AiFen(pieces, aiUpgrades);
+  });
   const [chess] = useState(() => new Chess(startFen));
   const [boardKey, setBoardKey] = useState(0);
   const [playerMoves, setPlayerMoves] = useState(0);
+  // Уровень 2+, босс с эволюцией: сколько ходов осталось до следующей эволюции фигуры ИИ
+  const [movesUntilEvolution, setMovesUntilEvolution] = useState(levelConfig?.bossConfig?.evolutionMechanic?.intervalMoves ?? 5);
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [engineReady, setEngineReady] = useState(false);
   const [result, setResult] = useState<'win' | 'lose' | 'draw' | null>(null);
@@ -498,10 +503,11 @@ export default function ChaosBattleScreen() {
     return lines;
   })();
 
-  // Уровень 2+, босс «Двуглавый Рыцарь»: предупреждение о механике эволюции фигур
-  const bossEvolutionWarning = currentLevel >= 2 && isBossBattle && levelConfig.bossConfig.evolutionMechanic
-    ? `⚠️ Эволюция каждые ${levelConfig.bossConfig.evolutionMechanic.intervalMoves} ходов`
+  // Уровень 2+, босс «Двуглавый Рыцарь»: счётчик ходов до следующей эволюции фигуры ИИ
+  const evolutionCounterText = currentLevel >= 2 && isBossBattle && levelConfig.bossConfig.evolutionMechanic
+    ? `⚡ Эволюция через: ${movesUntilEvolution} ${turnsWord(movesUntilEvolution)}`
     : null;
+  const evolutionCounterUrgent = movesUntilEvolution <= 2;
 
   const sendToEngine = useCallback((cmd: string) => engineRef.current?.send(cmd), []);
 
@@ -661,6 +667,7 @@ export default function ChaosBattleScreen() {
           pushGoldToast('Фигура противника эволюционировала! 🔴');
         }
       }
+      setMovesUntilEvolution(evolutionMechanic.intervalMoves - (newCount % evolutionMechanic.intervalMoves));
     }
 
     if (moveResult.isCheckmate) {
@@ -761,7 +768,7 @@ export default function ChaosBattleScreen() {
         )}
       </View>
 
-      {(upgradePanelLines.length > 0 || aiUpgradePanelLines.length > 0 || bossEvolutionWarning) && (
+      {(upgradePanelLines.length > 0 || aiUpgradePanelLines.length > 0 || evolutionCounterText) && (
         <View style={styles.upgradePanel} testID="chaos-upgrade-panel">
           <View style={styles.upgradeColumn}>
             <Text style={styles.upgradePanelHeader}>Мои фигуры</Text>
@@ -778,8 +785,13 @@ export default function ChaosBattleScreen() {
                 {line.icon} {line.text}
               </Text>
             ))}
-            {bossEvolutionWarning && (
-              <Text style={[styles.enemyUpgradeWarning, styles.textRight]} numberOfLines={1}>{bossEvolutionWarning}</Text>
+            {evolutionCounterText && (
+              <Text
+                style={[styles.evolutionCounter, evolutionCounterUrgent && styles.evolutionCounterUrgent, styles.textRight]}
+                numberOfLines={1}
+              >
+                {evolutionCounterText}
+              </Text>
             )}
           </View>
         </View>
@@ -830,7 +842,8 @@ const styles = StyleSheet.create({
   upgradeColumnRight: { alignItems: 'flex-end' },
   upgradePanelHeader: { color: '#64748b', fontSize: 10, fontWeight: '700', marginBottom: 2 },
   upgradePanelLine:{ color: '#94a3b8', fontSize: 11, lineHeight: 15 },
-  enemyUpgradeWarning:    { color: '#f59e0b', fontSize: 10, lineHeight: 14, marginTop: 2 },
+  evolutionCounter:       { color: '#f1f5f9', fontSize: 10, lineHeight: 14, marginTop: 2 },
+  evolutionCounterUrgent: { color: '#FFD700' },
   textRight:       { textAlign: 'right' },
   footer:          { paddingHorizontal: 16, paddingVertical: 8 },
   goal:            { color: '#64748b', fontSize: 12, textAlign: 'center' },

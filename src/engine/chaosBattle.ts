@@ -200,6 +200,30 @@ export function buildLevel2AiFen(playerPieces: ChessPiece[], aiUpgrades: AIUpgra
   }
 }
 
+// Полный стандартный состав чёрных — задняя линия для финального боя уровня 2+
+const STANDARD_BACK_RANK: [Square, PieceSymbol][] = [
+  ['a8', 'r'], ['b8', 'n'], ['c8', 'b'], ['d8', 'q'], ['e8', 'k'], ['f8', 'b'], ['g8', 'n'], ['h8', 'r'],
+];
+
+// Уровень 2+, финальный бой: полный стандартный состав чёрных (8 пешек + вся задняя линия),
+// а не урезанный состав обычных боёв (король + 6 пешек + только улучшённые фигуры).
+// Улучшения ИИ (например, ферзь-страж на d8) накладываются на уже стоящие на месте фигуры.
+export function buildLevel2BossAiFen(playerPieces: ChessPiece[]): string {
+  const aiBoard = emptyBoard();
+  for (const [square, type] of STANDARD_BACK_RANK) place(aiBoard, square, type);
+  FILES.forEach(f => place(aiBoard, `${f}7`, 'p'));
+
+  const merged = mergeBoards(buildPlayerBoard(playerPieces), aiBoard);
+  const fen = `${boardToFenRows(merged)} w - - 0 1`;
+
+  try {
+    new Chess(fen);
+    return fen;
+  } catch {
+    return FALLBACK_FEN;
+  }
+}
+
 // Собирает армию игрока для следующего боя из итоговой позиции (Вариант В превращения):
 // ферзь, выросший из пешки во время боя, возвращается пешкой; купленный ферзь остаётся ферзём.
 // Различить их можно только по числу — лишние ферзи сверх купленных это превращённые пешки.

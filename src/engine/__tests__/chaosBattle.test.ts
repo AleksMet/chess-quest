@@ -1,5 +1,5 @@
 import { Chess } from 'chess.js';
-import { buildChaosFen, buildLevel2AiFen, resolveArmyAfterBattle, spawnKnightOnKingMove } from '../chaosBattle';
+import { buildChaosFen, buildLevel2AiFen, buildLevel2BossAiFen, resolveArmyAfterBattle, spawnKnightOnKingMove } from '../chaosBattle';
 import type { ChessPiece } from '../../store/chaosModeStore';
 import { LEVEL_CONFIGS } from '../../data/chaosLevelConfig';
 
@@ -135,6 +135,27 @@ describe('buildLevel2AiFen', () => {
     const board = chess.board().flat().filter(c => c && c.color === 'b');
     // ферзь-страж + король + 6 пешек
     expect(board.filter(c => c?.type === 'q')).toHaveLength(1);
+  });
+});
+
+describe('buildLevel2BossAiFen', () => {
+  it('produces a valid FEN with white to move', () => {
+    const fen = buildLevel2BossAiFen(STARTING_PIECES);
+    expect(() => new Chess(fen)).not.toThrow();
+    expect(new Chess(fen).turn()).toBe('w');
+  });
+
+  it('places the full standard black army (8 pawns + back rank with one queen)', () => {
+    const fen = buildLevel2BossAiFen(STARTING_PIECES);
+    const chess = new Chess(fen);
+    const board = chess.board().flat().filter(c => c && c.color === 'b');
+    expect(board.filter(c => c?.type === 'p')).toHaveLength(8);
+    expect(board.filter(c => c?.type === 'r')).toHaveLength(2);
+    expect(board.filter(c => c?.type === 'n')).toHaveLength(2);
+    expect(board.filter(c => c?.type === 'b')).toHaveLength(2);
+    expect(board.filter(c => c?.type === 'q')).toHaveLength(1);
+    expect(board.filter(c => c?.type === 'k')).toHaveLength(1);
+    expect(chess.get('d8')).toEqual({ type: 'q', color: 'b' });
   });
 });
 

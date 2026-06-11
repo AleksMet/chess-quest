@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, TouchableO
 import { useRouter } from 'expo-router';
 import { ChessPieceSVG, type PieceKey } from '../components/chess/ChessPieceSVG';
 import { useChaosModeStore, pieceInstanceId, type ChessPiece } from '../store/chaosModeStore';
+import { getTowerNodes } from '../data/chaosTowerConfig';
 import { UPGRADE_DEFINITIONS } from '../data/chaosUpgrades';
 import type { ChaosUpgradeDefinition, UpgradeType } from '../types/chaos';
 
@@ -79,7 +80,7 @@ type ShopTab = 'pieces' | 'upgrades';
 export default function ChaosShopScreen() {
   const router = useRouter();
   const {
-    currentFloor, pieces, gold, spendGold, addPiece, nextFloor,
+    currentFloor, currentLevel, pieces, gold, spendGold, addPiece, nextFloor,
     pieceUpgrades, addUpgrade, canAddUpgrade, getPieceUpgradeClass,
     getUpgradePrice, isUpgradeAvailable,
   } = useChaosModeStore();
@@ -87,7 +88,11 @@ export default function ChaosShopScreen() {
   const [tab, setTab] = useState<ShopTab>('pieces');
   const [selectedUpgrade, setSelectedUpgrade] = useState<UpgradeType | null>(null);
 
-  const isSecondShop = currentFloor === 4;
+  // Магазин перед боссом — всегда «Магазин 2» (ферзь и все улучшения доступны),
+  // независимо от того, на каком этаже башни уровня он расположен
+  const towerNodes = getTowerNodes(currentLevel);
+  const shopFloors = towerNodes.reduce<number[]>((acc, n, i) => (n.type === 'shop' ? [...acc, i] : acc), []);
+  const isSecondShop = currentFloor === shopFloors[shopFloors.length - 1];
   const title = isSecondShop ? '🏪 Магазин 2' : '🏪 Магазин 1';
 
   function countOf(piece: ChessPiece): number {
