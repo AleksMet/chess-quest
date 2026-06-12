@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { Animated, Image, View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import type { ImageSourcePropType, ImageStyle, ViewStyle } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Rect, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { Chess } from 'chess.js';
 import type { Square, Color } from 'chess.js';
 import { getLegalMovesFrom, attemptMove } from '../../engine/chessLogic';
@@ -64,9 +64,29 @@ const LAST_MOVE_HIGHLIGHT_COLOR: Record<LastMoveHighlight['color'], string> = {
 
 const SPAWN_FADE_IN_MS = 500;
 
-// Градиенты клеток доски
-const LIGHT_SQUARE_GRADIENT = ['#a8a8d8', '#8b8bc0', '#6060a0'] as const;
-const DARK_SQUARE_GRADIENT = ['#8080b8', '#6b6b9e', '#4a4a80'] as const;
+// Радиальные градиенты клеток доски
+const LIGHT_SQUARE_COLORS = { center: '#a8a8d8', mid: '#8b8bc0', edge: '#6060a0' };
+const DARK_SQUARE_COLORS = { center: '#8080b8', mid: '#6b6b9e', edge: '#4a4a80' };
+
+// Клетка доски — радиальный градиент через react-native-svg.
+// React.memo, чтобы клетки не перерисовывались при ходах.
+const ChessSquare = memo(function ChessSquare({ size, isLight }: { size: number; isLight: boolean }) {
+  const colors = isLight ? LIGHT_SQUARE_COLORS : DARK_SQUARE_COLORS;
+  const gradId = isLight ? 'lg' : 'dg';
+
+  return (
+    <Svg width={size} height={size} style={styles.squareImage}>
+      <Defs>
+        <RadialGradient id={gradId} cx="50%" cy="50%" r="70%" fx="50%" fy="50%">
+          <Stop offset="0%" stopColor={colors.center} />
+          <Stop offset="60%" stopColor={colors.mid} />
+          <Stop offset="100%" stopColor={colors.edge} />
+        </RadialGradient>
+      </Defs>
+      <Rect width={size} height={size} fill={`url(#${gradId})`} />
+    </Svg>
+  );
+});
 
 // Изображения атакующих улучшений (Берсерк/Снайпер) — заменяют SVG фигуры игрока.
 // bN отсутствует в ассетах (не используется — атакующие улучшения только у игрока, белые фигуры).
@@ -152,7 +172,7 @@ interface CellProps {
   isSpawned: boolean;
   isJustMoved: boolean;
   cellStyle: ViewStyle;
-  squareStyle: ViewStyle;
+  cellSize: number;
   pieceSize: number;
   pieceImageStyle: ImageStyle;
   legalMoveStyle: ViewStyle;
@@ -179,7 +199,7 @@ const Cell = memo(function Cell({
   isSpawned,
   isJustMoved,
   cellStyle,
-  squareStyle,
+  cellSize,
   pieceSize,
   pieceImageStyle,
   legalMoveStyle,
@@ -193,12 +213,7 @@ const Cell = memo(function Cell({
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <LinearGradient
-        colors={isLight ? LIGHT_SQUARE_GRADIENT : DARK_SQUARE_GRADIENT}
-        start={{ x: 0.5, y: 0.5 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.squareImage, squareStyle]}
-      />
+      <ChessSquare size={cellSize} isLight={isLight} />
       {squareTintColor && (
         <View style={[styles.upgradeOverlay, { backgroundColor: squareTintColor, opacity: 0.55 }]} />
       )}
@@ -328,7 +343,6 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
   const dynamicStyles = useMemo(() => ({
     container: { width: boardSize, height: boardSize },
     cell: { width: cellSize, height: cellSize },
-    squareImage: { width: cellSize, height: cellSize },
     pieceImage: { width: pieceSize, height: pieceSize },
     legalMove: { width: cellSize * 0.3, height: cellSize * 0.3 },
     legalCapture: {
@@ -397,7 +411,7 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
                 isSpawned={square === spawnedSquare}
                 isJustMoved={isJustMoved}
                 cellStyle={dynamicStyles.cell}
-                squareStyle={dynamicStyles.squareImage}
+                cellSize={cellSize}
                 pieceSize={pieceSize}
                 pieceImageStyle={dynamicStyles.pieceImage}
                 legalMoveStyle={dynamicStyles.legalMove}
