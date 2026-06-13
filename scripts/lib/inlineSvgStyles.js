@@ -2,7 +2,7 @@
 // без обработки фигуры рендерятся с заливкой по умолчанию (чёрной). Эта функция
 // разворачивает классы из <style> в атрибуты прямо на элементах и удаляет <style>.
 function inlineSvgStyles(svg) {
-  const styleMatch = svg.match(/<style>([\s\S]*?)<\/style>/);
+  const styleMatch = svg.match(/<style[^>]*>([\s\S]*?)<\/style>/);
   if (!styleMatch) return svg;
 
   const css = styleMatch[1];
@@ -28,7 +28,7 @@ function inlineSvgStyles(svg) {
     return attrs.length ? ` ${attrs.join(' ')}` : '';
   });
 
-  out = out.replace(/\s*<style>[\s\S]*?<\/style>\s*/, '\n');
+  out = out.replace(/\s*<style[^>]*>[\s\S]*?<\/style>\s*/, '\n');
   out = out.replace(/<defs>\s*<\/defs>\s*/, '');
 
   return out;

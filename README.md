@@ -111,6 +111,10 @@ git commit -m "feat(area): description"
 
 Branch naming: `feat/` · `fix/` · `test/` · `ci/` · `docs/`
 
+## Credits
+
+Celtic chess pieces by Maurizio Monge, MIT license (https://github.com/maurimo/chess-art)
+
 ---
 
 *Chess Quest MVP — built for iOS + Android*
