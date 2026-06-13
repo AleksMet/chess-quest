@@ -94,7 +94,7 @@ const PLAYER_COLOR = 'w' as const;
 // поэтому порядок цифр/букв фиксирован (вид с белой стороны)
 const RANK_LABELS = ['8', '7', '6', '5', '4', '3', '2', '1'];
 const FILE_LABELS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-const COORD_COLUMN_WIDTH = 16;
+const COORD_COLUMN_WIDTH = 14;
 
 const BATTLE_TITLES: Record<ChaosBattleNumber, string> = {
   1: '⚔️ Бой 1',
@@ -197,7 +197,7 @@ export default function ChaosBattleScreen() {
   const [headerHeight, setHeaderHeight] = useState(0);
   const [bottomHeight, setBottomHeight] = useState(0);
   const availableHeight = screenHeight - headerHeight - bottomHeight;
-  const boardSize = Math.max(0, Math.min(screenWidth, availableHeight));
+  const boardSize = Math.max(0, Math.min(screenWidth - 40 - COORD_COLUMN_WIDTH, availableHeight));
   const cellSize = boardSize / 8;
   const [playerMoves, setPlayerMoves] = useState(0);
   // Уровень 2+, босс с эволюцией: сколько ходов осталось до следующей эволюции фигуры ИИ
@@ -798,13 +798,13 @@ export default function ChaosBattleScreen() {
       </View>
 
       <View style={styles.boardWrap}>
-        <View>
+        <View style={styles.boardOuter}>
           <View style={styles.boardRow}>
             <View style={styles.rankColumn}>
               {RANK_LABELS.map(rank => (
-                <View key={rank} style={[styles.coordCell, { height: cellSize }]}>
-                  <Text style={styles.coordLabel}>{rank}</Text>
-                </View>
+                <Text key={rank} style={[styles.coordLabel, { width: COORD_COLUMN_WIDTH, height: cellSize, lineHeight: cellSize }]}>
+                  {rank}
+                </Text>
               ))}
             </View>
             <ChessBoard
@@ -824,9 +824,9 @@ export default function ChaosBattleScreen() {
           </View>
           <View style={styles.fileRow}>
             {FILE_LABELS.map(file => (
-              <View key={file} style={[styles.coordCell, { width: cellSize }]}>
-                <Text style={styles.coordLabel}>{file}</Text>
-              </View>
+              <Text key={file} style={[styles.coordLabel, { width: cellSize }]}>
+                {file}
+              </Text>
             ))}
           </View>
         </View>
@@ -913,11 +913,11 @@ const styles = StyleSheet.create({
   goldBadge:       { color: '#f59e0b', fontSize: 15, fontWeight: '700' },
   thinking:        { fontSize: 20 },
   boardWrap:       { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  boardOuter:      { flexDirection: 'column', alignSelf: 'center', paddingHorizontal: 20 },
   boardRow:        { flexDirection: 'row' },
   fileRow:         { flexDirection: 'row', marginLeft: COORD_COLUMN_WIDTH },
-  rankColumn:      { width: COORD_COLUMN_WIDTH },
-  coordCell:       { alignItems: 'center', justifyContent: 'center' },
-  coordLabel:      { fontSize: 10, color: '#a0a0c8', fontFamily: 'monospace' },
+  rankColumn:      { width: COORD_COLUMN_WIDTH, justifyContent: 'space-around', alignItems: 'center' },
+  coordLabel:      { fontSize: 9, color: '#a0a0c8', textAlign: 'center' },
   knightsOutBanner: {
     position: 'absolute', top: 60, left: 16, right: 16,
     backgroundColor: '#FF4444', borderRadius: 12,
