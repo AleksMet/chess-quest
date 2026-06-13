@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
-import { Animated, Image, View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { Animated, Image, Text, View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import type { ImageSourcePropType, ImageStyle, ViewStyle } from 'react-native';
-import Svg, { Rect, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { Chess } from 'chess.js';
 import type { Square, Color } from 'chess.js';
 import { getLegalMovesFrom, attemptMove } from '../../engine/chessLogic';
@@ -10,6 +9,7 @@ import type { PieceKey } from './ChessPieceSVG';
 import { useChapterTheme } from '../../contexts/ChapterThemeContext';
 
 import { ChessPiece } from './ChessPiece';
+import { ChessSquare } from './ChessSquare';
 import wQaImg from '../../assets/chess-pieces/attack/wQa.png';
 import wRaImg from '../../assets/chess-pieces/attack/wRa.png';
 import wBaImg from '../../assets/chess-pieces/attack/wBa.png';
@@ -63,30 +63,6 @@ const LAST_MOVE_HIGHLIGHT_COLOR: Record<LastMoveHighlight['color'], string> = {
 };
 
 const SPAWN_FADE_IN_MS = 500;
-
-// Радиальные градиенты клеток доски
-const LIGHT_SQUARE_COLORS = { center: '#a8a8d8', mid: '#8b8bc0', edge: '#6060a0' };
-const DARK_SQUARE_COLORS = { center: '#8080b8', mid: '#6b6b9e', edge: '#4a4a80' };
-
-// Клетка доски — радиальный градиент через react-native-svg.
-// React.memo, чтобы клетки не перерисовывались при ходах.
-const ChessSquare = memo(function ChessSquare({ size, isLight }: { size: number; isLight: boolean }) {
-  const colors = isLight ? LIGHT_SQUARE_COLORS : DARK_SQUARE_COLORS;
-  const gradId = isLight ? 'lg' : 'dg';
-
-  return (
-    <Svg width={size} height={size} style={styles.squareImage}>
-      <Defs>
-        <RadialGradient id={gradId} cx="50%" cy="50%" r="70%" fx="50%" fy="50%">
-          <Stop offset="0%" stopColor={colors.center} />
-          <Stop offset="60%" stopColor={colors.mid} />
-          <Stop offset="100%" stopColor={colors.edge} />
-        </RadialGradient>
-      </Defs>
-      <Rect width={size} height={size} fill={`url(#${gradId})`} />
-    </Svg>
-  );
-});
 
 // Изображения атакующих улучшений (Берсерк/Снайпер) — заменяют SVG фигуры игрока.
 // bN отсутствует в ассетах (не используется — атакующие улучшения только у игрока, белые фигуры).
@@ -354,7 +330,16 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
   }), [boardSize, cellSize, pieceSize]);
 
   return (
-    <View style={[styles.boardFrame, dynamicStyles.container]}>
+    <View>
+      <View style={styles.coordRow}>
+        <View style={styles.coordColumn}>
+          {ranks.map(rank => (
+            <View key={rank} style={[styles.coordCell, { height: cellSize }]}>
+              <Text style={styles.coordLabel}>{rank}</Text>
+            </View>
+          ))}
+        </View>
+        <View style={[styles.boardFrame, dynamicStyles.container]}>
       <View testID="chess-board">
       {ranks.map((rank, rankIdx) => (
         <View key={rank} style={styles.row}>
@@ -423,11 +408,38 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
         </View>
       ))}
       </View>
+        </View>
+      </View>
+      <View style={styles.coordRow}>
+        <View style={[styles.coordCell, styles.coordColumn]} />
+        {orderedFiles.map(file => (
+          <View key={file} style={[styles.coordCell, { width: cellSize }]}>
+            <Text style={styles.coordLabel}>{file}</Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
 
+const COORD_COLUMN_WIDTH = 16;
+
 const styles = StyleSheet.create({
+  coordRow: {
+    flexDirection: 'row',
+  },
+  coordColumn: {
+    width: COORD_COLUMN_WIDTH,
+  },
+  coordCell: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coordLabel: {
+    fontSize: 10,
+    color: '#a0a0c8',
+    fontFamily: 'monospace',
+  },
   boardFrame: {
     borderWidth: 2,
     borderColor: '#3a3060',
@@ -445,10 +457,6 @@ const styles = StyleSheet.create({
   cell: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  squareImage: {
-    position: 'absolute',
-    top: 0, left: 0,
   },
   opponentMoveOverlay: {
     position: 'absolute',
