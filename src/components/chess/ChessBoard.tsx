@@ -10,6 +10,7 @@ import { useChapterTheme } from '../../contexts/ChapterThemeContext';
 
 import { ChessPiece } from './ChessPiece';
 import { ChessSquare } from './ChessSquare';
+import { usePieceAnimation } from '../../hooks/usePieceAnimation';
 import wQaImg from '../../assets/chess-pieces/attack/wQa.png';
 import wRaImg from '../../assets/chess-pieces/attack/wRa.png';
 import wBaImg from '../../assets/chess-pieces/attack/wBa.png';
@@ -21,6 +22,14 @@ import bBaImg from '../../assets/chess-pieces/attack/bBa.png';
 import bPaImg from '../../assets/chess-pieces/attack/bPa.png';
 
 const BOARD_SIZE = Math.min(Dimensions.get('window').width, Dimensions.get('window').height) * 0.9;
+
+// Координаты клетки на доске в «ячейках» (0..7) для анимации перемещения фигуры —
+// учитывает разворот доски за чёрных (flipped)
+function squareToCoords(square: Square, flipped: boolean): { x: number; y: number } {
+  const file = square.charCodeAt(0) - 97; // a=0..h=7
+  const rank = parseInt(square[1], 10); // 1..8
+  return flipped ? { x: 7 - file, y: rank - 1 } : { x: file, y: 8 - rank };
+}
 
 interface UpgradeHighlight {
   square: Square;
@@ -234,9 +243,21 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
   const [legalTargets, setLegalTargets] = useState<Square[]>([]);
   const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(null);
 
+  // Анимация плавного перемещения фигуры (sliding) — слой поверх доски, см. usePieceAnimation
+  const { animX, animY, animateMove, isAnimating } = usePieceAnimation();
+  const [animatingSquares, setAnimatingSquares] = useState<{ from: Square; to: Square } | null>(null);
+  const [animatingPieceKey, setAnimatingPieceKey] = useState<PieceKey | null>(null);
+
   const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
   const ranks = playerColor === 'w' ? [8, 7, 6, 5, 4, 3, 2, 1] : [1, 2, 3, 4, 5, 6, 7, 8];
   const orderedFiles = playerColor === 'w' ? files : [...files].reverse();
+  const flipped = playerColor !== 'w';
+
+  // Размер доски передаётся пропсом (адаптивная вёрстка экрана боя) либо берётся
+  // из BOARD_SIZE по умолчанию (вызовы без size — обычные режимы)
+  const boardSize = size ?? BOARD_SIZE;
+  const cellSize = boardSize / 8;
+  const pieceSize = cellSize * 0.88;
 
   // Берсерк обязан атаковать: если forcedSquares задан, ходить можно только этими фигурами,
   // а forcedMoves ограничивает доступные цели клетками из списка разрешённых ходов (LAN: "e2e4")
@@ -260,7 +281,7 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
 
   const handleSquarePress = useCallback(
     (square: Square) => {
-      if (disabled) return;
+      if (disabled || isAnimating.current) return;
       const piece = chess.get(square);
 
       if (!selectedSquare) {
@@ -296,25 +317,58 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
         return;
       }
 
-      const result = attemptMove(chess, selectedSquare, square, 'q');
-      if (result.success && result.move) {
-        setLastMove({ from: selectedSquare, to: square });
-        onMove?.(result);
+      // Сначала проигрываем анимацию слайда «призрака» из selectedSquare в square,
+      // chess.move() и onMove вызываются только после её завершения (onComplete)
+      const movingPiece = chess.get(selectedSquare);
+      const from = selectedSquare;
+      const to = square;
+      if (movingPiece) {
+        const pieceKey = `${movingPiece.color}${movingPiece.type.toUpperCase()}` as PieceKey;
+        setAnimatingSquares({ from, to });
+        setAnimatingPieceKey(pieceKey);
+        animateMove(
+          { piece: pieceKey, from: squareToCoords(from, flipped), to: squareToCoords(to, flipped) },
+          cellSize,
+          () => {
+            setAnimatingSquares(null);
+            setAnimatingPieceKey(null);
+            const result = attemptMove(chess, from, to, 'q');
+            if (result.success && result.move) {
+              setLastMove({ from, to });
+              onMove?.(result);
+            }
+          }
+        );
       }
 
       setSelectedSquare(null);
       setLegalTargets([]);
     },
-    [chess, selectedSquare, playerColor, disabled, onMove, isSquareForced, filterForcedTargets, isMoveForced]
+    [chess, selectedSquare, playerColor, disabled, onMove, isSquareForced, filterForcedTargets, isMoveForced, isAnimating, animateMove, flipped, cellSize]
   );
 
-  const board = chess.board();
+  // Анимация хода ИИ: к моменту ререндера chess.move() уже применён (фигура стоит на `to`),
+  // поэтому проигрываем slide из `from` в `to`, скрывая реальную фигуру на `to` до конца анимации
+  useEffect(() => {
+    if (!lastMoveHighlight || lastMoveHighlight.color !== 'opponent') return;
+    const { from, to } = lastMoveHighlight;
+    const piece = chess.get(to);
+    if (!piece) return;
+    const pieceKey = `${piece.color}${piece.type.toUpperCase()}` as PieceKey;
+    setAnimatingSquares({ from, to });
+    setAnimatingPieceKey(pieceKey);
+    animateMove(
+      { piece: pieceKey, from: squareToCoords(from, flipped), to: squareToCoords(to, flipped) },
+      cellSize,
+      () => {
+        setAnimatingSquares(null);
+        setAnimatingPieceKey(null);
+      }
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastMoveHighlight]);
 
-  // Размер доски передаётся пропсом (адаптивная вёрстка экрана боя) либо берётся
-  // из BOARD_SIZE по умолчанию (вызовы без size — обычные режимы)
-  const boardSize = size ?? BOARD_SIZE;
-  const cellSize = boardSize / 8;
-  const pieceSize = cellSize * 0.88;
+  const board = chess.board();
 
   const dynamicStyles = useMemo(() => ({
     container: { width: boardSize, height: boardSize },
@@ -350,7 +404,10 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
             const isForcedSquare = !!forcedSquares && forcedSquares.includes(square);
             const isLastMoveHighlightSquare = lastMoveHighlight?.from === square || lastMoveHighlight?.to === square;
 
-            const pieceKey = cell
+            // На время анимации слайда скрываем реальную фигуру на исходной и целевой
+            // клетках — виден только анимированный «призрак» (animationLayer ниже)
+            const isAnimatingSquare = animatingSquares?.from === square || animatingSquares?.to === square;
+            const pieceKey = cell && !isAnimatingSquare
               ? (`${cell.color}${cell.type.toUpperCase()}` as PieceKey)
               : null;
             const isAttackPiece = !!pieceKey && !!attackSquares?.includes(square);
@@ -397,6 +454,18 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
           })}
         </View>
       ))}
+      {animatingPieceKey && (
+        <View style={[styles.animationLayer, dynamicStyles.container]} pointerEvents="none">
+          <Animated.View
+            style={[
+              styles.animationPiece,
+              { width: cellSize, height: cellSize, transform: [{ translateX: animX }, { translateY: animY }] },
+            ]}
+          >
+            <ChessPiece pieceKey={animatingPieceKey} size={pieceSize} />
+          </Animated.View>
+        </View>
+      )}
     </View>
   );
 }
@@ -417,6 +486,18 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
+  },
+  animationLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  animationPiece: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cell: {
     alignItems: 'center',
