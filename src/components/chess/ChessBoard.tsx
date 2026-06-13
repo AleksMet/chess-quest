@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
-import { Animated, Image, View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
-import type { ImageSourcePropType, ImageStyle, ViewStyle } from 'react-native';
+import { Animated, View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import type { ViewStyle } from 'react-native';
 import { Chess } from 'chess.js';
 import type { Square, Color } from 'chess.js';
 import { getLegalMovesFrom, attemptMove } from '../../engine/chessLogic';
@@ -11,15 +11,6 @@ import { useChapterTheme } from '../../contexts/ChapterThemeContext';
 import { ChessPiece } from './ChessPiece';
 import { ChessSquare } from './ChessSquare';
 import { usePieceAnimation } from '../../hooks/usePieceAnimation';
-import wQaImg from '../../assets/chess-pieces/attack/wQa.png';
-import wRaImg from '../../assets/chess-pieces/attack/wRa.png';
-import wBaImg from '../../assets/chess-pieces/attack/wBa.png';
-import wNaImg from '../../assets/chess-pieces/attack/wNa.png';
-import wPaImg from '../../assets/chess-pieces/attack/wPa.png';
-import bQaImg from '../../assets/chess-pieces/attack/bQa.png';
-import bRaImg from '../../assets/chess-pieces/attack/bRa.png';
-import bBaImg from '../../assets/chess-pieces/attack/bBa.png';
-import bPaImg from '../../assets/chess-pieces/attack/bPa.png';
 
 const BOARD_SIZE = Math.min(Dimensions.get('window').width, Dimensions.get('window').height) * 0.9;
 
@@ -55,7 +46,6 @@ interface ChessBoardProps {
   forcedSquares?: Square[];           // Берсерк игрока: ходить можно только этими фигурами (мигающая рамка)
   forcedMoves?: string[];             // Берсерк игрока: разрешены только эти ходы, в формате LAN ("e2e4")
   lastMoveHighlight?: LastMoveHighlight | null; // подсветка клеток последнего хода (режим ХАОС)
-  attackSquares?: Square[];           // фигуры с атакующим улучшением (Берсерк/Снайпер) — рендерятся PNG из attack/
   size?: number;                      // размер доски в пикселях, по умолчанию BOARD_SIZE
 }
 
@@ -73,37 +63,22 @@ const LAST_MOVE_HIGHLIGHT_COLOR: Record<LastMoveHighlight['color'], string> = {
 
 const SPAWN_FADE_IN_MS = 500;
 
-// Изображения атакующих улучшений (Берсерк/Снайпер) — заменяют SVG фигуры игрока.
-// bN отсутствует в ассетах (не используется — атакующие улучшения только у игрока, белые фигуры).
-const ATTACK_PIECE_IMAGES: Partial<Record<PieceKey, ImageSourcePropType>> = {
-  wQ: wQaImg, wR: wRaImg, wB: wBaImg, wN: wNaImg, wP: wPaImg,
-  bQ: bQaImg, bR: bRaImg, bB: bBaImg, bP: bPaImg,
-};
-
 interface PieceViewProps {
   pieceKey: PieceKey;
-  useAttackImage?: boolean;
   pieceSize: number;
-  pieceImageStyle: ImageStyle;
 }
 
-function PieceView({ pieceKey, useAttackImage, pieceSize, pieceImageStyle }: PieceViewProps) {
-  const attackImage = useAttackImage ? ATTACK_PIECE_IMAGES[pieceKey] : undefined;
+function PieceView({ pieceKey, pieceSize }: PieceViewProps) {
   return (
     <View style={styles.pieceContainer}>
-      {attackImage ? (
-        <Image source={attackImage} style={pieceImageStyle} resizeMode="contain" fadeDuration={0} />
-      ) : (
-        <ChessPiece pieceKey={pieceKey} size={pieceSize} />
-      )}
+      <ChessPiece pieceKey={pieceKey} size={pieceSize} />
     </View>
   );
 }
 
 // Только что заспавненная фигура (конь короля-босса) — плавно проявляется opacity 0→1
-function SpawnedPieceView({ pieceKey, useAttackImage, pieceSize, pieceImageStyle }: PieceViewProps) {
+function SpawnedPieceView({ pieceKey, pieceSize }: PieceViewProps) {
   const opacity = useRef(new Animated.Value(0)).current;
-  const attackImage = useAttackImage ? ATTACK_PIECE_IMAGES[pieceKey] : undefined;
 
   useEffect(() => {
     Animated.timing(opacity, { toValue: 1, duration: SPAWN_FADE_IN_MS, useNativeDriver: true }).start();
@@ -111,11 +86,7 @@ function SpawnedPieceView({ pieceKey, useAttackImage, pieceSize, pieceImageStyle
 
   return (
     <Animated.View style={[styles.pieceContainer, { opacity }]}>
-      {attackImage ? (
-        <Image source={attackImage} style={pieceImageStyle} resizeMode="contain" fadeDuration={0} />
-      ) : (
-        <ChessPiece pieceKey={pieceKey} size={pieceSize} />
-      )}
+      <ChessPiece pieceKey={pieceKey} size={pieceSize} />
     </Animated.View>
   );
 }
@@ -144,7 +115,6 @@ interface CellProps {
   square: Square;
   isLight: boolean;
   pieceKey: PieceKey | null;
-  isAttackPiece: boolean;
   squareTintColor: string | null;
   isOpponentLastMove: boolean;
   upgradeHighlightColor: string | null;
@@ -159,7 +129,6 @@ interface CellProps {
   cellStyle: ViewStyle;
   cellSize: number;
   pieceSize: number;
-  pieceImageStyle: ImageStyle;
   legalMoveStyle: ViewStyle;
   legalCaptureStyle: ViewStyle;
   onPress: () => void;
@@ -171,7 +140,6 @@ const Cell = memo(function Cell({
   square,
   isLight,
   pieceKey,
-  isAttackPiece,
   squareTintColor,
   isOpponentLastMove,
   upgradeHighlightColor,
@@ -186,7 +154,6 @@ const Cell = memo(function Cell({
   cellStyle,
   cellSize,
   pieceSize,
-  pieceImageStyle,
   legalMoveStyle,
   legalCaptureStyle,
   onPress,
@@ -230,14 +197,14 @@ const Cell = memo(function Cell({
       {isForcedSquare && <ForcedPieceBorder />}
       {pieceKey && (
         isSpawned
-          ? <SpawnedPieceView key={`${square}-spawned`} pieceKey={pieceKey} useAttackImage={isAttackPiece} pieceSize={pieceSize} pieceImageStyle={pieceImageStyle} />
-          : <PieceView key={isJustMoved ? `${square}-moved` : square} pieceKey={pieceKey} useAttackImage={isAttackPiece} pieceSize={pieceSize} pieceImageStyle={pieceImageStyle} />
+          ? <SpawnedPieceView key={`${square}-spawned`} pieceKey={pieceKey} pieceSize={pieceSize} />
+          : <PieceView key={isJustMoved ? `${square}-moved` : square} pieceKey={pieceKey} pieceSize={pieceSize} />
       )}
     </TouchableOpacity>
   );
 });
 
-export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false, highlightSquare, opponentLastMove, upgradeHighlights, spawnedSquare, forcedSquares, forcedMoves, lastMoveHighlight, attackSquares, size }: ChessBoardProps) {
+export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false, highlightSquare, opponentLastMove, upgradeHighlights, spawnedSquare, forcedSquares, forcedMoves, lastMoveHighlight, size }: ChessBoardProps) {
   const { theme } = useChapterTheme();
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalTargets, setLegalTargets] = useState<Square[]>([]);
@@ -373,7 +340,6 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
   const dynamicStyles = useMemo(() => ({
     container: { width: boardSize, height: boardSize },
     cell: { width: cellSize, height: cellSize },
-    pieceImage: { width: pieceSize, height: pieceSize },
     legalMove: { width: cellSize * 0.3, height: cellSize * 0.3 },
     legalCapture: {
       width: cellSize * 0.9,
@@ -381,7 +347,7 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
       borderWidth: cellSize * 0.1,
       borderRadius: cellSize * 0.5,
     },
-  }), [boardSize, cellSize, pieceSize]);
+  }), [boardSize, cellSize]);
 
   return (
     <View style={[styles.boardFrame, dynamicStyles.container]} testID="chess-board">
@@ -410,7 +376,6 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
             const pieceKey = cell && !isAnimatingSquare
               ? (`${cell.color}${cell.type.toUpperCase()}` as PieceKey)
               : null;
-            const isAttackPiece = !!pieceKey && !!attackSquares?.includes(square);
 
             const squareTintColor = isHintSquare
               ? '#d97706'
@@ -426,7 +391,6 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
                 square={square}
                 isLight={isLight}
                 pieceKey={pieceKey}
-                isAttackPiece={isAttackPiece}
                 squareTintColor={squareTintColor}
                 isOpponentLastMove={isOpponentLastMove}
                 upgradeHighlightColor={upgradeHighlight ? UPGRADE_HIGHLIGHT_COLOR[upgradeHighlight.color] : null}
@@ -445,7 +409,6 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
                 cellStyle={dynamicStyles.cell}
                 cellSize={cellSize}
                 pieceSize={pieceSize}
-                pieceImageStyle={dynamicStyles.pieceImage}
                 legalMoveStyle={dynamicStyles.legalMove}
                 legalCaptureStyle={dynamicStyles.legalCapture}
                 onPress={() => handleSquarePress(square)}

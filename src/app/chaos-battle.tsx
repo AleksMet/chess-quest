@@ -394,22 +394,12 @@ export default function ChaosBattleScreen() {
   }
 
   // Подсветка клеток улучшенных фигур игрока — все статичные:
-  // защита (страж/засада) — синяя 0.35, провокатор — красная 0.35 (нет отдельного PNG).
-  // Берсерк/Снайпер визуально передаются через PNG атакующей фигуры (см. attackSquares) — без overlay.
+  // атака (берсерк/снайпер/провокатор) — красная 0.35, защита (страж/засада) — синяя 0.35.
   const upgradeHighlights = pieceUpgrades.reduce<{ square: Square; color: 'red' | 'blue' | 'gold' | 'purple'; opacity: number }[]>((acc, upgrade) => {
     const state = upgradeStateRef.current.get(upgrade.id);
     if (!state?.square) return acc;
-    if (upgrade.upgradeType === 'berserk' || upgrade.upgradeType === 'sniper') return acc;
     const color = upgrade.category === 'attack' ? 'red' : 'blue';
     acc.push({ square: state.square, color, opacity: 0.35 });
-    return acc;
-  }, []);
-
-  // Клетки фигур игрока с улучшениями Берсерк/Снайпер — рендерятся PNG из chess-pieces/attack/
-  const attackSquares = pieceUpgrades.reduce<Square[]>((acc, upgrade) => {
-    if (upgrade.upgradeType !== 'berserk' && upgrade.upgradeType !== 'sniper') return acc;
-    const state = upgradeStateRef.current.get(upgrade.id);
-    if (state?.square) acc.push(state.square);
     return acc;
   }, []);
 
@@ -818,7 +808,6 @@ export default function ChaosBattleScreen() {
               spawnedSquare={spawnedSquare}
               forcedSquares={berserkForce?.forcedSquares}
               forcedMoves={activeForcedMoves}
-              attackSquares={attackSquares}
               size={boardSize > 0 ? boardSize : undefined}
             />
           </View>

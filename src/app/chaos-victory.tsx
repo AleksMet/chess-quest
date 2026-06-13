@@ -18,8 +18,8 @@ export default function ChaosVictoryScreen() {
   const { totalScore, gold, floorScores, currentLevel, resetRun, setLevel, resetFloor, setGold } = useChaosModeStore();
 
   const stars = calcChaosStars(totalScore);
-  // Армия и золото переходят на следующий уровень — следующий уровень есть, пока для него
-  // настроен LEVEL_CONFIGS; стартовое золото уровня добавляется ПОВЕРХ имеющегося
+  // Следующий уровень есть, пока для него настроен LEVEL_CONFIGS; золото на каждом уровне
+  // выставляется заново по startingGold уровня (не накапливается с предыдущего)
   const nextLevelConfig = LEVEL_CONFIGS[currentLevel];
   const hasNextLevel = !!nextLevelConfig;
 
@@ -37,9 +37,11 @@ export default function ChaosVictoryScreen() {
       setLevel(2);
       setGold(nextLevelConfig.startingGold);
     } else {
-      // Победа над боссом уровня 2+: армия, улучшения и золото переходят дальше — сбрасывается только этаж
+      // Победа над боссом уровня 2+: армия и улучшения переходят дальше, сбрасывается только этаж;
+      // золото выставляется заново по стартовому золоту следующего уровня
       resetFloor();
       setLevel(currentLevel + 1);
+      setGold(nextLevelConfig.startingGold);
     }
     router.replace('/chaos-tower');
   }
