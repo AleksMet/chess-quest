@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
-import { Animated, Image, Text, View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { Animated, Image, View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import type { ImageSourcePropType, ImageStyle, ViewStyle } from 'react-native';
 import { Chess } from 'chess.js';
 import type { Square, Color } from 'chess.js';
@@ -330,17 +330,7 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
   }), [boardSize, cellSize, pieceSize]);
 
   return (
-    <View>
-      <View style={styles.coordRow}>
-        <View style={styles.coordColumn}>
-          {ranks.map(rank => (
-            <View key={rank} style={[styles.coordCell, { height: cellSize }]}>
-              <Text style={styles.coordLabel}>{rank}</Text>
-            </View>
-          ))}
-        </View>
-        <View style={[styles.boardFrame, dynamicStyles.container]}>
-      <View testID="chess-board">
+    <View style={[styles.boardFrame, dynamicStyles.container]} testID="chess-board">
       {ranks.map((rank, rankIdx) => (
         <View key={rank} style={styles.row}>
           {orderedFiles.map((file, fileIdx) => {
@@ -407,39 +397,11 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
           })}
         </View>
       ))}
-      </View>
-        </View>
-      </View>
-      <View style={styles.coordRow}>
-        <View style={[styles.coordCell, styles.coordColumn]} />
-        {orderedFiles.map(file => (
-          <View key={file} style={[styles.coordCell, { width: cellSize }]}>
-            <Text style={styles.coordLabel}>{file}</Text>
-          </View>
-        ))}
-      </View>
     </View>
   );
 }
 
-const COORD_COLUMN_WIDTH = 16;
-
 const styles = StyleSheet.create({
-  coordRow: {
-    flexDirection: 'row',
-  },
-  coordColumn: {
-    width: COORD_COLUMN_WIDTH,
-  },
-  coordCell: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  coordLabel: {
-    fontSize: 10,
-    color: '#a0a0c8',
-    fontFamily: 'monospace',
-  },
   boardFrame: {
     borderWidth: 2,
     borderColor: '#3a3060',
@@ -450,6 +412,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 8,
+    // Заполняет субпиксельные зазоры между клетками на физических iOS-устройствах
+    backgroundColor: '#4a4a80',
   },
   row: {
     flexDirection: 'row',

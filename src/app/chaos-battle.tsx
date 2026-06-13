@@ -90,6 +90,12 @@ function berserkStreakPopupText(streak: number, bonus: number): string {
 
 const PLAYER_COLOR = 'w' as const;
 
+// Координаты доски рисуются снаружи ChessBoard — игрок всегда играет белыми (PLAYER_COLOR),
+// поэтому порядок цифр/букв фиксирован (вид с белой стороны)
+const RANK_LABELS = ['8', '7', '6', '5', '4', '3', '2', '1'];
+const FILE_LABELS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+const COORD_COLUMN_WIDTH = 16;
+
 const BATTLE_TITLES: Record<ChaosBattleNumber, string> = {
   1: '⚔️ Бой 1',
   2: '⚔️ Бой 2',
@@ -192,6 +198,7 @@ export default function ChaosBattleScreen() {
   const [bottomHeight, setBottomHeight] = useState(0);
   const availableHeight = screenHeight - headerHeight - bottomHeight;
   const boardSize = Math.max(0, Math.min(screenWidth, availableHeight));
+  const cellSize = boardSize / 8;
   const [playerMoves, setPlayerMoves] = useState(0);
   // Уровень 2+, босс с эволюцией: сколько ходов осталось до следующей эволюции фигуры ИИ
   const [movesUntilEvolution, setMovesUntilEvolution] = useState(levelConfig?.bossConfig?.evolutionMechanic?.intervalMoves ?? 5);
@@ -791,20 +798,38 @@ export default function ChaosBattleScreen() {
       </View>
 
       <View style={styles.boardWrap}>
-        <ChessBoard
-          key={boardKey}
-          chess={chess}
-          playerColor={PLAYER_COLOR}
-          onMove={handleMove}
-          disabled={boardDisabled}
-          lastMoveHighlight={lastMoveHighlight}
-          upgradeHighlights={[...upgradeHighlights, ...bossHighlights, ...aiUpgradeHighlights]}
-          spawnedSquare={spawnedSquare}
-          forcedSquares={berserkForce?.forcedSquares}
-          forcedMoves={activeForcedMoves}
-          attackSquares={attackSquares}
-          size={boardSize > 0 ? boardSize : undefined}
-        />
+        <View>
+          <View style={styles.boardRow}>
+            <View style={styles.rankColumn}>
+              {RANK_LABELS.map(rank => (
+                <View key={rank} style={[styles.coordCell, { height: cellSize }]}>
+                  <Text style={styles.coordLabel}>{rank}</Text>
+                </View>
+              ))}
+            </View>
+            <ChessBoard
+              key={boardKey}
+              chess={chess}
+              playerColor={PLAYER_COLOR}
+              onMove={handleMove}
+              disabled={boardDisabled}
+              lastMoveHighlight={lastMoveHighlight}
+              upgradeHighlights={[...upgradeHighlights, ...bossHighlights, ...aiUpgradeHighlights]}
+              spawnedSquare={spawnedSquare}
+              forcedSquares={berserkForce?.forcedSquares}
+              forcedMoves={activeForcedMoves}
+              attackSquares={attackSquares}
+              size={boardSize > 0 ? boardSize : undefined}
+            />
+          </View>
+          <View style={styles.fileRow}>
+            {FILE_LABELS.map(file => (
+              <View key={file} style={[styles.coordCell, { width: cellSize }]}>
+                <Text style={styles.coordLabel}>{file}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
         <ChaosGoldToastStack items={goldToasts} onExpire={removeGoldToast} />
         {showKnightsOutBanner && (
           <View style={styles.knightsOutBanner} pointerEvents="none">
@@ -888,6 +913,11 @@ const styles = StyleSheet.create({
   goldBadge:       { color: '#f59e0b', fontSize: 15, fontWeight: '700' },
   thinking:        { fontSize: 20 },
   boardWrap:       { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  boardRow:        { flexDirection: 'row' },
+  fileRow:         { flexDirection: 'row', marginLeft: COORD_COLUMN_WIDTH },
+  rankColumn:      { width: COORD_COLUMN_WIDTH },
+  coordCell:       { alignItems: 'center', justifyContent: 'center' },
+  coordLabel:      { fontSize: 10, color: '#a0a0c8', fontFamily: 'monospace' },
   knightsOutBanner: {
     position: 'absolute', top: 60, left: 16, right: 16,
     backgroundColor: '#FF4444', borderRadius: 12,
