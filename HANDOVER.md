@@ -9,11 +9,11 @@ _Обновлено: 2026-06-14_
 ## Последние коммиты
 
 ```
+0235ac7 fix: restore RadialGradient to ChessSquare
+2ca8532 polish: PNG pieces, board colors, perf optimizations, effects system
 4a86137 docs: update handover
 f738e65 feat/cburnett-gradient-pieces-and-board
 1d94b1c fix/pieces-and-board-gradient
-b472f75 feat/board-gradient-background
-3714668 feat/rhosgfx-chess-pieces
 ```
 
 ## Что реализовано
@@ -77,12 +77,13 @@ Roguelite-башня: магазин → бои → элита/событие �
 - **Анимация слайда фигур временно убрана**: `usePieceAnimation.ts`
   удалён, `ChessBoard.tsx` делает ход синхронно через `attemptMove`
   без промежуточной анимации (см. Known issues).
-- **Клетки доски (`ChessSquare.tsx`)**: сейчас временно отрисовываются
-  плоским `View` с `backgroundColor` (`#d4e0f9` светлая / `#8973f6`
-  тёмная) вместо `RadialGradient` — это ВРЕМЕННЫЙ ТЕСТ
-  производительности (см. Known issues), `React.memo` сохранён.
-  "Целевая" версия — `RadialGradient` (светлая `#d4e0f9`→`#b8bbf7`,
-  тёмная `#8973f6`→`#7a66f4`).
+- **Клетки доски (`ChessSquare.tsx`)**: отрисовываются через
+  `RadialGradient` (`react-native-svg`), cx/cy 50%, rx/ry 70%,
+  `gradientUnits="objectBoundingBox"` — светлая `#d4e0f9`→`#b8bbf7`,
+  тёмная `#8973f6`→`#7a66f4`. ID градиента уникален на инстанс
+  (`useId()`, без `:`). `React.memo` сохранён. Временный
+  flat-color перф-тест завершён, `RadialGradient` восстановлен
+  (коммит `0235ac7`).
 - **Перф-оптимизации в `chaos-battle.tsx`**: обновление стейта после
   хода игрока и хода ИИ отложено через `requestAnimationFrame` —
   не блокирует немедленную отрисовку перемещённой фигуры.
@@ -114,7 +115,7 @@ Roguelite-башня: магазин → бои → элита/событие �
   ходы применяются мгновенно, без промежуточного движения фигуры.
 - На физических устройствах изредка (~1 ход из 10) наблюдается
   лаг/задержка рендера хода — точная причина не подтверждена,
-  подозревается GC (сборка мусора). `ChessSquare.tsx` временно
-  переведён на плоский цвет вместо `RadialGradient`, чтобы
-  изолировать вклад SVG-рендеринга в этот лаг — результат теста
-  пока не подтверждён, решение о возврате `RadialGradient` отложено.
+  подозревается GC (сборка мусора). Тест с заменой `RadialGradient`
+  на плоский цвет в `ChessSquare.tsx` завершён без однозначного
+  вывода, `RadialGradient` восстановлен (коммит `0235ac7`) — причину
+  лага нужно искать в другом месте.
