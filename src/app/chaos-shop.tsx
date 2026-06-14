@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, TouchableOpacity } from 'react-native';
+import { Alert, View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ChessPieceSVG, type PieceKey } from '../components/chess/ChessPieceSVG';
@@ -82,7 +82,7 @@ export default function ChaosShopScreen() {
   const router = useRouter();
   const {
     currentFloor, currentLevel, pieces, gold, spendGold, addPiece, nextFloor,
-    pieceUpgrades, addUpgrade, canAddUpgrade, getPieceUpgradeClass,
+    pieceUpgrades, addUpgrade, canAddUpgrade, hasUpgradeType, getPieceUpgradeClass,
     getUpgradePrice, isUpgradeAvailable,
   } = useChaosModeStore();
 
@@ -122,6 +122,10 @@ export default function ChaosShopScreen() {
     if (!selectedUpgrade) return;
     const def = UPGRADE_DEFINITIONS.find(d => d.type === selectedUpgrade);
     if (!def) return;
+    if (hasUpgradeType(instance.id, selectedUpgrade)) {
+      Alert.alert('Это улучшение уже применено', 'Выбери другую фигуру или другое улучшение.');
+      return;
+    }
     const price = getUpgradePrice(def.price, def.category);
     if (!canAddUpgrade(instance.id) || isClassLocked(instance, selectedUpgrade) || gold < price) return;
     if (!spendGold(price)) return;
@@ -281,20 +285,23 @@ export default function ChaosShopScreen() {
                   {upgradableInstances.map(instance => {
                     const atLimit = !canAddUpgrade(instance.id);
                     const classLocked = isClassLocked(instance, selectedUpgrade);
-                    const locked = atLimit || classLocked;
+                    const alreadyApplied = hasUpgradeType(instance.id, selectedUpgrade);
+                    const locked = atLimit || classLocked || alreadyApplied;
                     return (
                       <Pressable
                         key={instance.id}
-                        style={[styles.targetChip, atLimit && styles.cardLocked, classLocked && styles.classLockedChip]}
+                        style={[styles.targetChip, atLimit && styles.cardLocked, classLocked && styles.classLockedChip, alreadyApplied && styles.classLockedChip]}
                         onPress={() => handleApplyUpgrade(instance)}
                         disabled={locked}
                         testID={`chaos-shop-upgrade-target-${instance.id}`}
                       >
                         <ChessPieceSVG pieceKey={instance.pieceKey} size={26} />
                         <Text style={styles.targetLabel}>{instance.label}</Text>
-                        {classLocked
-                          ? <Text style={styles.targetLockedLabel}>Только один класс</Text>
-                          : atLimit && <Text style={styles.targetLockedLabel}>Максимум улучшений</Text>}
+                        {alreadyApplied
+                          ? <Text style={styles.targetLockedLabel}>Уже применено</Text>
+                          : classLocked
+                            ? <Text style={styles.targetLockedLabel}>Только один класс</Text>
+                            : atLimit && <Text style={styles.targetLockedLabel}>Максимум улучшений</Text>}
                       </Pressable>
                     );
                   })}

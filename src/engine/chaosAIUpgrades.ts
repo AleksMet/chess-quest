@@ -23,6 +23,11 @@ const PIECE_VALUES: Record<PieceSymbol, number> = { p: 1, n: 3, b: 3, r: 5, q: 9
 // Главная функция — применяет улучшения ИИ к ходу Stockfish.
 // Возвращает либо ход, форсированный улучшением, либо исходный ход Stockfish (lan-формат, "e2e4").
 export function applyAIUpgrades(chess: Chess, stockfishMove: string, aiUpgrades: AIUpgrade[]): string {
+  // Берсерк — приоритет выше хода Stockfish: проверяем ВСЕ берсерк-фигуры на доске,
+  // независимо от того, какую фигуру выбрал Stockfish для хода
+  const berserkMove = applyBerserk(chess, aiUpgrades);
+  if (berserkMove) return berserkMove;
+
   const move = chess.moves({ verbose: true }).find(m => m.lan === stockfishMove || m.san === stockfishMove);
   if (!move) return stockfishMove;
 
@@ -30,18 +35,29 @@ export function applyAIUpgrades(chess: Chess, stockfishMove: string, aiUpgrades:
   if (!upgrade) return stockfishMove;
 
   switch (upgrade.upgradeType) {
-    case 'berserk': return applyBerserk(chess, move, stockfishMove);
     case 'sniper': return applySniper(chess, move, stockfishMove);
     case 'guard': return applyGuard(chess, move, stockfishMove);
     default: return stockfishMove;
   }
 }
 
-// Берсерк: всегда берёт если может
-function applyBerserk(chess: Chess, move: Move, fallback: string): string {
-  const captures = chess.moves({ verbose: true }).filter(m => m.piece === move.piece && m.color === 'b' && m.captured);
-  if (captures.length > 0) return captures[0].lan;
-  return fallback;
+// Берсерк: всегда берёт если может — проверяем все фигуры с улучшением berserk по их
+// текущим позициям на доске; если несколько взятий доступны — выбираем случайное
+function applyBerserk(chess: Chess, aiUpgrades: AIUpgrade[]): string | null {
+  const berserkTypes = aiUpgrades.filter(u => u.upgradeType === 'berserk').map(u => u.pieceType);
+  if (berserkTypes.length === 0) return null;
+
+  const allCaptures: Move[] = [];
+  for (const piece of getAllPieces(chess, 'b')) {
+    if (!berserkTypes.includes(piece.type)) continue;
+    const captures = chess.moves({ square: piece.square, verbose: true }).filter(m => m.captured);
+    // eslint-disable-next-line no-console -- отладка форсированных взятий Берсерка
+    console.log('[Berserk] checking square:', piece.square, 'captures:', captures);
+    allCaptures.push(...captures);
+  }
+
+  if (allCaptures.length === 0) return null;
+  return allCaptures[Math.floor(Math.random() * allCaptures.length)].lan;
 }
 
 // Снайпер: берёт фигуру игрока если она дороже снайпера

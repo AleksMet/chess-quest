@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { PieceSymbol } from 'chess.js';
-import type { ChaosCharacter, PieceUpgrade, UpgradeCategory, ChaosEventCategory } from '../types/chaos';
+import type { ChaosCharacter, PieceUpgrade, UpgradeCategory, UpgradeType, ChaosEventCategory } from '../types/chaos';
 
 // Фигура армии — храним только тип; конкретные клетки расставляет buildPlayerFen
 export type ChessPiece = PieceSymbol;
@@ -70,6 +70,7 @@ interface ChaosState {
   addUpgrade: (upgrade: PieceUpgrade) => void;
   removeUpgrade: (upgradeId: string) => void;
   canAddUpgrade: (pieceId: string) => boolean;
+  hasUpgradeType: (pieceId: string, upgradeType: UpgradeType) => boolean;
   getPieceUpgradeClass: (pieceId: string) => 'attack' | 'defense' | null;
   spendGold: (amount: number) => boolean;
   addGold: (amount: number) => void;
@@ -183,6 +184,10 @@ export const useChaosModeStore = create<ChaosState>((set, get) => ({
 
   canAddUpgrade: (pieceId) =>
     get().pieceUpgrades.filter(u => pieceInstanceId(u.pieceType, u.pieceIndex) === pieceId).length < 2,
+
+  // Защита от дублирующихся улучшений одного типа на одной фигуре
+  hasUpgradeType: (pieceId, upgradeType) =>
+    get().pieceUpgrades.some(u => pieceInstanceId(u.pieceType, u.pieceIndex) === pieceId && u.upgradeType === upgradeType),
 
   // На одну фигуру можно вешать улучшения только одного класса:
   // если уже есть атакующее — защитные недоступны, и наоборот. Нет улучшений — оба класса доступны.

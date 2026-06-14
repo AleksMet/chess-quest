@@ -9,6 +9,9 @@ import { StockfishBridgeView } from '../components/engine/StockfishBridgeView';
 import type { StockfishBridgeRef } from '../components/engine/StockfishBridgeView';
 import { ChaosGoldToastStack } from '../components/ui/ChaosGoldToast';
 import type { GoldToastItem } from '../components/ui/ChaosGoldToast';
+import { UpgradeChipsRow, UpgradeDetailModal } from '../components/ui/ChaosUpgradeChips';
+import type { UpgradeGroup, UpgradeGroupPiece } from '../components/ui/ChaosUpgradeChips';
+import type { PieceKey } from '../components/chess/ChessPieceSVG';
 import type { MoveResult } from '../engine/chessLogic';
 import {
   buildChaosFen,
@@ -54,10 +57,6 @@ const GUARD_TRIGGER_TURNS = 5;
 // Лимит призывов коней боссом «Всадник» (уровень 1)
 const BOSS_KNIGHT_SPAWNS_LEVEL1 = 5;
 
-const PIECE_DISPLAY_NAME: Record<PieceSymbol, string> = {
-  k: 'Король', q: 'Ферзь', r: 'Ладья', b: 'Слон', n: 'Конь', p: 'Пешка',
-};
-
 function upgradeBonusGold(upgradeType: PieceUpgrade['upgradeType']): number {
   return UPGRADE_DEFINITIONS.find(d => d.type === upgradeType)?.bonusGold ?? 0;
 }
@@ -89,12 +88,6 @@ function berserkStreakPopupText(streak: number, bonus: number): string {
 }
 
 const PLAYER_COLOR = 'w' as const;
-
-// Координаты доски рисуются снаружи ChessBoard — игрок всегда играет белыми (PLAYER_COLOR),
-// поэтому порядок цифр/букв фиксирован (вид с белой стороны)
-const RANK_LABELS = ['8', '7', '6', '5', '4', '3', '2', '1'];
-const FILE_LABELS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-const COORD_COLUMN_WIDTH = 14;
 
 const BATTLE_TITLES: Record<ChaosBattleNumber, string> = {
   1: '⚔️ Бой 1',
@@ -197,8 +190,7 @@ export default function ChaosBattleScreen() {
   const [headerHeight, setHeaderHeight] = useState(0);
   const [bottomHeight, setBottomHeight] = useState(0);
   const availableHeight = screenHeight - headerHeight - bottomHeight;
-  const boardSize = Math.max(0, Math.min(screenWidth - 40 - COORD_COLUMN_WIDTH, availableHeight));
-  const cellSize = boardSize / 8;
+  const boardSize = Math.max(0, Math.min(screenWidth, availableHeight));
   const [playerMoves, setPlayerMoves] = useState(0);
   // Уровень 2+, босс с эволюцией: сколько ходов осталось до следующей эволюции фигуры ИИ
   const [movesUntilEvolution, setMovesUntilEvolution] = useState(levelConfig?.bossConfig?.evolutionMechanic?.intervalMoves ?? 5);
@@ -210,6 +202,9 @@ export default function ChaosBattleScreen() {
   const [resultReason, setResultReason] = useState('');
   // Подсветка клеток последнего хода (своего или ИИ) — цвет зависит от того, кто ходил
   const [lastMoveHighlight, setLastMoveHighlight] = useState<{ from: Square; to: Square; color: 'player' | 'opponent' } | null>(null);
+
+  // Открытая модалка улучшения (нажатие на чип в HUD) — null, если модалка закрыта
+  const [selectedUpgrade, setSelectedUpgrade] = useState<{ group: UpgradeGroup; isAI: boolean } | null>(null);
 
   const [goldDisplay, setGoldDisplay] = useState(0);
   const [spawnedSquare, setSpawnedSquare] = useState<Square | null>(null);
@@ -427,27 +422,37 @@ export default function ChaosBattleScreen() {
     return forcedSquares.length > 0 ? { forcedSquares, forcedMoves } : null;
   })();
 
-  // Панель улучшений под доской — строки для живых улучшённых фигур со статусом по типу.
-  // Пересчитывается на каждый ход (boardKey).
-  const upgradePanelLines = pieceUpgrades.reduce<{ icon: string; text: string }[]>((acc, upgrade) => {
-    const state = upgradeStateRef.current.get(upgrade.id);
-    if (!state?.square) return acc;
-    const icon = upgrade.category === 'attack' ? '🔴' : '🔵';
-    const label = `${PIECE_DISPLAY_NAME[upgrade.pieceType]} ${upgrade.pieceIndex + 1}`;
-    let suffix = '';
-    if (upgrade.upgradeType === 'berserk') {
-      const streak = berserkStreakRef.current[upgrade.id] ?? 0;
-      if (streak > 0) suffix = ` (серия: ${streak})`;
-    } else if (upgrade.upgradeType === 'guard') {
-      const guardTurns = guardTurnsRef.current[upgrade.id] ?? 0;
-      const step = guardTurns % guardTriggerTurns;
-      suffix = ` (без движения: ${step === 0 && guardTurns > 0 ? guardTriggerTurns : step}/${guardTriggerTurns})`;
-    } else if (upgrade.upgradeType === 'ambush') {
-      suffix = ` (на месте: ${state.turnsOnPosition} ${turnsWord(state.turnsOnPosition)})`;
+  // Группировка по типу улучшения для HUD: одна иконка фигуры на тип улучшения,
+  // счётчик — если фигур с этим улучшением больше одной (в т.ч. разных типов фигур).
+  // Пересчитывается на каждый ход (boardKey), учитывает только живые фигуры.
+  function buildUpgradeGroups(
+    entries: { pieceType: PieceSymbol; upgradeType: PieceUpgrade['upgradeType']; category: PieceUpgrade['category']; count: number }[],
+    sidePrefix: 'w' | 'b',
+  ): UpgradeGroup[] {
+    const map = new Map<PieceUpgrade['upgradeType'], { category: PieceUpgrade['category']; pieces: Map<PieceSymbol, number> }>();
+    for (const entry of entries) {
+      let group = map.get(entry.upgradeType);
+      if (!group) {
+        group = { category: entry.category, pieces: new Map() };
+        map.set(entry.upgradeType, group);
+      }
+      group.pieces.set(entry.pieceType, (group.pieces.get(entry.pieceType) ?? 0) + entry.count);
     }
-    acc.push({ icon, text: `${label} — ${upgradeName(upgrade.upgradeType)}${suffix}` });
-    return acc;
-  }, []);
+    return [...map.entries()].map(([upgradeType, group]) => {
+      const pieces: UpgradeGroupPiece[] = [...group.pieces.entries()].map(([pieceType, count]) => ({ pieceType, count }));
+      const totalCount = pieces.reduce((sum, p) => sum + p.count, 0);
+      const iconPieceKey = `${sidePrefix}${pieces[0].pieceType.toUpperCase()}` as PieceKey;
+      return { upgradeType, category: group.category, iconPieceKey, totalCount, pieces };
+    });
+  }
+
+  // HUD «Мои»: улучшения живых фигур игрока, сгруппированные по типу улучшения
+  const playerUpgradeGroups = buildUpgradeGroups(
+    pieceUpgrades
+      .filter(upgrade => upgradeStateRef.current.get(upgrade.id)?.square)
+      .map(upgrade => ({ pieceType: upgrade.pieceType, upgradeType: upgrade.upgradeType, category: upgrade.category, count: 1 })),
+    'w',
+  );
 
   // Проклятие: ходы проклятой фигуры, захватывающие ценные фигуры (n/b/r/q), блокируются.
   // Объединяем с берсерком: если берсерк активен — фильтруем его список; иначе строим allMoves.
@@ -475,14 +480,10 @@ export default function ChaosBattleScreen() {
     return undefined;
   })();
 
-  // Подсветка ключевых фигур босса «Всадник»: ферзь-берсерк — красным, король-спавнер коней — золотым.
+  // Подсветка ключевых фигур босса «Всадник»: король-спавнер коней — золотым.
+  // Ферзь-берсерк подсвечивается общей системой aiUpgradeHighlights (см. displayAiUpgrades).
   // Защитные улучшения боссу не нужны (ладья-страж не подсвечивается). Видна с первого хода игрока.
   const bossHighlights: typeof upgradeHighlights = [];
-  if (currentLevel === 1 && safeBattleNumber === 'boss') {
-    for (const square of findAllPieceSquares(chess, 'q', 'b')) {
-      bossHighlights.push({ square, color: 'red', opacity: 0.35 });
-    }
-  }
   // Король босса всегда подсвечен золотым (#FFD700, 0.45) — единая система подсветки для всех уровней
   if (isBossBattle) {
     const bossKingSquare = findPieceSquare(chess, 'k', 'b');
@@ -492,10 +493,18 @@ export default function ChaosBattleScreen() {
   // Уровень 2+: симметрия — улучшения ИИ подсвечиваются так же, как у игрока:
   // Берсерк/Снайпер — красным (#FF4444), Страж — синим (#4444FF), opacity 0.35.
   const currentAiUpgrades: AIUpgrade[] = currentLevel === 1 ? [] : aiUpgrades;
+
+  // HUD «AI»: уровень 1 — battleConfig не задаёт aiUpgrades (используется только для уровней 2+),
+  // поэтому для финального боя «Всадник» берём улучшения босса напрямую из LEVEL_CONFIGS,
+  // чтобы ферзь-берсерк отображался в верхнем HUD так же, как улучшения ИИ на уровнях 2+.
+  const displayAiUpgrades: AIUpgrade[] = currentLevel === 1 && isBossBattle
+    ? (levelConfig?.bossConfig?.aiUpgrades ?? [])
+    : currentAiUpgrades;
+
   const aiUpgradeHighlights: typeof upgradeHighlights = (() => {
-    if (currentAiUpgrades.length === 0) return [];
+    if (displayAiUpgrades.length === 0) return [];
     const map = new Map<Square, { square: Square; color: 'red' | 'blue' | 'gold' | 'purple'; opacity: number }>();
-    for (const upgrade of currentAiUpgrades) {
+    for (const upgrade of displayAiUpgrades) {
       const color = upgrade.upgradeType === 'guard' ? 'blue' : 'red';
       for (const square of findAllPieceSquares(chess, upgrade.pieceType, 'b')) {
         map.set(square, { square, color, opacity: 0.35 });
@@ -504,22 +513,19 @@ export default function ChaosBattleScreen() {
     return [...map.values()];
   })();
 
-  // Панель улучшений противника — зеркало панели игрока: только живые улучшенные фигуры,
-  // дубликаты типа+улучшения (например, 2x конь-Берсерк у Двуглавого Рыцаря) сворачиваются в одну строку.
-  const aiUpgradePanelLines = (() => {
-    if (currentAiUpgrades.length === 0) return [];
-    const seen = new Set<string>();
-    const lines: { icon: string; text: string }[] = [];
-    for (const upgrade of currentAiUpgrades) {
-      const key = `${upgrade.pieceType}_${upgrade.upgradeType}`;
-      if (seen.has(key)) continue;
-      if (findAllPieceSquares(chess, upgrade.pieceType, 'b').length === 0) continue;
-      seen.add(key);
-      const icon = upgrade.upgradeType === 'guard' ? '🔵' : '🔴';
-      lines.push({ icon, text: `${PIECE_DISPLAY_NAME[upgrade.pieceType]} — ${upgradeName(upgrade.upgradeType)}` });
-    }
-    return lines;
-  })();
+  // HUD «AI»: улучшения живых фигур противника, сгруппированные по типу улучшения —
+  // дубликаты типа+улучшения (например, 2x конь-Берсерк у Двуглавого Рыцаря) суммируются в один счётчик.
+  const aiUpgradeGroups = buildUpgradeGroups(
+    displayAiUpgrades
+      .map(upgrade => ({
+        pieceType: upgrade.pieceType,
+        upgradeType: upgrade.upgradeType,
+        category: UPGRADE_DEFINITIONS.find(d => d.type === upgrade.upgradeType)?.category ?? 'attack',
+        count: findAllPieceSquares(chess, upgrade.pieceType, 'b').length,
+      }))
+      .filter(entry => entry.count > 0),
+    'b',
+  );
 
   // Уровень 2+, босс «Двуглавый Рыцарь»: счётчик ходов до следующей эволюции фигуры ИИ
   const evolutionCounterText = currentLevel >= 2 && isBossBattle && levelConfig.bossConfig.evolutionMechanic
@@ -738,10 +744,11 @@ export default function ChaosBattleScreen() {
     router.replace('/chaos-tower');
   }
 
-  function handleExit() {
-    Alert.alert('Выйти из боя?', 'Прогресс забега будет потерян.', [
+  // Кнопка-стрелка в левом верхнем углу — возврат на предыдущий экран без сброса забега
+  function handleBack() {
+    Alert.alert('Выйти из боя?', undefined, [
       { text: 'Остаться', style: 'cancel' },
-      { text: 'Выйти', style: 'destructive', onPress: () => { useChaosModeStore.getState().resetRun(); router.replace('/chaos-character-select'); } },
+      { text: 'Выйти', style: 'destructive', onPress: () => router.back() },
     ]);
   }
 
@@ -773,52 +780,64 @@ export default function ChaosBattleScreen() {
     <SafeAreaView style={styles.safe}>
       <StockfishBridgeView ref={engineRef} onMessage={handleEngineMessage} onReady={handleEngineReady} />
 
-      <View style={styles.header} onLayout={e => setHeaderHeight(e.nativeEvent.layout.height)}>
-        <View style={styles.titleBlock}>
-          <Text style={styles.title}>{battleTitle}</Text>
-          {currentLevel === 1 && isBossBattle && (
-            <Text style={styles.knightCounter}>{knightSpawnCounterText(bossKnightSpawnsLeft)}</Text>
-          )}
+      <Pressable style={styles.backBtn} onPress={handleBack} testID="chaos-battle-back-btn">
+        <Text style={styles.backBtnText}>‹</Text>
+      </Pressable>
+
+      <View onLayout={e => setHeaderHeight(e.nativeEvent.layout.height)}>
+        <View style={styles.header}>
+          <View style={styles.titleBlock}>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>{battleTitle}</Text>
+              <Text style={styles.eloBadge}>ELO {opponentElo}</Text>
+            </View>
+            {currentLevel === 1 && isBossBattle && (
+              <Text style={styles.knightCounter}>{knightSpawnCounterText(bossKnightSpawnsLeft)}</Text>
+            )}
+          </View>
+          <Text style={styles.goldBadge}>💰 {goldDisplay}</Text>
+          <Text style={[styles.thinking, { opacity: isAIThinking ? 1 : 0 }]}>⏳</Text>
         </View>
-        <Pressable style={styles.exitBtn} onPress={handleExit} testID="chaos-battle-exit-btn">
-          <Text style={styles.exitBtnText}>Выход</Text>
-        </Pressable>
-        <Text style={styles.goldBadge}>💰 {goldDisplay}</Text>
-        <Text style={[styles.thinking, { opacity: isAIThinking ? 1 : 0 }]}>⏳</Text>
+
+        {(aiUpgradeGroups.length > 0 || evolutionCounterText || teleportCounterText) && (
+          <UpgradeChipsRow
+            label="AI"
+            groups={aiUpgradeGroups}
+            onPressGroup={group => setSelectedUpgrade({ group, isAI: true })}
+            testID="chaos-ai-upgrade-row"
+            extra={(evolutionCounterText || teleportCounterText) && (
+              <View style={styles.counterTexts}>
+                {evolutionCounterText && (
+                  <Text style={[styles.evolutionCounter, evolutionCounterUrgent && styles.evolutionCounterUrgent]} numberOfLines={1}>
+                    {evolutionCounterText}
+                  </Text>
+                )}
+                {teleportCounterText && (
+                  <Text style={[styles.evolutionCounter, teleportCounterUrgent && styles.evolutionCounterUrgent]} numberOfLines={1}>
+                    {teleportCounterText}
+                  </Text>
+                )}
+              </View>
+            )}
+          />
+        )}
       </View>
 
       <View style={styles.boardWrap}>
-        <View style={styles.boardOuter}>
-          <View style={styles.boardRow}>
-            <View style={styles.rankColumn}>
-              {RANK_LABELS.map(rank => (
-                <Text key={rank} style={[styles.coordLabel, { width: COORD_COLUMN_WIDTH, height: cellSize, lineHeight: cellSize }]}>
-                  {rank}
-                </Text>
-              ))}
-            </View>
-            <ChessBoard
-              key={boardKey}
-              chess={chess}
-              playerColor={PLAYER_COLOR}
-              onMove={handleMove}
-              disabled={boardDisabled}
-              lastMoveHighlight={lastMoveHighlight}
-              upgradeHighlights={[...upgradeHighlights, ...bossHighlights, ...aiUpgradeHighlights]}
-              spawnedSquare={spawnedSquare}
-              forcedSquares={berserkForce?.forcedSquares}
-              forcedMoves={activeForcedMoves}
-              size={boardSize > 0 ? boardSize : undefined}
-            />
-          </View>
-          <View style={styles.fileRow}>
-            {FILE_LABELS.map(file => (
-              <Text key={file} style={[styles.coordLabel, { width: cellSize }]}>
-                {file}
-              </Text>
-            ))}
-          </View>
-        </View>
+        <ChessBoard
+          key={boardKey}
+          chess={chess}
+          playerColor={PLAYER_COLOR}
+          onMove={handleMove}
+          disabled={boardDisabled}
+          lastMoveHighlight={lastMoveHighlight}
+          upgradeHighlights={[...upgradeHighlights, ...bossHighlights, ...aiUpgradeHighlights]}
+          spawnedSquare={spawnedSquare}
+          forcedSquares={berserkForce?.forcedSquares}
+          forcedMoves={activeForcedMoves}
+          size={boardSize > 0 ? boardSize : undefined}
+          showCoordinates
+        />
         <ChaosGoldToastStack items={goldToasts} onExpire={removeGoldToast} />
         {showKnightsOutBanner && (
           <View style={styles.knightsOutBanner} pointerEvents="none">
@@ -828,47 +847,23 @@ export default function ChaosBattleScreen() {
       </View>
 
       <View onLayout={e => setBottomHeight(e.nativeEvent.layout.height)}>
-        {(upgradePanelLines.length > 0 || aiUpgradePanelLines.length > 0 || evolutionCounterText || teleportCounterText) && (
-          <View style={styles.upgradePanel} testID="chaos-upgrade-panel">
-            <View style={styles.upgradeColumn}>
-              <Text style={styles.upgradePanelHeader}>Мои фигуры</Text>
-              {upgradePanelLines.map((line, i) => (
-                <Text key={i} style={styles.upgradePanelLine} numberOfLines={1}>
-                  {line.icon} {line.text}
-                </Text>
-              ))}
-            </View>
-            <View style={[styles.upgradeColumn, styles.upgradeColumnRight]} testID="chaos-enemy-upgrade-panel">
-              <Text style={[styles.upgradePanelHeader, styles.textRight]}>Противник</Text>
-              {aiUpgradePanelLines.map((line, i) => (
-                <Text key={i} style={[styles.upgradePanelLine, styles.textRight]} numberOfLines={1}>
-                  {line.icon} {line.text}
-                </Text>
-              ))}
-              {evolutionCounterText && (
-                <Text
-                  style={[styles.evolutionCounter, evolutionCounterUrgent && styles.evolutionCounterUrgent, styles.textRight]}
-                  numberOfLines={1}
-                >
-                  {evolutionCounterText}
-                </Text>
-              )}
-              {teleportCounterText && (
-                <Text
-                  style={[styles.evolutionCounter, teleportCounterUrgent && styles.evolutionCounterUrgent, styles.textRight]}
-                  numberOfLines={1}
-                >
-                  {teleportCounterText}
-                </Text>
-              )}
-            </View>
-          </View>
-        )}
+        <UpgradeChipsRow
+          label="Мои"
+          groups={playerUpgradeGroups}
+          onPressGroup={group => setSelectedUpgrade({ group, isAI: false })}
+          testID="chaos-player-upgrade-row"
+        />
 
         <View style={styles.footer}>
           <Text style={styles.goal}>{battleGoal}</Text>
         </View>
       </View>
+
+      <UpgradeDetailModal
+        group={selectedUpgrade?.group ?? null}
+        isAI={selectedUpgrade?.isAI ?? false}
+        onClose={() => setSelectedUpgrade(null)}
+      />
 
       {result && (
         <View style={styles.overlay}>
@@ -893,34 +888,34 @@ export default function ChaosBattleScreen() {
 const styles = StyleSheet.create({
   gradient:        { flex: 1 },
   safe:            { flex: 1 },
-  header:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
+  header:          { flexDirection: 'row', alignItems: 'center', paddingLeft: 60, paddingRight: 16, paddingVertical: 10, gap: 10 },
+  backBtn: {
+    position: 'absolute', top: 12, left: 16, width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center', zIndex: 60,
+  },
+  backBtnText:     { fontSize: 20, color: '#e5e5e5' },
   titleBlock:      { flex: 1 },
+  titleRow:        { flexDirection: 'row', alignItems: 'center', gap: 8 },
   title:           { color: '#f1f5f9', fontSize: 18, fontWeight: '700' },
+  eloBadge: {
+    fontSize: 11, color: '#a855f7', backgroundColor: 'rgba(168,85,247,0.12)',
+    borderWidth: 1, borderColor: 'rgba(168,85,247,0.3)', borderRadius: 4,
+    paddingHorizontal: 7, paddingVertical: 1,
+  },
   knightCounter:   { color: '#FF4444', fontSize: 12, fontWeight: '700', marginTop: 2 },
-  exitBtn:         { backgroundColor: '#7f1d1d', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
-  exitBtnText:     { color: '#fca5a5', fontSize: 13, fontWeight: '600' },
   goldBadge:       { color: '#f59e0b', fontSize: 15, fontWeight: '700' },
   thinking:        { fontSize: 20 },
   boardWrap:       { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  boardOuter:      { flexDirection: 'column', alignSelf: 'center', paddingHorizontal: 20 },
-  boardRow:        { flexDirection: 'row' },
-  fileRow:         { flexDirection: 'row', marginLeft: COORD_COLUMN_WIDTH },
-  rankColumn:      { width: COORD_COLUMN_WIDTH, justifyContent: 'space-around', alignItems: 'center' },
-  coordLabel:      { fontSize: 9, color: '#a0a0c8', textAlign: 'center' },
   knightsOutBanner: {
     position: 'absolute', top: 60, left: 16, right: 16,
     backgroundColor: '#FF4444', borderRadius: 12,
     paddingVertical: 10, alignItems: 'center', zIndex: 50,
   },
   knightsOutBannerText: { color: '#fff', fontSize: 16, fontWeight: '800' },
-  upgradePanel:    { flexDirection: 'row', height: 92, paddingHorizontal: 16, paddingVertical: 6 },
-  upgradeColumn:      { flex: 1, alignItems: 'flex-start' },
-  upgradeColumnRight: { alignItems: 'flex-end' },
-  upgradePanelHeader: { color: '#64748b', fontSize: 10, fontWeight: '700', marginBottom: 2 },
-  upgradePanelLine:{ color: '#94a3b8', fontSize: 11, lineHeight: 15 },
+  counterTexts:    { alignItems: 'flex-end' },
   evolutionCounter:       { color: '#f1f5f9', fontSize: 10, lineHeight: 14, marginTop: 2 },
   evolutionCounterUrgent: { color: '#FFD700' },
-  textRight:       { textAlign: 'right' },
   footer:          { paddingHorizontal: 16, paddingVertical: 8 },
   goal:            { color: '#64748b', fontSize: 12, textAlign: 'center' },
   overlay:         { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', gap: 10 },

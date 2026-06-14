@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
-import { Animated, View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { Animated, View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { Chess } from 'chess.js';
 import type { Square, Color } from 'chess.js';
@@ -47,6 +47,7 @@ interface ChessBoardProps {
   forcedMoves?: string[];             // Берсерк игрока: разрешены только эти ходы, в формате LAN ("e2e4")
   lastMoveHighlight?: LastMoveHighlight | null; // подсветка клеток последнего хода (режим ХАОС)
   size?: number;                      // размер доски в пикселях, по умолчанию BOARD_SIZE
+  showCoordinates?: boolean;          // подписи координат поверх крайних клеток (режим ХАОС)
 }
 
 const UPGRADE_HIGHLIGHT_COLOR: Record<UpgradeHighlight['color'], string> = {
@@ -131,6 +132,8 @@ interface CellProps {
   pieceSize: number;
   legalMoveStyle: ViewStyle;
   legalCaptureStyle: ViewStyle;
+  rankLabel?: string | null;
+  fileLabel?: string | null;
   onPress: () => void;
 }
 
@@ -156,6 +159,8 @@ const Cell = memo(function Cell({
   pieceSize,
   legalMoveStyle,
   legalCaptureStyle,
+  rankLabel,
+  fileLabel,
   onPress,
 }: CellProps) {
   return (
@@ -195,6 +200,12 @@ const Cell = memo(function Cell({
         />
       )}
       {isForcedSquare && <ForcedPieceBorder />}
+      {rankLabel && (
+        <Text style={styles.coordRankLabel} pointerEvents="none">{rankLabel}</Text>
+      )}
+      {fileLabel && (
+        <Text style={styles.coordFileLabel} pointerEvents="none">{fileLabel}</Text>
+      )}
       {pieceKey && (
         isSpawned
           ? <SpawnedPieceView key={`${square}-spawned`} pieceKey={pieceKey} pieceSize={pieceSize} />
@@ -204,7 +215,7 @@ const Cell = memo(function Cell({
   );
 });
 
-export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false, highlightSquare, opponentLastMove, upgradeHighlights, spawnedSquare, forcedSquares, forcedMoves, lastMoveHighlight, size }: ChessBoardProps) {
+export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false, highlightSquare, opponentLastMove, upgradeHighlights, spawnedSquare, forcedSquares, forcedMoves, lastMoveHighlight, size, showCoordinates = false }: ChessBoardProps) {
   const { theme } = useChapterTheme();
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalTargets, setLegalTargets] = useState<Square[]>([]);
@@ -411,6 +422,8 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
                 pieceSize={pieceSize}
                 legalMoveStyle={dynamicStyles.legalMove}
                 legalCaptureStyle={dynamicStyles.legalCapture}
+                rankLabel={showCoordinates && fileIdx === 0 ? String(rank) : null}
+                fileLabel={showCoordinates && rankIdx === ranks.length - 1 ? file : null}
                 onPress={() => handleSquarePress(square)}
               />
             );
@@ -490,5 +503,17 @@ const styles = StyleSheet.create({
   pieceContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  coordRankLabel: {
+    position: 'absolute',
+    bottom: 1, left: 2,
+    fontSize: 9,
+    color: 'rgba(255,255,255,0.5)',
+  },
+  coordFileLabel: {
+    position: 'absolute',
+    bottom: 4, right: 2,
+    fontSize: 9,
+    color: 'rgba(255,255,255,0.5)',
   },
 });
