@@ -1,17 +1,26 @@
-import { memo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { memo, useId } from 'react';
+import { StyleSheet } from 'react-native';
+import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 
-// ВРЕМЕННЫЙ ТЕСТ ПРОИЗВОДИТЕЛЬНОСТИ: вместо RadialGradient — сплошной цвет
-const LIGHT_BG = '#d4e0f9';
-const DARK_BG = '#8973f6';
+const LIGHT_GRADIENT = { from: '#d4e0f9', to: '#b8bbf7' };
+const DARK_GRADIENT = { from: '#8973f6', to: '#7a66f4' };
 
 // Клетка доски — радиальный градиент через react-native-svg.
 // React.memo, чтобы клетки не перерисовывались при ходах.
 export const ChessSquare = memo(function ChessSquare({ size, isLight }: { size: number; isLight: boolean }) {
-  const bgColor = isLight ? LIGHT_BG : DARK_BG;
+  const gradientId = useId().replace(/:/g, '');
+  const colors = isLight ? LIGHT_GRADIENT : DARK_GRADIENT;
 
   return (
-    <View style={[styles.squareImage, { width: size, height: size, backgroundColor: bgColor }]} />
+    <Svg width={size} height={size} style={styles.squareImage}>
+      <Defs>
+        <RadialGradient id={gradientId} cx="50%" cy="50%" rx="70%" ry="70%" gradientUnits="objectBoundingBox">
+          <Stop offset="0%" stopColor={colors.from} />
+          <Stop offset="100%" stopColor={colors.to} />
+        </RadialGradient>
+      </Defs>
+      <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />
+    </Svg>
   );
 });
 
