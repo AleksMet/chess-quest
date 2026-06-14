@@ -36,6 +36,7 @@
 - [x] Система эффектов фигур: `pieceEffects`/`PieceEffect`
       (`src/types/pieceEffects.ts`) в `chaosModeStore`, переименование
       и переработка улучшений в `ChaosUpgradeChips.tsx`
+- [x] feat: механика сдачи — Alert при только короле + кнопка Сдаться в HUD
 
 ```
 TypeScript:   ✅ 0 ошибок

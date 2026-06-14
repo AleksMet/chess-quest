@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Alert, SafeAreaView, View, Text, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
+import { Alert, SafeAreaView, View, Text, StyleSheet, Pressable, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Chess } from 'chess.js';
@@ -211,6 +211,10 @@ export default function ChaosBattleScreen() {
   const [goldToasts, setGoldToasts] = useState<GoldToastItem[]>([]);
   // Баннер «Кони закончились!» — показывается на 1с, когда счётчик призывов босса достигает 0
   const [showKnightsOutBanner, setShowKnightsOutBanner] = useState(false);
+  // Механика сдачи: кнопка «Сдаться» появляется в HUD после того, как у игрока остался только король
+  const [surrenderAvailable, setSurrenderAvailable] = useState(false);
+  // Alert про сдачу показывается только один раз за бой
+  const surrenderAlertShown = useRef(false);
   const goldRef = useRef(0);
   const finalGoldRef = useRef(0);
   const engineRef = useRef<StockfishBridgeRef>(null);
@@ -618,6 +622,41 @@ export default function ChaosBattleScreen() {
     setResultReason(reason);
   }
 
+  // Механика сдачи: если у игрока на доске остался только король — предлагаем сдаться
+  // (один раз за бой). При отказе остаётся доступна кнопка «Сдаться» в HUD.
+  function checkSurrenderCondition() {
+    if (surrenderAlertShown.current) return;
+    const playerPieces = chess.board().flat().filter(p => p && p.color === PLAYER_COLOR);
+    const onlyKingLeft = playerPieces.length === 1 && playerPieces[0]?.type === 'k';
+    if (!onlyKingLeft) return;
+
+    surrenderAlertShown.current = true;
+    Alert.alert(
+      '👑 Остался только король',
+      'Твоя армия разгромлена. Продолжать бой бессмысленно. Сдаться?',
+      [
+        {
+          text: 'Продолжить бой',
+          style: 'cancel',
+          onPress: () => setSurrenderAvailable(true),
+        },
+        {
+          text: 'Сдаться',
+          style: 'destructive',
+          onPress: () => handleSurrender(),
+        },
+      ]
+    );
+  }
+
+  // Сдача — поражение без награды; останавливаем ИИ и переводим бой в обычный экран поражения
+  function handleSurrender() {
+    if (aiTimeoutRef.current) { clearTimeout(aiTimeoutRef.current); aiTimeoutRef.current = null; }
+    sendToEngine('stop');
+    setIsAIThinking(false);
+    finishBattle('lose', 'Ты сдался', 0, playerMoves);
+  }
+
   const applyAIMove = useCallback((uci: string) => {
     if (aiTimeoutRef.current) { clearTimeout(aiTimeoutRef.current); aiTimeoutRef.current = null; }
 
@@ -680,6 +719,7 @@ export default function ChaosBattleScreen() {
         }
 
         setIsAIThinking(false);
+        checkSurrenderCondition();
 
         if (chess.isCheckmate()) {
           finishBattle('lose', 'Мат!', 0, playerMoves);
@@ -777,6 +817,8 @@ export default function ChaosBattleScreen() {
         }
         setMovesUntilEvolution(evolutionMechanic.intervalMoves - (newCount % evolutionMechanic.intervalMoves));
       }
+
+      checkSurrenderCondition();
 
       if (moveResult.isCheckmate) {
         const mateGold = newCount <= 10 ? CHAOS_GOLD.mateUnder10 : CHAOS_GOLD.mate11to20;
@@ -919,6 +961,11 @@ export default function ChaosBattleScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.goal}>{battleGoal}</Text>
+          {surrenderAvailable && (
+            <TouchableOpacity onPress={handleSurrender} style={styles.surrenderBtn} testID="chaos-battle-surrender-btn">
+              <Text style={styles.surrenderBtnText}>🏳️ Сдаться</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -979,8 +1026,14 @@ const styles = StyleSheet.create({
   counterTexts:    { alignItems: 'flex-end' },
   evolutionCounter:       { color: '#f1f5f9', fontSize: 10, lineHeight: 14, marginTop: 2 },
   evolutionCounterUrgent: { color: '#FFD700' },
-  footer:          { paddingHorizontal: 16, paddingVertical: 8 },
+  footer:          { paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', gap: 8 },
   goal:            { color: '#64748b', fontSize: 12, textAlign: 'center' },
+  surrenderBtn: {
+    backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: '#ef4444',
+    borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+  },
+  surrenderBtnText: { color: '#ef4444', fontSize: 11, fontWeight: '700' },
   overlay:         { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', gap: 10 },
   resultEmoji:     { fontSize: 72 },
   resultTitle:     { color: '#fff', fontSize: 32, fontWeight: '900' },
