@@ -15,7 +15,7 @@ function calcChaosStars(totalScore: number): 1 | 2 | 3 {
 
 export default function ChaosVictoryScreen() {
   const router = useRouter();
-  const { totalScore, gold, floorScores, currentLevel, resetRun, setLevel, resetFloor, setGold } = useChaosModeStore();
+  const { totalScore, gold, floorScores, currentLevel, selectedCharacter, resetRun, setLevel, resetFloor, setGold } = useChaosModeStore();
 
   const stars = calcChaosStars(totalScore);
   // Следующий уровень есть, пока для него настроен LEVEL_CONFIGS; золото на каждом уровне
@@ -28,6 +28,12 @@ export default function ChaosVictoryScreen() {
     router.replace('/chaos-character-select');
   }
 
+  // Купец всегда стартует с 200 золота на любом уровне — базовое золото уровня игнорируется
+  function startingGoldForNextLevel(): number {
+    const baseGold = nextLevelConfig.startingGold;
+    return selectedCharacter?.id === 'merchant' ? 200 : baseGold;
+  }
+
   function handleNextLevel() {
     if (!nextLevelConfig) return;
     if (currentLevel === 1) {
@@ -35,13 +41,13 @@ export default function ChaosVictoryScreen() {
       // (король + стартовые пешки персонажа) и со стартовым золотом уровня 2
       resetRun();
       setLevel(2);
-      setGold(nextLevelConfig.startingGold);
+      setGold(startingGoldForNextLevel());
     } else {
       // Победа над боссом уровня 2+: армия и улучшения переходят дальше, сбрасывается только этаж;
       // золото выставляется заново по стартовому золоту следующего уровня
       resetFloor();
       setLevel(currentLevel + 1);
-      setGold(nextLevelConfig.startingGold);
+      setGold(startingGoldForNextLevel());
     }
     router.replace('/chaos-tower');
   }
