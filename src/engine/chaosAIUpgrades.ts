@@ -51,8 +51,6 @@ function applyBerserk(chess: Chess, aiUpgrades: AIUpgrade[]): string | null {
   for (const piece of getAllPieces(chess, 'b')) {
     if (!berserkTypes.includes(piece.type)) continue;
     const captures = chess.moves({ square: piece.square, verbose: true }).filter(m => m.captured);
-    // eslint-disable-next-line no-console -- отладка форсированных взятий Берсерка
-    console.log('[Berserk] checking square:', piece.square, 'captures:', captures);
     allCaptures.push(...captures);
   }
 

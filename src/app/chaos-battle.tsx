@@ -10,7 +10,8 @@ import type { StockfishBridgeRef } from '../components/engine/StockfishBridgeVie
 import { ChaosGoldToastStack } from '../components/ui/ChaosGoldToast';
 import type { GoldToastItem } from '../components/ui/ChaosGoldToast';
 import { UpgradeChipsRow, UpgradeDetailModal } from '../components/ui/ChaosUpgradeChips';
-import type { UpgradeGroup, UpgradeGroupPiece } from '../components/ui/ChaosUpgradeChips';
+import type { EffectGroup, EffectGroupPiece } from '../components/ui/ChaosUpgradeChips';
+import type { EffectCategory, PieceEffect } from '../types/pieceEffects';
 import type { PieceKey } from '../components/chess/ChessPieceSVG';
 import type { MoveResult } from '../engine/chessLogic';
 import {
@@ -43,7 +44,7 @@ import type { PieceUpgrade } from '../types/chaos';
 import { UPGRADE_DEFINITIONS } from '../data/chaosUpgrades';
 import { LEVEL_CONFIGS, getBattleConfig } from '../data/chaosLevelConfig';
 import { getTowerNodes } from '../data/chaosTowerConfig';
-import { useChaosModeStore } from '../store/chaosModeStore';
+import { useChaosModeStore, pieceInstanceId } from '../store/chaosModeStore';
 import { eloToSkillLevel } from '../engine/stockfish';
 import { parsePieceId } from '../engine/chaosEventEngine';
 
@@ -145,7 +146,7 @@ export default function ChaosBattleScreen() {
     currentFloor, currentLevel, chosenPath, pieces, purchasedPieces, pieceUpgrades, artifacts, selectedCharacter,
     addGold, addScore, setPieces, savePurchasedPieces, nextFloor, unlockGuardian,
     bossKnightSpawnsLeft, setBossKnightSpawnsLeft,
-    cursedPieceId, clearCursedPiece,
+    cursedPieceId, clearCursedPiece, setPieceEffects,
   } = useChaosModeStore();
 
   // Каждые guardTriggerTurns ходов выживания срабатывает Страж — у персонажа «Страж» порог ниже стандартного
@@ -182,7 +183,6 @@ export default function ChaosBattleScreen() {
     return buildLevel2AiFen(pieces, aiUpgrades);
   });
   const [chess] = useState(() => new Chess(startFen));
-  const [boardKey, setBoardKey] = useState(0);
 
   // Доска по центру между HUD сверху и панелью снизу — высоты HUD/панели измеряются
   // через onLayout, размер доски = минимум из ширины экрана и доступной высоты
@@ -203,8 +203,8 @@ export default function ChaosBattleScreen() {
   // Подсветка клеток последнего хода (своего или ИИ) — цвет зависит от того, кто ходил
   const [lastMoveHighlight, setLastMoveHighlight] = useState<{ from: Square; to: Square; color: 'player' | 'opponent' } | null>(null);
 
-  // Открытая модалка улучшения (нажатие на чип в HUD) — null, если модалка закрыта
-  const [selectedUpgrade, setSelectedUpgrade] = useState<{ group: UpgradeGroup; isAI: boolean } | null>(null);
+  // Открытая модалка эффекта (нажатие на чип в HUD) — null, если модалка закрыта
+  const [selectedUpgrade, setSelectedUpgrade] = useState<{ group: EffectGroup; isAI: boolean } | null>(null);
 
   const [goldDisplay, setGoldDisplay] = useState(0);
   const [spawnedSquare, setSpawnedSquare] = useState<Square | null>(null);
@@ -291,6 +291,36 @@ export default function ChaosBattleScreen() {
       const { pieceType, pieceIndex } = parsePieceId(cursedPieceId);
       cursedSquareRef.current = pieceStartingSquare(pieceType, pieceIndex);
     }
+
+    // Универсальная система эффектов: мигрируем pieceUpgrades + проклятие в pieceEffects.
+    // Работает параллельно с pieceUpgrades до полной миграции HUD на новую модель.
+    const effects: PieceEffect[] = pieceUpgrades.map(upgrade => ({
+      id: upgrade.id,
+      pieceId: pieceInstanceId(upgrade.pieceType, upgrade.pieceIndex),
+      pieceType: upgrade.pieceType,
+      pieceColor: 'w',
+      effectType: upgrade.upgradeType,
+      category: upgrade.category as EffectCategory,
+      label: upgradeName(upgrade.upgradeType),
+      description: UPGRADE_DEFINITIONS.find(d => d.type === upgrade.upgradeType)?.description ?? '',
+      isTemporary: false,
+    }));
+    if (cursedPieceId) {
+      const { pieceType } = parsePieceId(cursedPieceId);
+      effects.push({
+        id: `curse_${cursedPieceId}`,
+        pieceId: cursedPieceId,
+        pieceType,
+        pieceColor: 'w',
+        effectType: 'curse',
+        category: 'debuff',
+        label: 'Проклятие',
+        description: 'Фигура не может брать фигуры дороже пешки в этом бою',
+        isTemporary: true,
+        turnsRemaining: undefined,
+      });
+    }
+    setPieceEffects(effects);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -422,35 +452,57 @@ export default function ChaosBattleScreen() {
     return forcedSquares.length > 0 ? { forcedSquares, forcedMoves } : null;
   })();
 
-  // Группировка по типу улучшения для HUD: одна иконка фигуры на тип улучшения,
-  // счётчик — если фигур с этим улучшением больше одной (в т.ч. разных типов фигур).
-  // Пересчитывается на каждый ход (boardKey), учитывает только живые фигуры.
-  function buildUpgradeGroups(
-    entries: { pieceType: PieceSymbol; upgradeType: PieceUpgrade['upgradeType']; category: PieceUpgrade['category']; count: number }[],
+  // Порядок категорий эффектов в HUD: атакующие (красные), затем защитные (синие), затем дебаффы (фиолетовые)
+  const EFFECT_CATEGORY_ORDER: Record<EffectCategory, number> = { attack: 0, defense: 1, debuff: 2 };
+
+  // Группировка по типу эффекта для HUD: одна иконка фигуры на тип эффекта,
+  // счётчик — если фигур с этим эффектом больше одной (в т.ч. разных типов фигур).
+  // Пересчитывается на каждый ход, учитывает только живые фигуры.
+  function buildEffectGroups(
+    entries: { pieceType: PieceSymbol; effectType: string; category: EffectCategory; label: string; description: string; count: number }[],
     sidePrefix: 'w' | 'b',
-  ): UpgradeGroup[] {
-    const map = new Map<PieceUpgrade['upgradeType'], { category: PieceUpgrade['category']; pieces: Map<PieceSymbol, number> }>();
+  ): EffectGroup[] {
+    const map = new Map<string, { category: EffectCategory; label: string; description: string; pieces: Map<PieceSymbol, number> }>();
     for (const entry of entries) {
-      let group = map.get(entry.upgradeType);
+      let group = map.get(entry.effectType);
       if (!group) {
-        group = { category: entry.category, pieces: new Map() };
-        map.set(entry.upgradeType, group);
+        group = { category: entry.category, label: entry.label, description: entry.description, pieces: new Map() };
+        map.set(entry.effectType, group);
       }
       group.pieces.set(entry.pieceType, (group.pieces.get(entry.pieceType) ?? 0) + entry.count);
     }
-    return [...map.entries()].map(([upgradeType, group]) => {
-      const pieces: UpgradeGroupPiece[] = [...group.pieces.entries()].map(([pieceType, count]) => ({ pieceType, count }));
-      const totalCount = pieces.reduce((sum, p) => sum + p.count, 0);
-      const iconPieceKey = `${sidePrefix}${pieces[0].pieceType.toUpperCase()}` as PieceKey;
-      return { upgradeType, category: group.category, iconPieceKey, totalCount, pieces };
-    });
+    return [...map.entries()]
+      .map(([effectType, group]) => {
+        const pieces: EffectGroupPiece[] = [...group.pieces.entries()].map(([pieceType, count]) => ({ pieceType, count }));
+        const totalCount = pieces.reduce((sum, p) => sum + p.count, 0);
+        const iconPieceKey = `${sidePrefix}${pieces[0].pieceType.toUpperCase()}` as PieceKey;
+        return { effectType, category: group.category, iconPieceKey, totalCount, pieces, label: group.label, description: group.description };
+      })
+      .sort((a, b) => EFFECT_CATEGORY_ORDER[a.category] - EFFECT_CATEGORY_ORDER[b.category]);
   }
 
-  // HUD «Мои»: улучшения живых фигур игрока, сгруппированные по типу улучшения
-  const playerUpgradeGroups = buildUpgradeGroups(
-    pieceUpgrades
-      .filter(upgrade => upgradeStateRef.current.get(upgrade.id)?.square)
-      .map(upgrade => ({ pieceType: upgrade.pieceType, upgradeType: upgrade.upgradeType, category: upgrade.category, count: 1 })),
+  // HUD «Мои»: эффекты живых фигур игрока (улучшения + проклятие), сгруппированные по типу эффекта
+  const playerEffectGroups = buildEffectGroups(
+    [
+      ...pieceUpgrades
+        .filter(upgrade => upgradeStateRef.current.get(upgrade.id)?.square)
+        .map(upgrade => ({
+          pieceType: upgrade.pieceType,
+          effectType: upgrade.upgradeType,
+          category: upgrade.category as EffectCategory,
+          label: upgradeName(upgrade.upgradeType),
+          description: UPGRADE_DEFINITIONS.find(d => d.type === upgrade.upgradeType)?.description ?? '',
+          count: 1,
+        })),
+      ...(cursedSquare ? [{
+        pieceType: chess.get(cursedSquare)?.type ?? ('p' as PieceSymbol),
+        effectType: 'curse',
+        category: 'debuff' as EffectCategory,
+        label: 'Проклятие',
+        description: 'Фигура не может брать фигуры дороже пешки в этом бою',
+        count: 1,
+      }] : []),
+    ],
     'w',
   );
 
@@ -513,16 +565,21 @@ export default function ChaosBattleScreen() {
     return [...map.values()];
   })();
 
-  // HUD «AI»: улучшения живых фигур противника, сгруппированные по типу улучшения —
+  // HUD «AI»: эффекты живых фигур противника, сгруппированные по типу эффекта —
   // дубликаты типа+улучшения (например, 2x конь-Берсерк у Двуглавого Рыцаря) суммируются в один счётчик.
-  const aiUpgradeGroups = buildUpgradeGroups(
+  const aiEffectGroups = buildEffectGroups(
     displayAiUpgrades
-      .map(upgrade => ({
-        pieceType: upgrade.pieceType,
-        upgradeType: upgrade.upgradeType,
-        category: UPGRADE_DEFINITIONS.find(d => d.type === upgrade.upgradeType)?.category ?? 'attack',
-        count: findAllPieceSquares(chess, upgrade.pieceType, 'b').length,
-      }))
+      .map(upgrade => {
+        const definition = UPGRADE_DEFINITIONS.find(d => d.type === upgrade.upgradeType);
+        return {
+          pieceType: upgrade.pieceType,
+          effectType: upgrade.upgradeType,
+          category: (definition?.category ?? 'attack') as EffectCategory,
+          label: definition?.name ?? upgrade.upgradeType,
+          description: definition?.description ?? '',
+          count: findAllPieceSquares(chess, upgrade.pieceType, 'b').length,
+        };
+      })
       .filter(entry => entry.count > 0),
     'b',
   );
@@ -584,51 +641,54 @@ export default function ChaosBattleScreen() {
     try {
       const move = chess.move({ from, to, promotion: promotion ?? 'q' });
       if (!move) { setIsAIThinking(false); return; }
-      if (pieceUpgrades.length > 0) {
-        trackUpgradeMove(from, to);
-        // Провокатор: после хода ИИ проверяем, не оказалась ли фигура под атакой чёрных
-        checkProvocateurBonus();
-        setGoldDisplay(goldRef.current);
-      }
-      // Босс «Всадник»: каждый ход королём — новый конь на случайной клетке рядов 5-8,
-      // появляется с плавным проявлением (анимация в ChessBoard через spawnedSquare).
-      // Лимит призывов — bossKnightSpawnsLeft, проверяем ДО мутации доски в spawnKnightOnKingMove
-      if (currentLevel === 1 && safeBattleNumber === 'boss' && bossKnightSpawnsLeft > 0) {
-        const spawnSquare = spawnKnightOnKingMove(chess, move);
-        if (spawnSquare) {
-          setSpawnedSquare(spawnSquare);
-          const remaining = bossKnightSpawnsLeft - 1;
-          setBossKnightSpawnsLeft(remaining);
-          if (remaining === 0) setShowKnightsOutBanner(true);
-        }
-      }
-      setLastMoveHighlight({ from, to, color: 'opponent' });
 
-      // Уровень 3, Ведьма Диагоналей: раз в teleportMechanic.intervalMoves ходов
-      // атакующие фигуры (слоны-снайперы, конь-берсерк) телепортируются на ряды 5-8
-      if (isBossBattle && levelConfig.bossConfig.teleportMechanic) {
-        const teleportMechanic = levelConfig.bossConfig.teleportMechanic;
-        if (playerMoves > 0 && playerMoves % teleportMechanic.intervalMoves === 0) {
-          const teleported = teleportAttackingPieces(chess, teleportMechanic.targetPieces, teleportMechanic.excludePieces);
-          if (teleported !== chess) {
-            chess.load(teleported.fen());
-            pushGoldToast('🌀 Ведьма телепортировала своих воинов!');
+      // Обновление стейта откладывается на следующий кадр — не блокирует немедленную
+      // отрисовку перемещённой фигуры ИИ доской
+      requestAnimationFrame(() => {
+        if (pieceUpgrades.length > 0) {
+          trackUpgradeMove(from, to);
+          // Провокатор: после хода ИИ проверяем, не оказалась ли фигура под атакой чёрных
+          checkProvocateurBonus();
+          setGoldDisplay(goldRef.current);
+        }
+        // Босс «Всадник»: каждый ход королём — новый конь на случайной клетке рядов 5-8,
+        // появляется с плавным проявлением (анимация в ChessBoard через spawnedSquare).
+        // Лимит призывов — bossKnightSpawnsLeft, проверяем ДО мутации доски в spawnKnightOnKingMove
+        if (currentLevel === 1 && safeBattleNumber === 'boss' && bossKnightSpawnsLeft > 0) {
+          const spawnSquare = spawnKnightOnKingMove(chess, move);
+          if (spawnSquare) {
+            setSpawnedSquare(spawnSquare);
+            const remaining = bossKnightSpawnsLeft - 1;
+            setBossKnightSpawnsLeft(remaining);
+            if (remaining === 0) setShowKnightsOutBanner(true);
           }
         }
-        setMovesUntilTeleport(teleportMechanic.intervalMoves - (playerMoves % teleportMechanic.intervalMoves));
-      }
+        setLastMoveHighlight({ from, to, color: 'opponent' });
 
-      setBoardKey(k => k + 1);
-      setIsAIThinking(false);
+        // Уровень 3, Ведьма Диагоналей: раз в teleportMechanic.intervalMoves ходов
+        // атакующие фигуры (слоны-снайперы, конь-берсерк) телепортируются на ряды 5-8
+        if (isBossBattle && levelConfig.bossConfig.teleportMechanic) {
+          const teleportMechanic = levelConfig.bossConfig.teleportMechanic;
+          if (playerMoves > 0 && playerMoves % teleportMechanic.intervalMoves === 0) {
+            const teleported = teleportAttackingPieces(chess, teleportMechanic.targetPieces, teleportMechanic.excludePieces);
+            if (teleported !== chess) {
+              chess.load(teleported.fen());
+              pushGoldToast('🌀 Ведьма телепортировала своих воинов!');
+            }
+          }
+          setMovesUntilTeleport(teleportMechanic.intervalMoves - (playerMoves % teleportMechanic.intervalMoves));
+        }
 
-      if (chess.isCheckmate()) {
-        finishBattle('lose', 'Мат!', 0, playerMoves);
-        return;
-      }
-      if (chess.isDraw() || chess.isStalemate()) {
-        finishBattle('draw', 'Ничья — золото не начисляется', 0, playerMoves);
-        return;
-      }
+        setIsAIThinking(false);
+
+        if (chess.isCheckmate()) {
+          finishBattle('lose', 'Мат!', 0, playerMoves);
+          return;
+        }
+        if (chess.isDraw() || chess.isStalemate()) {
+          finishBattle('draw', 'Ничья — золото не начисляется', 0, playerMoves);
+        }
+      });
     } catch { setIsAIThinking(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chess, playerMoves, pieceUpgrades, currentLevel, currentAiUpgrades, isBossBattle, levelConfig, safeBattleNumber, bossKnightSpawnsLeft, pushGoldToast]);
@@ -663,71 +723,75 @@ export default function ChaosBattleScreen() {
 
   const handleMove = useCallback((moveResult: MoveResult) => {
     if (!moveResult.success || !moveResult.move) return;
-    setLastMoveHighlight(null);
-    const newCount = playerMoves + 1;
-    setPlayerMoves(newCount);
-    setBoardKey(k => k + 1);
 
-    const move = moveResult.move;
-    setLastMoveHighlight({ from: move.from as Square, to: move.to as Square, color: 'player' });
-    if (move.captured) {
-      goldRef.current += calcCaptureScore(move.captured);
-      // Ключевое взятие (конь/слон/ладья/ферзь) — попап с золотом независимо от улучшений; пешки не показываем
-      if (KEY_CAPTURE_PIECES.includes(move.captured)) {
-        pushGoldToast(`+${calcCaptureScore(move.captured)} золота`);
-      }
-      // Купец: дополнительное золото за каждое взятие — независимо от типа взятой фигуры
-      if (selectedCharacter && selectedCharacter.captureGoldBonus > 0) {
-        goldRef.current += selectedCharacter.captureGoldBonus;
-        pushGoldToast(`+${selectedCharacter.captureGoldBonus} золота — Купец`);
-      }
-    }
-    if (move.piece === 'n' && artifacts.includes('fork_master') && isKnightFork(chess, move.to as Square)) {
-      goldRef.current += CHAOS_FORK_BONUS;
-    }
-    if (pieceUpgrades.length > 0) {
-      // Снайпер и Засада оцениваются по состоянию ДО обновления счётчиков —
-      // turnsOnPosition должен отражать, сколько ходов фигура простояла на клетке, с которой берёт
-      for (const trigger of processPlayerMove(move, liveUpgrades())) {
-        goldRef.current += trigger.bonus;
-        pushGoldToast(`+${trigger.bonus} золота — ${upgradeName(trigger.upgradeType)}`);
-      }
-      // Берсерк: определяем серию по клетке ДО хода — тоже до обновления позиций
-      checkBerserkStreak(move);
-      trackUpgradeMove(move.from as Square, move.to as Square);
-      tickUpgradeCounters();
-      // Страж: сравниваем клетку ПОСЛЕ обновления позиций — этот ход уже отражён в state.square
-      checkGuardBonus();
-    }
-    setGoldDisplay(goldRef.current);
+    // Обновление стейта и связанные с ним вычисления откладываются на следующий кадр —
+    // не блокируют немедленную отрисовку перемещённой фигуры доской
+    requestAnimationFrame(() => {
+      setLastMoveHighlight(null);
+      const newCount = playerMoves + 1;
+      setPlayerMoves(newCount);
 
-    // Уровень 2+, босс «Двуглавый Рыцарь»: раз в evolutionMechanic.intervalMoves ходов
-    // случайная фигура ИИ эволюционирует по цепочке (см. evolvePiece)
-    if (currentLevel >= 2 && isBossBattle && levelConfig.bossConfig.evolutionMechanic) {
-      const evolutionMechanic = levelConfig.bossConfig.evolutionMechanic;
-      if (newCount % evolutionMechanic.intervalMoves === 0) {
-        const evolved = evolvePiece(chess, evolutionMechanic.maxQueens);
-        if (evolved) {
-          chess.load(evolved.fen());
-          pushGoldToast('Фигура противника эволюционировала! 🔴');
+      const move = moveResult.move!;
+      setLastMoveHighlight({ from: move.from as Square, to: move.to as Square, color: 'player' });
+      if (move.captured) {
+        goldRef.current += calcCaptureScore(move.captured);
+        // Ключевое взятие (конь/слон/ладья/ферзь) — попап с золотом независимо от улучшений; пешки не показываем
+        if (KEY_CAPTURE_PIECES.includes(move.captured)) {
+          pushGoldToast(`+${calcCaptureScore(move.captured)} золота`);
+        }
+        // Купец: дополнительное золото за каждое взятие — независимо от типа взятой фигуры
+        if (selectedCharacter && selectedCharacter.captureGoldBonus > 0) {
+          goldRef.current += selectedCharacter.captureGoldBonus;
+          pushGoldToast(`+${selectedCharacter.captureGoldBonus} золота — Купец`);
         }
       }
-      setMovesUntilEvolution(evolutionMechanic.intervalMoves - (newCount % evolutionMechanic.intervalMoves));
-    }
+      if (move.piece === 'n' && artifacts.includes('fork_master') && isKnightFork(chess, move.to as Square)) {
+        goldRef.current += CHAOS_FORK_BONUS;
+      }
+      if (pieceUpgrades.length > 0) {
+        // Снайпер и Засада оцениваются по состоянию ДО обновления счётчиков —
+        // turnsOnPosition должен отражать, сколько ходов фигура простояла на клетке, с которой берёт
+        for (const trigger of processPlayerMove(move, liveUpgrades())) {
+          goldRef.current += trigger.bonus;
+          pushGoldToast(`+${trigger.bonus} золота — ${upgradeName(trigger.upgradeType)}`);
+        }
+        // Берсерк: определяем серию по клетке ДО хода — тоже до обновления позиций
+        checkBerserkStreak(move);
+        trackUpgradeMove(move.from as Square, move.to as Square);
+        tickUpgradeCounters();
+        // Страж: сравниваем клетку ПОСЛЕ обновления позиций — этот ход уже отражён в state.square
+        checkGuardBonus();
+      }
+      setGoldDisplay(goldRef.current);
 
-    if (moveResult.isCheckmate) {
-      const mateGold = newCount <= 10 ? CHAOS_GOLD.mateUnder10 : CHAOS_GOLD.mate11to20;
-      // Победа над боссом «Всадник» открывает персонажа «Страж» — сохраняется между сессиями
-      if (safeBattleNumber === 'boss') unlockGuardian();
-      finishBattle('win', 'Мат противнику!', mateGold, newCount);
-      return;
-    }
-    if (moveResult.isDraw || moveResult.isStalemate) {
-      finishBattle('draw', 'Ничья — золото не начисляется', 0, newCount);
-      return;
-    }
+      // Уровень 2+, босс «Двуглавый Рыцарь»: раз в evolutionMechanic.intervalMoves ходов
+      // случайная фигура ИИ эволюционирует по цепочке (см. evolvePiece)
+      if (currentLevel >= 2 && isBossBattle && levelConfig.bossConfig.evolutionMechanic) {
+        const evolutionMechanic = levelConfig.bossConfig.evolutionMechanic;
+        if (newCount % evolutionMechanic.intervalMoves === 0) {
+          const evolved = evolvePiece(chess, evolutionMechanic.maxQueens);
+          if (evolved) {
+            chess.load(evolved.fen());
+            pushGoldToast('Фигура противника эволюционировала! 🔴');
+          }
+        }
+        setMovesUntilEvolution(evolutionMechanic.intervalMoves - (newCount % evolutionMechanic.intervalMoves));
+      }
 
-    requestAIMove();
+      if (moveResult.isCheckmate) {
+        const mateGold = newCount <= 10 ? CHAOS_GOLD.mateUnder10 : CHAOS_GOLD.mate11to20;
+        // Победа над боссом «Всадник» открывает персонажа «Страж» — сохраняется между сессиями
+        if (safeBattleNumber === 'boss') unlockGuardian();
+        finishBattle('win', 'Мат противнику!', mateGold, newCount);
+        return;
+      }
+      if (moveResult.isDraw || moveResult.isStalemate) {
+        finishBattle('draw', 'Ничья — золото не начисляется', 0, newCount);
+        return;
+      }
+
+      requestAIMove();
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerMoves, chess, requestAIMove, artifacts, pieceUpgrades, selectedCharacter]);
 
@@ -772,7 +836,7 @@ export default function ChaosBattleScreen() {
     : isBossBattle
       ? 'Финальный бой. Удачи!'
       : battleKey === 'elite'
-        ? 'Сложный противник с улучшениями — действуй решительно'
+        ? 'Сложный противник с эффектами — действуй решительно'
         : 'Поставь мат сопернику';
 
   return (
@@ -799,10 +863,10 @@ export default function ChaosBattleScreen() {
           <Text style={[styles.thinking, { opacity: isAIThinking ? 1 : 0 }]}>⏳</Text>
         </View>
 
-        {(aiUpgradeGroups.length > 0 || evolutionCounterText || teleportCounterText) && (
+        {(aiEffectGroups.length > 0 || evolutionCounterText || teleportCounterText) && (
           <UpgradeChipsRow
             label="AI"
-            groups={aiUpgradeGroups}
+            groups={aiEffectGroups}
             onPressGroup={group => setSelectedUpgrade({ group, isAI: true })}
             testID="chaos-ai-upgrade-row"
             extra={(evolutionCounterText || teleportCounterText) && (
@@ -825,7 +889,6 @@ export default function ChaosBattleScreen() {
 
       <View style={styles.boardWrap}>
         <ChessBoard
-          key={boardKey}
           chess={chess}
           playerColor={PLAYER_COLOR}
           onMove={handleMove}
@@ -849,7 +912,7 @@ export default function ChaosBattleScreen() {
       <View onLayout={e => setBottomHeight(e.nativeEvent.layout.height)}>
         <UpgradeChipsRow
           label="Мои"
-          groups={playerUpgradeGroups}
+          groups={playerEffectGroups}
           onPressGroup={group => setSelectedUpgrade({ group, isAI: false })}
           testID="chaos-player-upgrade-row"
         />

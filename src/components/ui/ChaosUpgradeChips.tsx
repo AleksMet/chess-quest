@@ -4,33 +4,27 @@ import type { PieceSymbol } from 'chess.js';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChessPiece } from '../chess/ChessPiece';
 import type { PieceKey } from '../chess/ChessPieceSVG';
-import type { UpgradeCategory, UpgradeType } from '../../types/chaos';
-import { UPGRADE_DEFINITIONS } from '../../data/chaosUpgrades';
+import type { EffectCategory } from '../../types/pieceEffects';
 import { PIECE_DISPLAY_NAME } from '../../data/pieceNames';
 
-// HUD улучшений в бою режима ХАОС: ряд чипов (группировка по типу улучшения,
+// HUD эффектов в бою режима ХАОС: ряд чипов (группировка по типу эффекта,
 // счётчик при нескольких фигурах) + модалка с подробностями по нажатию на чип.
+// Универсальна для атакующих/защитных улучшений и дебаффов (см. EffectCategory).
 
-export interface UpgradeGroupPiece {
+export interface EffectGroupPiece {
   pieceType: PieceSymbol;
   count: number;
 }
 
-export interface UpgradeGroup {
-  upgradeType: UpgradeType;
-  category: UpgradeCategory;
+export interface EffectGroup {
+  effectType: string;
+  category: EffectCategory;
   iconPieceKey: PieceKey;
   totalCount: number;
-  pieces: UpgradeGroupPiece[];
+  pieces: EffectGroupPiece[];
+  label: string;
+  description: string;
 }
-
-const UPGRADE_DISPLAY_NAME: Record<UpgradeType, string> = {
-  berserk: 'Берсерк',
-  sniper: 'Снайпер',
-  provocateur: 'Провокатор',
-  guard: 'Страж',
-  ambush: 'Засада',
-};
 
 const ATTACK_BORDER = '#ef4444';
 const ATTACK_BG: [string, string] = ['#2d0808', '#1a0404'];
@@ -38,11 +32,26 @@ const ATTACK_SHADOW = 'rgba(239,68,68,0.45)';
 const DEFENSE_BORDER = '#3b82f6';
 const DEFENSE_BG: [string, string] = ['#080d2d', '#04081a'];
 const DEFENSE_SHADOW = 'rgba(59,130,246,0.45)';
+const DEBUFF_BORDER = '#9333EA';
+const DEBUFF_BG: [string, string] = ['#1a0d2d', '#0d0619'];
+const DEBUFF_SHADOW = 'rgba(147,51,234,0.45)';
+
+const CATEGORY_STYLE: Record<EffectCategory, { border: string; bg: [string, string]; shadow: string }> = {
+  attack:  { border: ATTACK_BORDER, bg: ATTACK_BG, shadow: ATTACK_SHADOW },
+  defense: { border: DEFENSE_BORDER, bg: DEFENSE_BG, shadow: DEFENSE_SHADOW },
+  debuff:  { border: DEBUFF_BORDER, bg: DEBUFF_BG, shadow: DEBUFF_SHADOW },
+};
+
+const CATEGORY_TYPE_LABEL: Record<EffectCategory, string> = {
+  attack:  '⚔️ Атакующий',
+  defense: '🛡 Защитный',
+  debuff:  '💀 Дебафф',
+};
 
 interface UpgradeChipsRowProps {
   label: string;
-  groups: UpgradeGroup[];
-  onPressGroup: (group: UpgradeGroup) => void;
+  groups: EffectGroup[];
+  onPressGroup: (group: EffectGroup) => void;
   extra?: React.ReactNode;
   testID?: string;
 }
@@ -53,36 +62,28 @@ export function UpgradeChipsRow({ label, groups, onPressGroup, extra, testID }: 
     <View style={styles.row} testID={testID}>
       <Text style={styles.rowLabel}>{label}</Text>
       <View style={styles.chips}>
-        {groups.map(group => (
-          <Pressable
-            key={group.upgradeType}
-            onPress={() => onPressGroup(group)}
-            testID={`upgrade-chip-${group.upgradeType}`}
-          >
-            <LinearGradient
-              colors={group.category === 'attack' ? ATTACK_BG : DEFENSE_BG}
-              style={[
-                styles.chip,
-                {
-                  borderColor: group.category === 'attack' ? ATTACK_BORDER : DEFENSE_BORDER,
-                  shadowColor: group.category === 'attack' ? ATTACK_SHADOW : DEFENSE_SHADOW,
-                },
-              ]}
+        {groups.map(group => {
+          const style = CATEGORY_STYLE[group.category];
+          return (
+            <Pressable
+              key={group.effectType}
+              onPress={() => onPressGroup(group)}
+              testID={`upgrade-chip-${group.effectType}`}
             >
-              <ChessPiece pieceKey={group.iconPieceKey} size={28} />
-              {group.totalCount > 1 && (
-                <View
-                  style={[
-                    styles.counter,
-                    { backgroundColor: group.category === 'attack' ? ATTACK_BORDER : DEFENSE_BORDER },
-                  ]}
-                >
-                  <Text style={styles.counterText}>{group.totalCount}</Text>
-                </View>
-              )}
-            </LinearGradient>
-          </Pressable>
-        ))}
+              <LinearGradient
+                colors={style.bg}
+                style={[styles.chip, { borderColor: style.border, shadowColor: style.shadow }]}
+              >
+                <ChessPiece pieceKey={group.iconPieceKey} size={28} />
+                {group.totalCount > 1 && (
+                  <View style={[styles.counter, { backgroundColor: style.border }]}>
+                    <Text style={styles.counterText}>{group.totalCount}</Text>
+                  </View>
+                )}
+              </LinearGradient>
+            </Pressable>
+          );
+        })}
       </View>
       {extra}
     </View>
@@ -90,7 +91,7 @@ export function UpgradeChipsRow({ label, groups, onPressGroup, extra, testID }: 
 }
 
 interface UpgradeDetailModalProps {
-  group: UpgradeGroup | null;
+  group: EffectGroup | null;
   isAI: boolean;
   onClose: () => void;
 }
@@ -105,25 +106,23 @@ export function UpgradeDetailModal({ group, isAI, onClose }: UpgradeDetailModalP
 
   if (!group) return null;
 
-  const definition = UPGRADE_DEFINITIONS.find(d => d.type === group.upgradeType);
-  const isAttack = group.category === 'attack';
-  const borderColor = isAttack ? ATTACK_BORDER : DEFENSE_BORDER;
-  const bg = isAttack ? ATTACK_BG : DEFENSE_BG;
+  const style = CATEGORY_STYLE[group.category];
+  const isDebuff = group.category === 'debuff';
 
   return (
     <Animated.View style={[styles.overlay, { opacity }]}>
       <Pressable style={styles.backdrop} onPress={onClose} testID="upgrade-modal-backdrop" />
-      <View style={[styles.card, { borderColor }]}>
+      <View style={[styles.card, { borderColor: style.border }, isDebuff && styles.cardDebuff]}>
         <Pressable style={styles.closeBtn} onPress={onClose} testID="upgrade-modal-close">
           <Text style={styles.closeBtnText}>✕</Text>
         </Pressable>
-        <LinearGradient colors={bg} style={[styles.bigIcon, { borderColor }]}>
+        <LinearGradient colors={style.bg} style={[styles.bigIcon, { borderColor: style.border }]}>
           <ChessPiece pieceKey={group.iconPieceKey} size={64} />
         </LinearGradient>
-        <Text style={styles.modalSubtitle}>{isAI ? 'AI · Улучшение' : 'Улучшение'}</Text>
-        <Text style={styles.modalTitle}>{UPGRADE_DISPLAY_NAME[group.upgradeType]}</Text>
-        <Text style={[styles.modalType, { color: borderColor }]}>
-          {isAttack ? '⚔️ Атакующее' : '🛡 Защитное'}
+        <Text style={styles.modalSubtitle}>{isAI ? 'AI · Эффект' : 'Эффект'}</Text>
+        <Text style={styles.modalTitle}>{group.label}</Text>
+        <Text style={[styles.modalType, { color: style.border }]}>
+          {CATEGORY_TYPE_LABEL[group.category]}
         </Text>
         <View style={styles.piecesList}>
           {group.pieces.map(p => (
@@ -132,7 +131,12 @@ export function UpgradeDetailModal({ group, isAI, onClose }: UpgradeDetailModalP
             </Text>
           ))}
         </View>
-        {definition && <Text style={styles.modalDescription}>{definition.description}</Text>}
+        <Text style={styles.modalDescription}>{group.description}</Text>
+        {isDebuff && (
+          <View style={styles.debuffBanner}>
+            <Text style={styles.debuffBannerText}>⚠️ Негативный эффект</Text>
+          </View>
+        )}
       </View>
     </Animated.View>
   );
@@ -143,7 +147,7 @@ const styles = StyleSheet.create({
   rowLabel:   { color: '#64748b', fontSize: 10, fontWeight: '700' },
   chips:      { flexDirection: 'row', gap: 8, flexWrap: 'wrap', flex: 1 },
   chip: {
-    width: 40, height: 40, borderRadius: 10, borderWidth: 1,
+    width: 38, height: 38, borderRadius: 10, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
     shadowOpacity: 1, shadowRadius: 6, shadowOffset: { width: 0, height: 0 }, elevation: 4,
   },
@@ -160,6 +164,11 @@ const styles = StyleSheet.create({
     width: 280, borderRadius: 16, borderWidth: 1,
     backgroundColor: '#15151f', padding: 20, alignItems: 'center', gap: 6,
   },
+  cardDebuff: {
+    borderColor: 'rgba(147,51,234,0.5)',
+    shadowColor: '#9333EA', shadowOpacity: 0.25, shadowRadius: 40,
+    shadowOffset: { width: 0, height: 0 }, elevation: 10,
+  },
   closeBtn:     { position: 'absolute', top: 10, right: 10, width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   closeBtnText: { color: '#94a3b8', fontSize: 16, fontWeight: '700' },
   bigIcon: {
@@ -172,4 +181,9 @@ const styles = StyleSheet.create({
   piecesList:      { alignItems: 'center', marginBottom: 4 },
   pieceLine:       { color: '#cbd5e1', fontSize: 13, lineHeight: 18 },
   modalDescription: { color: '#94a3b8', fontSize: 12, textAlign: 'center', lineHeight: 17 },
+  debuffBanner: {
+    marginTop: 8, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8,
+    backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.4)',
+  },
+  debuffBannerText: { color: '#ef4444', fontSize: 12, fontWeight: '700' },
 });

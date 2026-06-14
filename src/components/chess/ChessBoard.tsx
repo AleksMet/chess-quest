@@ -10,17 +10,8 @@ import { useChapterTheme } from '../../contexts/ChapterThemeContext';
 
 import { ChessPiece } from './ChessPiece';
 import { ChessSquare } from './ChessSquare';
-import { usePieceAnimation } from '../../hooks/usePieceAnimation';
 
 const BOARD_SIZE = Math.min(Dimensions.get('window').width, Dimensions.get('window').height) * 0.9;
-
-// Координаты клетки на доске в «ячейках» (0..7) для анимации перемещения фигуры —
-// учитывает разворот доски за чёрных (flipped)
-function squareToCoords(square: Square, flipped: boolean): { x: number; y: number } {
-  const file = square.charCodeAt(0) - 97; // a=0..h=7
-  const rank = parseInt(square[1], 10); // 1..8
-  return flipped ? { x: 7 - file, y: rank - 1 } : { x: file, y: 8 - rank };
-}
 
 interface UpgradeHighlight {
   square: Square;
@@ -126,7 +117,6 @@ interface CellProps {
   legalDotColor: string;
   isForcedSquare: boolean;
   isSpawned: boolean;
-  isJustMoved: boolean;
   cellStyle: ViewStyle;
   cellSize: number;
   pieceSize: number;
@@ -134,7 +124,7 @@ interface CellProps {
   legalCaptureStyle: ViewStyle;
   rankLabel?: string | null;
   fileLabel?: string | null;
-  onPress: () => void;
+  onPress: (square: Square) => void;
 }
 
 // Клетка доски — обёрнута в memo, чтобы при ходе перерисовывались только
@@ -153,7 +143,6 @@ const Cell = memo(function Cell({
   legalDotColor,
   isForcedSquare,
   isSpawned,
-  isJustMoved,
   cellStyle,
   cellSize,
   pieceSize,
@@ -167,7 +156,7 @@ const Cell = memo(function Cell({
     <TouchableOpacity
       testID={`square-${square}`}
       style={[styles.cell, cellStyle]}
-      onPress={onPress}
+      onPress={() => onPress(square)}
       activeOpacity={0.7}
     >
       <ChessSquare size={cellSize} isLight={isLight} />
@@ -208,8 +197,8 @@ const Cell = memo(function Cell({
       )}
       {pieceKey && (
         isSpawned
-          ? <SpawnedPieceView key={`${square}-spawned`} pieceKey={pieceKey} pieceSize={pieceSize} />
-          : <PieceView key={isJustMoved ? `${square}-moved` : square} pieceKey={pieceKey} pieceSize={pieceSize} />
+          ? <SpawnedPieceView key={`${pieceKey}-spawned`} pieceKey={pieceKey} pieceSize={pieceSize} />
+          : <PieceView key={pieceKey} pieceKey={pieceKey} pieceSize={pieceSize} />
       )}
     </TouchableOpacity>
   );
@@ -221,21 +210,17 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
   const [legalTargets, setLegalTargets] = useState<Square[]>([]);
   const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(null);
 
-  // Анимация плавного перемещения фигуры (sliding) — слой поверх доски, см. usePieceAnimation
-  const { animX, animY, animateMove, isAnimating } = usePieceAnimation();
-  const [animatingSquares, setAnimatingSquares] = useState<{ from: Square; to: Square } | null>(null);
-  const [animatingPieceKey, setAnimatingPieceKey] = useState<PieceKey | null>(null);
-
   const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
   const ranks = playerColor === 'w' ? [8, 7, 6, 5, 4, 3, 2, 1] : [1, 2, 3, 4, 5, 6, 7, 8];
   const orderedFiles = playerColor === 'w' ? files : [...files].reverse();
-  const flipped = playerColor !== 'w';
 
   // Размер доски передаётся пропсом (адаптивная вёрстка экрана боя) либо берётся
-  // из BOARD_SIZE по умолчанию (вызовы без size — обычные режимы)
-  const boardSize = size ?? BOARD_SIZE;
+  // из BOARD_SIZE по умолчанию (вызовы без size — обычные режимы).
+  // Округляем вниз до кратного 8, чтобы размер клетки был целым числом пикселей —
+  // иначе при дробном cellSize между клетками видны субпиксельные линии.
+  const boardSize = Math.floor((size ?? BOARD_SIZE) / 8) * 8;
   const cellSize = boardSize / 8;
-  const pieceSize = cellSize * 0.88;
+  const pieceSize = cellSize * 0.85;
 
   // Берсерк обязан атаковать: если forcedSquares задан, ходить можно только этими фигурами,
   // а forcedMoves ограничивает доступные цели клетками из списка разрешённых ходов (LAN: "e2e4")
@@ -259,7 +244,7 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
 
   const handleSquarePress = useCallback(
     (square: Square) => {
-      if (disabled || isAnimating.current) return;
+      if (disabled) return;
       const piece = chess.get(square);
 
       if (!selectedSquare) {
@@ -295,56 +280,26 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
         return;
       }
 
-      // Сначала проигрываем анимацию слайда «призрака» из selectedSquare в square,
-      // chess.move() и onMove вызываются только после её завершения (onComplete)
-      const movingPiece = chess.get(selectedSquare);
       const from = selectedSquare;
       const to = square;
-      if (movingPiece) {
-        const pieceKey = `${movingPiece.color}${movingPiece.type.toUpperCase()}` as PieceKey;
-        setAnimatingSquares({ from, to });
-        setAnimatingPieceKey(pieceKey);
-        animateMove(
-          { piece: pieceKey, from: squareToCoords(from, flipped), to: squareToCoords(to, flipped) },
-          cellSize,
-          () => {
-            setAnimatingSquares(null);
-            setAnimatingPieceKey(null);
-            const result = attemptMove(chess, from, to, 'q');
-            if (result.success && result.move) {
-              setLastMove({ from, to });
-              onMove?.(result);
-            }
-          }
-        );
+      const result = attemptMove(chess, from, to, 'q');
+      if (result.success && result.move) {
+        setLastMove({ from, to });
+        onMove?.(result);
       }
 
       setSelectedSquare(null);
       setLegalTargets([]);
     },
-    [chess, selectedSquare, playerColor, disabled, onMove, isSquareForced, filterForcedTargets, isMoveForced, isAnimating, animateMove, flipped, cellSize]
+    [chess, selectedSquare, playerColor, disabled, onMove, isSquareForced, filterForcedTargets, isMoveForced]
   );
 
-  // Анимация хода ИИ: к моменту ререндера chess.move() уже применён (фигура стоит на `to`),
-  // поэтому проигрываем slide из `from` в `to`, скрывая реальную фигуру на `to` до конца анимации
-  useEffect(() => {
-    if (!lastMoveHighlight || lastMoveHighlight.color !== 'opponent') return;
-    const { from, to } = lastMoveHighlight;
-    const piece = chess.get(to);
-    if (!piece) return;
-    const pieceKey = `${piece.color}${piece.type.toUpperCase()}` as PieceKey;
-    setAnimatingSquares({ from, to });
-    setAnimatingPieceKey(pieceKey);
-    animateMove(
-      { piece: pieceKey, from: squareToCoords(from, flipped), to: squareToCoords(to, flipped) },
-      cellSize,
-      () => {
-        setAnimatingSquares(null);
-        setAnimatingPieceKey(null);
-      }
-    );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastMoveHighlight]);
+  // Стабильная обёртка над handleSquarePress: её ссылка не меняется между рендерами,
+  // поэтому проп onPress у Cell остаётся стабильным и memo(Cell) не перерисовывает
+  // все клетки на каждый рендер доски (устраняет мигание доски при ходах)
+  const handleSquarePressRef = useRef(handleSquarePress);
+  handleSquarePressRef.current = handleSquarePress;
+  const onSquarePress = useCallback((square: Square) => handleSquarePressRef.current(square), []);
 
   const board = chess.board();
 
@@ -375,16 +330,12 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
             const isLegalTarget = legalTargets.includes(square);
             const isLastMoveSquare = lastMove?.from === square || lastMove?.to === square;
             const isHintSquare = square === highlightSquare;
-            const isJustMoved = square === lastMove?.to;
             const isOpponentLastMove = opponentLastMove?.from === square || opponentLastMove?.to === square;
             const upgradeHighlight = upgradeHighlights?.find(h => h.square === square);
             const isForcedSquare = !!forcedSquares && forcedSquares.includes(square);
             const isLastMoveHighlightSquare = lastMoveHighlight?.from === square || lastMoveHighlight?.to === square;
 
-            // На время анимации слайда скрываем реальную фигуру на исходной и целевой
-            // клетках — виден только анимированный «призрак» (animationLayer ниже)
-            const isAnimatingSquare = animatingSquares?.from === square || animatingSquares?.to === square;
-            const pieceKey = cell && !isAnimatingSquare
+            const pieceKey = cell
               ? (`${cell.color}${cell.type.toUpperCase()}` as PieceKey)
               : null;
 
@@ -416,7 +367,6 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
                 legalDotColor={theme.legalDot}
                 isForcedSquare={isForcedSquare}
                 isSpawned={square === spawnedSquare}
-                isJustMoved={isJustMoved}
                 cellStyle={dynamicStyles.cell}
                 cellSize={cellSize}
                 pieceSize={pieceSize}
@@ -424,24 +374,12 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
                 legalCaptureStyle={dynamicStyles.legalCapture}
                 rankLabel={showCoordinates && fileIdx === 0 ? String(rank) : null}
                 fileLabel={showCoordinates && rankIdx === ranks.length - 1 ? file : null}
-                onPress={() => handleSquarePress(square)}
+                onPress={onSquarePress}
               />
             );
           })}
         </View>
       ))}
-      {animatingPieceKey && (
-        <View style={[styles.animationLayer, dynamicStyles.container]} pointerEvents="none">
-          <Animated.View
-            style={[
-              styles.animationPiece,
-              { width: cellSize, height: cellSize, transform: [{ translateX: animX }, { translateY: animY }] },
-            ]}
-          >
-            <ChessPiece pieceKey={animatingPieceKey} size={pieceSize} />
-          </Animated.View>
-        </View>
-      )}
     </View>
   );
 }
@@ -449,7 +387,7 @@ export function ChessBoard({ chess, playerColor = 'w', onMove, disabled = false,
 const styles = StyleSheet.create({
   boardFrame: {
     borderWidth: 2,
-    borderColor: '#3a3060',
+    borderColor: '#5050a0',
     borderRadius: 4,
     overflow: 'hidden',
     elevation: 8,
@@ -457,23 +395,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 8,
-    // Заполняет субпиксельные зазоры между клетками на физических iOS-устройствах
-    backgroundColor: '#4a4a80',
+    // Цвет тёмной клетки — заполняет субпиксельные зазоры между клетками
+    backgroundColor: '#7a66f4',
   },
   row: {
     flexDirection: 'row',
-  },
-  animationLayer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-  },
-  animationPiece: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: 0,
   },
   cell: {
     alignItems: 'center',

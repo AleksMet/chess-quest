@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { PieceSymbol } from 'chess.js';
 import type { ChaosCharacter, PieceUpgrade, UpgradeCategory, UpgradeType, ChaosEventCategory } from '../types/chaos';
+import type { PieceEffect } from '../types/pieceEffects';
 
 // Фигура армии — храним только тип; конкретные клетки расставляет buildPlayerFen
 export type ChessPiece = PieceSymbol;
@@ -29,6 +30,10 @@ interface ChaosState {
 
   // Улучшения, купленные на конкретные фигуры армии
   pieceUpgrades: PieceUpgrade[];
+
+  // Универсальные эффекты фигур текущего боя (улучшения + дебаффы) — мигрируются
+  // из pieceUpgrades/cursedPieceId при инициализации боя, работает параллельно с pieceUpgrades
+  pieceEffects: PieceEffect[];
 
   // Валюта
   gold: number;
@@ -67,6 +72,7 @@ interface ChaosState {
   removePiece: (piece: ChessPiece) => void;
   setPieces: (pieces: ChessPiece[]) => void;
   savePurchasedPieces: () => void;
+  setPieceEffects: (effects: PieceEffect[]) => void;
   addUpgrade: (upgrade: PieceUpgrade) => void;
   removeUpgrade: (upgradeId: string) => void;
   canAddUpgrade: (pieceId: string) => boolean;
@@ -106,6 +112,7 @@ function runState(character: ChaosCharacter | null) {
     pieces: [...startingPieces],
     purchasedPieces: [...startingPieces],
     pieceUpgrades: [] as PieceUpgrade[],
+    pieceEffects: [] as PieceEffect[],
     gold: character ? character.startingGold : STARTING_GOLD,
     artifacts: [] as ChaosArtifact[],
     currentFloor: 0,
@@ -175,6 +182,8 @@ export const useChaosModeStore = create<ChaosState>((set, get) => ({
   setPieces: (pieces) => set({ pieces }),
 
   savePurchasedPieces: () => set(s => ({ purchasedPieces: [...s.pieces] })),
+
+  setPieceEffects: (effects) => set({ pieceEffects: effects }),
 
   addUpgrade: (upgrade) => set(s => ({ pieceUpgrades: [...s.pieceUpgrades, upgrade] })),
 
