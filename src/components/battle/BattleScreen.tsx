@@ -65,6 +65,7 @@ export function BattleScreen({
   const drawOfferedRef = useRef(false);
   const scoreRef = useRef(0);
   const engineRef = useRef<StockfishBridgeRef>(null);
+  const engineCrashedRef = useRef(false);
   // Fallback timer: fires when WebView engine doesn't respond in time
   const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -145,6 +146,23 @@ export function BattleScreen({
     }
   }, [chess, playerColor, onGameEnd, onKingChecked]);
 
+  // ── Handle Stockfish WebView crash — fall back to a random chess.js move ───
+  const handleEngineCrash = useCallback((error: string) => {
+    console.error('Stockfish WebView crashed:', error);
+    engineCrashedRef.current = true;
+    setEngineReady(true);
+
+    if (chess.turn() !== playerColor && !chess.isGameOver()) {
+      if (aiTimeoutRef.current) {
+        clearTimeout(aiTimeoutRef.current);
+        aiTimeoutRef.current = null;
+      }
+      setIsAIThinking(true);
+      const uci = pickFallbackMove(chess);
+      if (uci) applyAIMove(uci);
+    }
+  }, [chess, playerColor, applyAIMove]);
+
   // ── Handle bestmove response from engine ────────────────────────────────────
   const handleEngineMessage = useCallback((line: string) => {
     if (!line.startsWith('bestmove')) return;
@@ -179,6 +197,8 @@ export function BattleScreen({
 
     setIsAIThinking(true);
     scheduleFallback();
+
+    if (engineCrashedRef.current) return;
 
     sendToEngine(`position fen ${chess.fen()} legal ${legalMoves.join(' ')}`);
     sendToEngine('go movetime 500');
@@ -255,6 +275,7 @@ export function BattleScreen({
         ref={engineRef}
         onMessage={handleEngineMessage}
         onReady={handleEngineReady}
+        onCrash={handleEngineCrash}
       />
 
       <View style={[styles.opponentBar, { backgroundColor: theme.surface }]} testID="opponent-bar">

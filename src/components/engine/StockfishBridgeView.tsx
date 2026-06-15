@@ -2,6 +2,7 @@ import { useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { WebView as WebViewType } from 'react-native-webview';
+import type { WebViewErrorEvent, WebViewHttpErrorEvent } from 'react-native-webview/lib/WebViewTypes';
 
 // ─── Inline UCI engine ────────────────────────────────────────────────────────
 //
@@ -134,18 +135,24 @@ export interface StockfishBridgeRef {
 interface Props {
   onMessage: BridgeMessageHandler;
   onReady: () => void;
+  onCrash?: (error: string) => void;
 }
 
 export const StockfishBridgeView = forwardRef<StockfishBridgeRef, Props>(
-  function StockfishBridgeView({ onMessage, onReady }, ref) {
+  function StockfishBridgeView({ onMessage, onReady, onCrash }, ref) {
     const webViewRef = useRef<WebViewType>(null);
     const readyRef = useRef(false);
 
     const send = useCallback((cmd: string) => {
-      webViewRef.current?.injectJavaScript(
-        `(function(){ try{ processCommand(${JSON.stringify(cmd)}); } catch(e){} })(); true;`,
-      );
-    }, []);
+      try {
+        webViewRef.current?.injectJavaScript(
+          `(function(){ try{ processCommand(${JSON.stringify(cmd)}); } catch(e){} })(); true;`,
+        );
+      } catch (error) {
+        console.error('StockfishBridgeView: injectJavaScript failed:', error);
+        onCrash?.(`injectJavaScript failed: ${String(error)}`);
+      }
+    }, [onCrash]);
 
     useImperativeHandle(ref, () => ({ send }), [send]);
 
@@ -165,9 +172,24 @@ export const StockfishBridgeView = forwardRef<StockfishBridgeRef, Props>(
     );
 
     const handleLoad = useCallback(() => {
-      send('uci');
-      send('isready');
-    }, [send]);
+      try {
+        send('uci');
+        send('isready');
+      } catch (error) {
+        console.error('StockfishBridgeView: initialization failed:', error);
+        onCrash?.(`Initialization failed: ${String(error)}`);
+      }
+    }, [send, onCrash]);
+
+    const handleError = useCallback((e: WebViewErrorEvent) => {
+      console.error('WebView error:', e.nativeEvent);
+      onCrash?.(`WebView error: ${e.nativeEvent.description}`);
+    }, [onCrash]);
+
+    const handleHttpError = useCallback((e: WebViewHttpErrorEvent) => {
+      console.error('WebView HTTP error:', e.nativeEvent);
+      onCrash?.(`WebView HTTP error: ${e.nativeEvent.statusCode}`);
+    }, [onCrash]);
 
     return (
       <View style={styles.hidden}>
@@ -176,6 +198,8 @@ export const StockfishBridgeView = forwardRef<StockfishBridgeRef, Props>(
           source={{ html: ENGINE_HTML }}
           onMessage={handleMessage}
           onLoad={handleLoad}
+          onError={handleError}
+          onHttpError={handleHttpError}
           javaScriptEnabled={true}
           originWhitelist={['*']}
         />
