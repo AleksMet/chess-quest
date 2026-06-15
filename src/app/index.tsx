@@ -1,25 +1,16 @@
-import { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, StyleSheet } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-// TODO: классический режим — временно отключён (заменён режимом ХАОС)
-// import { useRunStore } from '../store/runStore';
-// import { HEROES } from '../data/heroes';
-// import type { Hero, HeroId } from '../types';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useMetaStore } from '../store/metaStore';
-import { CHAPTER_NAMES } from '../components/map/AdventureMap';
-import { useChapterTheme } from '../contexts/ChapterThemeContext';
+import { StarBackground } from '../components/StarBackground';
 
-const CHAPTER_ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+const PIECE_ICONS = ['♔', '♕', '♘', '♗', '♖'];
 
 export default function MainMenuScreen() {
   const router = useRouter();
-  const { theme } = useChapterTheme();
-  // TODO: классический режим — временно отключён (заменён режимом ХАОС)
-  // const startRun = useRunStore(s => s.startRun);
-  const { isLoaded, loadMeta, meta } = useMetaStore();
-  // TODO: классический режим — временно отключён (заменён режимом ХАОС)
-  // const [selectedHeroId, setSelectedHeroId] = useState<HeroId>('timmy_pawn');
-  const [selectedChapter, setSelectedChapter] = useState(0);
+  const { isLoaded, loadMeta } = useMetaStore();
+  const glowAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadMeta().then(() => {
@@ -29,15 +20,17 @@ export default function MainMenuScreen() {
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // TODO: классический режим — временно отключён (заменён режимом ХАОС)
-  // const selectedHero = HEROES.find(h => h.id === selectedHeroId) ?? HEROES[0];
-  const unlockedChapters = meta.chapters.filter(c => c.unlocked);
+  // Пульсация свечения заголовка "QUEST"
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, { toValue: 1, duration: 1500, useNativeDriver: false }),
+        Animated.timing(glowAnim, { toValue: 0, duration: 1500, useNativeDriver: false }),
+      ]),
+    ).start();
+  }, [glowAnim]);
 
-  // TODO: классический режим — временно отключён (заменён режимом ХАОС)
-  // function handleStartRun() {
-  //   startRun(selectedHeroId, selectedChapter);
-  //   router.push('/adventure');
-  // }
+  const titleShadowRadius = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 28] });
 
   function handleStartChaos() {
     router.push('/chaos-character-select');
@@ -46,298 +39,232 @@ export default function MainMenuScreen() {
   if (!isLoaded) return null;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      {/* Atmospheric background layers */}
-      <View style={[styles.bgLayer1, { backgroundColor: theme.surface + '80' }]} />
-      <View style={[styles.bgLayer2, { backgroundColor: theme.accent + '08' }]} />
+    <SafeAreaView style={styles.safe}>
+      <StarBackground />
 
-      {/* Title block */}
-      <View style={styles.titleBlock}>
-        <Text style={[styles.titleDeco, { color: theme.textMuted }]}>◆ ◆ ◆</Text>
-        <Text
-          style={[
-            styles.title,
-            { color: theme.accent, textShadowColor: theme.accent },
-          ]}
-        >
-          Chess Quest
-        </Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Глава {CHAPTER_ROMAN[selectedChapter]} · {CHAPTER_NAMES[selectedChapter]}
-        </Text>
-        <Text style={[styles.titleDeco, { color: theme.textMuted }]}>◆ ◆ ◆</Text>
+      <View style={styles.topSection}>
+        <Text style={styles.titleSub}>CHESS</Text>
+        <Animated.Text style={[styles.titleMain, { textShadowRadius: titleShadowRadius }]}>
+          QUEST
+        </Animated.Text>
+        <View style={styles.titleDeco}>
+          <View style={styles.decoLine} />
+          <Text style={styles.decoRune}>✦ ᛏ ᚱ ✦</Text>
+          <View style={styles.decoLine} />
+        </View>
       </View>
 
-      {/* Chapter selection — only shown when 2+ chapters unlocked */}
-      {unlockedChapters.length > 1 && (
-        <View style={styles.chapterRow}>
-          {unlockedChapters.map(ch => (
-            <TouchableOpacity
-              key={ch.chapterIndex}
-              style={[
-                styles.chapterBtn,
-                {
-                  backgroundColor: selectedChapter === ch.chapterIndex ? theme.surfaceRaised : theme.surface,
-                  borderColor: selectedChapter === ch.chapterIndex ? theme.accent : theme.surface,
-                },
-              ]}
-              onPress={() => setSelectedChapter(ch.chapterIndex)}
-              testID={`chapter-btn-${ch.chapterIndex}`}
-            >
-              <Text style={[styles.chapterBtnRoman, { color: selectedChapter === ch.chapterIndex ? theme.accent : theme.textMuted }]}>
-                {CHAPTER_ROMAN[ch.chapterIndex]}
-              </Text>
-              {ch.bestScore > 0 && (
-                <Text style={[styles.chapterBtnBest, { color: theme.textMuted }]}>
-                  ★{ch.wins}
-                </Text>
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      {/* TODO: классический режим — временно отключён (заменён режимом ХАОС)
-      <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>— Выбери героя —</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.heroScroll}
-        contentContainerStyle={styles.heroScrollContent}
-      >
-        {HEROES.map(hero => (
-          <HeroCard
-            key={hero.id}
-            hero={hero}
-            selected={hero.id === selectedHeroId}
-            accent={theme.accent}
-            surface={theme.surface}
-            surfaceRaised={theme.surfaceRaised}
-            onPress={() => setSelectedHeroId(hero.id)}
-          />
+      <View style={styles.pieceRow}>
+        {PIECE_ICONS.map(icon => (
+          <Text key={icon} style={styles.pieceIcon}>{icon}</Text>
         ))}
-      </ScrollView>
+      </View>
 
-      {selectedHero && (
-        <View
-          style={[
-            styles.heroDetail,
-            {
-              backgroundColor: theme.surface,
-              borderColor: theme.accent + '55',
-            },
-          ]}
-          testID="hero-detail"
-        >
-          <Text style={[styles.heroName, { color: theme.textPrimary }]}>
-            {selectedHero.name}
-          </Text>
-          <Text style={[styles.heroDesc, { color: theme.textSecondary }]}>
-            {selectedHero.description}
-          </Text>
-          <Text style={[styles.heroAura, { color: theme.accent }]}>
-            ✦ {selectedHero.auraDescription}
-          </Text>
-        </View>
-      )}
-      */}
+      <View style={styles.buttons}>
+        <MenuButton
+          icon="⚔️"
+          label="НАЧАТЬ ЗАБЕГ"
+          onPress={handleStartChaos}
+          large
+          testID="start-chaos-btn"
+        />
+        <MenuButton icon="↩" label="ПРОДОЛЖИТЬ" large disabled />
+        <View style={styles.btnDivider} />
+        <MenuButton icon="🏆" label="РЕЙТИНГ" disabled />
+        <MenuButton icon="⚙️" label="НАСТРОЙКИ" disabled />
+      </View>
 
-      {/* Start button */}
-      <TouchableOpacity
-        style={[
-          styles.startBtn,
-          {
-            backgroundColor: theme.buttonBg,
-            shadowColor: theme.accent,
-          },
-        ]}
-        onPress={handleStartChaos}
-        testID="start-chaos-btn"
-        activeOpacity={0.85}
-      >
-        <Text style={[styles.startBtnText, { color: theme.buttonText }]}>
-          🌀  ХАОС
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.bottomSection}>
+        <Text style={styles.bottomRune}>✦ ᚢ ᚦ ✦</Text>
+        <Text style={styles.versionText}>v 1.0.0 · Chess Quest</Text>
+      </View>
     </SafeAreaView>
   );
 }
 
-// TODO: классический режим — временно отключён (заменён режимом ХАОС)
-// interface HeroCardProps {
-//   hero: Hero;
-//   selected: boolean;
-//   accent: string;
-//   surface: string;
-//   surfaceRaised: string;
-//   onPress: () => void;
-// }
-//
-// function HeroCard({ hero, selected, accent, surface, surfaceRaised, onPress }: HeroCardProps) {
-//   return (
-//     <TouchableOpacity
-//       style={[
-//         styles.heroCard,
-//         {
-//           backgroundColor: selected ? surfaceRaised : surface,
-//           borderColor: selected ? accent : surface,
-//           shadowColor: selected ? accent : 'transparent',
-//         },
-//       ]}
-//       onPress={onPress}
-//       disabled={!hero.unlocked}
-//       testID={`hero-${hero.id}`}
-//       activeOpacity={0.8}
-//     >
-//       <Text style={[styles.heroCardName, { color: selected ? accent : '#c8d8c8' }]}>
-//         {hero.name}
-//       </Text>
-//       {!hero.unlocked && <Text style={styles.heroCardLock}>🔒</Text>}
-//       {selected && <View style={[styles.heroCardDot, { backgroundColor: accent }]} />}
-//     </TouchableOpacity>
-//   );
-// }
+interface MenuButtonProps {
+  icon: string;
+  label: string;
+  onPress?: () => void;
+  large?: boolean;
+  disabled?: boolean;
+  testID?: string;
+}
+
+function MenuButton({ icon, label, onPress, large, disabled, testID }: MenuButtonProps) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  function handlePressIn() {
+    Animated.spring(scale, { toValue: 0.97, useNativeDriver: true }).start();
+  }
+
+  function handlePressOut() {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      disabled={disabled}
+      testID={testID}
+    >
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <LinearGradient
+          colors={['#1e0a3c', '#2d1060', '#1a0830']}
+          locations={[0, 0.5, 1]}
+          style={[
+            large ? styles.btnLarge : styles.btnSmall,
+            disabled && styles.btnDisabled,
+          ]}
+        >
+          <Text style={styles.btnIcon}>{icon}</Text>
+          <Text style={[styles.btnText, !large && styles.btnTextSmall]}>{label}</Text>
+        </LinearGradient>
+      </Animated.View>
+    </Pressable>
+  );
+}
 
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    paddingHorizontal: 20,
-  },
-  bgLayer1: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0,
-    height: 200,
-    borderBottomLeftRadius: 80,
-    borderBottomRightRadius: 80,
-  },
-  bgLayer2: {
-    position: 'absolute',
-    bottom: 0, left: 0, right: 0,
-    height: 160,
-    borderTopLeftRadius: 80,
-    borderTopRightRadius: 80,
-  },
-  titleBlock: {
+    backgroundColor: '#0b0418',
     alignItems: 'center',
-    marginTop: 36,
-    marginBottom: 24,
+  },
+  topSection: {
+    alignItems: 'center',
+    paddingTop: 56,
+    gap: 6,
+  },
+  titleSub: {
+    fontSize: 11,
+    letterSpacing: 8,
+    color: '#a855f7',
+    opacity: 0.75,
+    fontWeight: '400',
+    textTransform: 'uppercase',
+  },
+  titleMain: {
+    fontSize: 46,
+    fontWeight: '900',
+    letterSpacing: 4,
+    color: '#eab308',
+    textShadowColor: 'rgba(234,179,8,0.7)',
+    textShadowOffset: { width: 0, height: 0 },
   },
   titleDeco: {
-    fontSize: 12,
-    letterSpacing: 8,
-  },
-  title: {
-    fontSize: 42,
-    fontWeight: '900',
-    letterSpacing: 2,
-    marginVertical: 6,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 18,
-  },
-  subtitle: {
-    fontSize: 14,
-    letterSpacing: 3,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  sectionLabel: {
-    textAlign: 'center',
-    fontSize: 12,
-    letterSpacing: 2,
-    marginBottom: 12,
-    fontWeight: '600',
-  },
-  chapterRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 10,
-    marginBottom: 16,
-  },
-  chapterBtn: {
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderWidth: 2,
     alignItems: 'center',
-    minWidth: 56,
-  },
-  chapterBtnRoman: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  chapterBtnBest: {
-    fontSize: 10,
+    gap: 8,
     marginTop: 2,
   },
-  heroScroll: {
-    flexGrow: 0,
-    marginBottom: 16,
+  decoLine: {
+    height: 1,
+    width: 55,
+    backgroundColor: '#eab308',
+    opacity: 0.4,
   },
-  heroScrollContent: {
-    paddingHorizontal: 4,
-    gap: 10,
+  decoRune: {
+    fontSize: 11,
+    color: '#a855f7',
+    opacity: 0.65,
+    letterSpacing: 4,
+    fontFamily: 'serif',
   },
-  heroCard: {
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 2,
-    minWidth: 110,
-    alignItems: 'center',
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 8,
-    shadowOpacity: 0.6,
-    elevation: 4,
-  },
-  heroCardName: {
-    fontWeight: '700',
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  heroCardLock: {
-    marginTop: 6,
-    fontSize: 16,
-  },
-  heroCardDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginTop: 6,
-  },
-  heroDetail: {
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    flex: 1,
+  pieceRow: {
+    flexDirection: 'row',
     justifyContent: 'center',
+    gap: 14,
+    marginTop: 18,
+    opacity: 0.55,
   },
-  heroName: {
-    fontSize: 19,
-    fontWeight: '800',
-    marginBottom: 6,
+  pieceIcon: {
+    fontSize: 22,
+    color: '#eab308',
   },
-  heroDesc: {
-    fontSize: 13,
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  heroAura: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  startBtn: {
-    padding: 18,
-    borderRadius: 16,
+  buttons: {
     alignItems: 'center',
-    marginBottom: 20,
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 14,
-    shadowOpacity: 0.7,
-    elevation: 8,
+    gap: 14,
+    marginTop: 32,
+    width: '100%',
   },
-  startBtnText: {
-    fontSize: 19,
-    fontWeight: '900',
+  btnLarge: {
+    width: 220,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
+    borderColor: '#a855f7',
+    backgroundColor: '#2d1060',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    shadowColor: '#a855f7',
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
+  },
+  btnSmall: {
+    width: 180,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: '#a855f7',
+    backgroundColor: '#2d1060',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    shadowColor: '#a855f7',
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
+  },
+  btnDisabled: {
+    opacity: 0.4,
+  },
+  btnIcon: {
+    fontSize: 17,
+    lineHeight: 17,
+  },
+  btnText: {
+    fontFamily: 'serif',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#eab308',
+    letterSpacing: 1.5,
+  },
+  btnTextSmall: {
+    fontSize: 11,
+  },
+  btnDivider: {
+    width: 160,
+    height: 1,
+    backgroundColor: 'rgba(168,85,247,0.3)',
+    marginVertical: 2,
+    alignSelf: 'center',
+  },
+  bottomSection: {
+    marginTop: 'auto',
+    paddingBottom: 28,
+    alignItems: 'center',
+    gap: 6,
+  },
+  bottomRune: {
+    fontSize: 10,
+    color: '#a855f7',
+    opacity: 0.3,
+    letterSpacing: 5,
+    fontFamily: 'serif',
+  },
+  versionText: {
+    fontSize: 9,
+    color: '#4a3060',
     letterSpacing: 1,
+    fontFamily: 'System',
   },
 });
