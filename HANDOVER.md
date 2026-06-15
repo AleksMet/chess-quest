@@ -114,6 +114,47 @@ Roguelite-башня: магазин → бои → элита/событие �
 5. Анимация спавна коней боссом (визуальный эффект появления новых
    коней при механике спавна босса Уровня 1)
 
+## ⚠️ ВАЖНО: Проблема Stockfish на Android
+
+### Текущая проблема
+Stockfish работает через WebView (WASM). На Android устройствах,
+особенно Huawei/Honor, возникают конфликты с WebView провайдером.
+Подтверждено на: Honor COL-L29, Android 10.0.0.177C10.
+
+### Симптомы
+- Приложение крашится сразу при запуске
+- Появляется экран "WebView DevTools" с предупреждением о провайдере
+- Проблема только в release билде, не в dev режиме
+
+### Запланированное решение (НЕ НАЧИНАТЬ без команды!)
+Решение Б — Гибридный подход:
+- Android: react-native-stockfish-android (нативный C++ модуль)
+- iOS/Web: текущий WebView Stockfish (без изменений)
+
+Этапы выполнения:
+1. npx expo prebuild --clean
+2. npm install react-native-stockfish-android
+3. Создать src/engine/stockfishBridge.ts с единым интерфейсом
+4. Заменить WebView вызовы на StockfishBridge
+5. Пересобрать: eas build --platform android --profile preview
+6. Протестировать на проблемном устройстве
+
+Последствия для workflow:
+- Expo Go на iOS перестанет работать
+- Вместо него: npx expo run:ios (требует Xcode)
+- Веб: npx expo start --web (без изменений)
+- EAS Build: работает как прежде
+
+Ветка для реализации: fix/stockfish-native-android
+Создать ветку только после получения команды от владельца проекта.
+
+### Временное решение для тестировщиков
+Попросить тестировщика:
+1. Удалить Dev и Canary версии WebView
+2. Оставить только стабильный Google WebView
+3. В Настройки → Для разработчиков → WebView implementation → Google WebView
+4. Перезагрузить телефон
+
 ## Known issues
 
 - Анимация слайда фигур отключена (см. "Что делать дальше" п.4) —
