@@ -28,13 +28,13 @@ export interface EffectGroup {
 
 const ATTACK_BORDER = '#ef4444';
 const ATTACK_BG: [string, string] = ['#2d0808', '#1a0404'];
-const ATTACK_SHADOW = 'rgba(239,68,68,0.45)';
+const ATTACK_SHADOW = 'rgba(239,68,68,0.5)';
 const DEFENSE_BORDER = '#3b82f6';
 const DEFENSE_BG: [string, string] = ['#080d2d', '#04081a'];
-const DEFENSE_SHADOW = 'rgba(59,130,246,0.45)';
+const DEFENSE_SHADOW = 'rgba(59,130,246,0.5)';
 const DEBUFF_BORDER = '#9333EA';
 const DEBUFF_BG: [string, string] = ['#1a0d2d', '#0d0619'];
-const DEBUFF_SHADOW = 'rgba(147,51,234,0.45)';
+const DEBUFF_SHADOW = 'rgba(147,51,234,0.5)';
 
 const CATEGORY_STYLE: Record<EffectCategory, { border: string; bg: [string, string]; shadow: string }> = {
   attack:  { border: ATTACK_BORDER, bg: ATTACK_BG, shadow: ATTACK_SHADOW },
@@ -61,6 +61,7 @@ export function UpgradeChipsRow({ label, groups, onPressGroup, extra, testID }: 
   return (
     <View style={styles.row} testID={testID}>
       <Text style={styles.rowLabel}>{label}</Text>
+      <View style={styles.effSep} />
       <View style={styles.chips}>
         {groups.map(group => {
           const style = CATEGORY_STYLE[group.category];
@@ -143,13 +144,14 @@ export function UpgradeDetailModal({ group, isAI, onClose }: UpgradeDetailModalP
 }
 
 const styles = StyleSheet.create({
-  row:        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 6, gap: 8, minHeight: 48 },
-  rowLabel:   { color: '#64748b', fontSize: 10, fontWeight: '700' },
-  chips:      { flexDirection: 'row', gap: 8, flexWrap: 'wrap', flex: 1 },
+  row:        { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  rowLabel:   { color: '#a3a3a3', fontSize: 8, fontFamily: 'monospace', letterSpacing: 0.4, flexShrink: 0 },
+  effSep:     { width: 1, height: 18, backgroundColor: 'rgba(168,85,247,0.2)', marginHorizontal: 2 },
+  chips:      { flexDirection: 'row', gap: 5, flexWrap: 'wrap', flex: 1 },
   chip: {
-    width: 38, height: 38, borderRadius: 10, borderWidth: 1,
+    width: 34, height: 34, borderRadius: 8, borderWidth: 1.5,
     alignItems: 'center', justifyContent: 'center',
-    shadowOpacity: 1, shadowRadius: 6, shadowOffset: { width: 0, height: 0 }, elevation: 4,
+    shadowOpacity: 1, shadowRadius: 8, shadowOffset: { width: 0, height: 0 }, elevation: 4,
   },
   counter: {
     position: 'absolute', top: -4, right: -4,

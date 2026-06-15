@@ -1,0 +1,424 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#2a2a2a;display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:12px;font-family:'Cinzel',serif}
+.phone{width:320px;height:680px;border-radius:32px;overflow:hidden;position:relative;border:1.5px solid #2a1f3a;display:flex;flex-direction:column;background:#1a1423}
+.bg{position:absolute;inset:0;background:linear-gradient(180deg,#0d0b14 0%,#1a1423 40%,#0f2c1f 100%);z-index:0}
+.screen{display:flex;flex-direction:column;height:100%;position:relative;z-index:1}
+
+/* HUD */
+.hud{padding:7px 12px;display:flex;flex-direction:column;gap:5px;position:relative;z-index:10}
+.hud-top{background:linear-gradient(180deg,rgba(8,6,16,.98),rgba(14,11,22,.92));border-bottom:1px solid rgba(168,85,247,.2)}
+.hud-bot{background:linear-gradient(0deg,rgba(8,6,16,.98),rgba(14,11,22,.92));border-top:1px solid rgba(234,179,8,.2)}
+.hud-row1{display:flex;align-items:center;gap:7px}
+.back-btn{width:26px;height:26px;border-radius:7px;background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.3);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:#a855f7;flex-shrink:0;transition:background .15s;line-height:1}
+.back-btn:hover{background:rgba(168,85,247,.25)}
+.level-name{font-size:10px;color:#e5e5e5;font-weight:700;letter-spacing:.8px;flex:1}
+.elo-badge{font-size:9px;color:#a855f7;background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.3);border-radius:4px;padding:1px 7px;flex-shrink:0}
+.hero-name{font-size:10px;color:#eab308;font-weight:700;letter-spacing:.8px;flex:1}
+.gold-display{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.gold-coin{width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 36% 32%,#fde68a,#eab308 50%,#92620a);box-shadow:0 0 10px rgba(234,179,8,.55),inset 0 1px 2px rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#5a3000;font-family:Georgia,serif;flex-shrink:0}
+.gold-val{font-size:13px;color:#eab308;font-weight:700;font-family:monospace}
+.effects-row{display:flex;align-items:center;gap:5px}
+.eff-label{font-size:8px;color:#a3a3a3;font-family:system-ui,sans-serif;letter-spacing:.4px;flex-shrink:0}
+.eff-sep{width:1px;height:18px;background:rgba(168,85,247,.2);margin:0 2px;flex-shrink:0}
+.eff-chip{position:relative;width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:transform .12s}
+.eff-chip:active{transform:scale(.87)}
+.eff-chip.red{background:linear-gradient(135deg,#2d0808,#1a0404);border:1.5px solid #ef4444;box-shadow:0 0 8px rgba(239,68,68,.5)}
+.eff-chip.blue{background:linear-gradient(135deg,#080d2d,#04081a);border:1.5px solid #3b82f6;box-shadow:0 0 8px rgba(59,130,246,.5)}
+.eff-dot{position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;border:1px solid rgba(0,0,0,.5)}
+.eff-dot.red{background:#ef4444}.eff-dot.blue{background:#3b82f6}
+
+/* Board */
+.board-center{flex:1;display:flex;align-items:center;justify-content:center;position:relative;z-index:5}
+.board-wrap{position:relative;width:320px}
+.frame-strip{width:320px;height:9px;position:relative;z-index:7;background:linear-gradient(90deg,#3d1c00,#6b3a1f 30%,#7a4520 50%,#6b3a1f 70%,#3d1c00)}
+.frame-strip::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(234,179,8,.2) 35%,rgba(234,179,8,.4) 50%,rgba(234,179,8,.2) 65%,transparent)}
+.board-svg-wrap{position:relative;width:320px;height:320px}
+canvas#board{display:block;width:320px;height:320px}
+.popup-area{position:absolute;right:6px;top:50%;transform:translateY(-50%);z-index:20;display:flex;flex-direction:column;gap:3px;align-items:flex-end;pointer-events:none}
+.gpopup{background:rgba(15,10,25,.93);border:1px solid rgba(234,179,8,.5);border-radius:7px;padding:3px 7px;display:flex;align-items:center;gap:4px;font-size:9px;color:#e5e5e5;white-space:nowrap;opacity:0;transform:translateY(10px);transition:all .3s ease;font-family:system-ui,sans-serif;pointer-events:none}
+.gpopup.show{opacity:1;transform:translateY(0)}
+.gpopup.total{border-color:#eab308;font-size:11px;font-weight:700;color:#eab308;box-shadow:0 0 12px rgba(234,179,8,.3)}
+.demo-btn{position:absolute;bottom:5px;right:8px;z-index:30;background:rgba(234,179,8,.12);border:1px solid rgba(234,179,8,.35);color:#eab308;font-size:8px;border-radius:5px;padding:2px 6px;cursor:pointer;font-family:system-ui,sans-serif}
+
+/* Modal */
+.upg-modal{position:absolute;inset:0;z-index:100;display:flex;align-items:flex-end;justify-content:center;pointer-events:none;opacity:0;transition:opacity .18s}
+.upg-modal.show{opacity:1;pointer-events:all}
+.upg-modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.6)}
+.modal-card{position:relative;z-index:1;width:250px;border-radius:18px;padding:18px;margin-bottom:32px;display:flex;flex-direction:column;align-items:center;gap:9px;background:linear-gradient(160deg,#0f0a1e,#1a1423)}
+.modal-card.red{border:1.5px solid rgba(239,68,68,.5);box-shadow:0 0 28px rgba(239,68,68,.2)}
+.modal-card.blue{border:1.5px solid rgba(59,130,246,.5);box-shadow:0 0 28px rgba(59,130,246,.2)}
+.modal-piece{width:68px;height:68px;border-radius:14px;display:flex;align-items:center;justify-content:center}
+.modal-piece.red{background:linear-gradient(135deg,#2d0808,#1a0404);border:2px solid #ef4444;box-shadow:0 0 16px rgba(239,68,68,.4)}
+.modal-piece.blue{background:linear-gradient(135deg,#080d2d,#04081a);border:2px solid #3b82f6;box-shadow:0 0 16px rgba(59,130,246,.4)}
+.modal-title{font-size:11px;color:#e5e5e5;font-weight:700;letter-spacing:.8px;text-align:center}
+.modal-type{font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-family:system-ui,sans-serif;margin-top:-5px}
+.modal-type.red{color:#ef4444}.modal-type.blue{color:#3b82f6}
+.modal-desc{font-size:9px;color:#a3a3a3;text-align:center;line-height:1.6;font-family:system-ui,sans-serif;max-width:190px}
+.modal-stats{display:flex;gap:5px}
+.stat-pill{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:5px;padding:2px 7px;font-size:8px;color:#e5e5e5;font-family:monospace}
+.modal-x{position:absolute;top:9px;right:11px;font-size:15px;color:#a3a3a3;cursor:pointer;line-height:1}
+
+/* Menu screen */
+.menu-screen{display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;flex:1;position:relative;z-index:1}
+.menu-title{font-size:34px;font-weight:900;background:linear-gradient(180deg,#fde68a,#eab308 50%,#b45309);-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 14px rgba(234,179,8,.6));letter-spacing:3px}
+.menu-sub{font-size:9px;color:#a3a3a3;font-family:system-ui,sans-serif}
+.menu-btn{padding:11px 28px;border-radius:12px;background:linear-gradient(135deg,#c8960c,#eab308,#fde68a);border:none;cursor:pointer;font-family:'Cinzel',serif;font-size:12px;font-weight:700;color:#1a0e00;box-shadow:0 0 18px rgba(234,179,8,.4)}
+</style>
+</head><body>
+<div class="phone" id="phone">
+  <div class="bg"></div>
+
+  <!-- BATTLE -->
+  <div class="screen" id="battleScreen">
+    <div class="hud hud-top">
+      <div class="hud-row1">
+        <div class="back-btn" onclick="goMenu()">&#8592;</div>
+        <div class="level-name">&#127794; Тёмный Лес · Узел 3</div>
+        <div class="elo-badge">ELO 1420</div>
+      </div>
+      <div class="effects-row">
+        <div class="eff-label">Эффекты:</div>
+        <div class="eff-sep"></div>
+        <div class="eff-chip red" onclick="showModal('Q','red','Ферзь','Ядовитый удар','При взятии фигуры наносит 5 урона герою в конце хода','Урон: 5','Тип: атака')"><canvas width="34" height="34" id="eQ"></canvas><div class="eff-dot red"></div></div>
+        <div class="eff-chip red" onclick="showModal('N','red','Конь','Двойной прыжок','Конь может ходить дважды за один ход раз в 3 хода','Кулдаун: 3х','Тип: атака')"><canvas width="34" height="34" id="eN"></canvas><div class="eff-dot red"></div></div>
+        <div class="eff-chip blue" onclick="showModal('R','blue','Ладья','Броня','Ладья поглощает первый удар в партии без потери','Поглощение: 1','Тип: защита')"><canvas width="34" height="34" id="eR"></canvas><div class="eff-dot blue"></div></div>
+        <div class="eff-chip blue" onclick="showModal('P','blue','Пешка','Быстрый марш','Пешка ходит на 3 клетки вперёд с первого хода','Дальность: 3','Тип: защита')"><canvas width="34" height="34" id="eP"></canvas><div class="eff-dot blue"></div></div>
+      </div>
+    </div>
+
+    <div class="board-center">
+      <div class="board-wrap">
+        <div class="frame-strip"></div>
+        <div class="board-svg-wrap">
+          <canvas id="board" width="320" height="320"></canvas>
+          <div class="popup-area" id="popups"></div>
+        </div>
+        <div class="frame-strip"></div>
+        <button class="demo-btn" onclick="triggerGold()">&#9654; Gold</button>
+      </div>
+    </div>
+
+    <div class="hud hud-bot">
+      <div class="hud-row1">
+        <div class="hero-name">&#9876;&#65039; Купец</div>
+        <div class="gold-display">
+          <div class="gold-coin">&#8354;</div>
+          <div class="gold-val" id="goldVal">340</div>
+        </div>
+      </div>
+      <div class="effects-row">
+        <div class="eff-label">Эффекты:</div>
+        <div class="eff-sep"></div>
+        <div class="eff-chip blue" onclick="showModal('K','blue','Король','Священный щит','Если король в опасности — +2 к защите всех фигур до конца хода','Защита: +2','Тип: защита')"><canvas width="34" height="34" id="pK"></canvas><div class="eff-dot blue"></div></div>
+        <div class="eff-chip red" onclick="showModal('B','red','Слон','Огненная диагональ','При ходе слона враг на диагонали получает -1 HP','Урон: 1','Тип: атака')"><canvas width="34" height="34" id="pB"></canvas><div class="eff-dot red"></div></div>
+        <div class="eff-chip red" onclick="showModal('Q2','red','Ферзь','Звёздный взрыв','Взятие ферзём даёт +15 монет и оглушает соседей на 1 ход','Бонус: +15','Тип: атака')"><canvas width="34" height="34" id="pQ"></canvas><div class="eff-dot red"></div></div>
+        <div class="eff-chip blue" onclick="showModal('P2','blue','Пешка','Золотая пешка','При превращении пешки получаешь +30 монет дополнительно','Бонус: +30','Тип: защита')"><canvas width="34" height="34" id="pP"></canvas><div class="eff-dot blue"></div></div>
+      </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="upg-modal" id="modal" onclick="closeModal()">
+      <div class="upg-modal-bg"></div>
+      <div class="modal-card" id="modalCard" onclick="event.stopPropagation()">
+        <div class="modal-x" onclick="closeModal()">&#10005;</div>
+        <div class="modal-piece" id="modalPiece"><canvas id="modalCanvas" width="56" height="56"></canvas></div>
+        <div class="modal-title" id="mTitle"></div>
+        <div class="modal-type" id="mType"></div>
+        <div class="modal-desc" id="mDesc"></div>
+        <div class="modal-stats"><div class="stat-pill" id="mS1"></div><div class="stat-pill" id="mS2"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MENU -->
+  <div class="menu-screen" id="menuScreen">
+    <div class="menu-title">CHESS QUEST</div>
+    <div class="menu-sub">&#8592; Главное меню</div>
+    <button class="menu-btn" onclick="goBattle()">&#8617; Вернуться в партию</button>
+  </div>
+</div>
+
+<script>
+// ── Canvas piece renderer ─────────────────────────────────────────────────
+function drawPieceCanvas(canvas, type, color, size){
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+  const s = size || Math.min(w,h);
+  const cx = w/2, cy = h/2;
+
+  const isW = color === 'w';
+  // Cream white vs dark charcoal
+  const fillMain  = isW ? '#f5e6c8' : '#2e2e2e';
+  const fillMid   = isW ? '#fff8ee' : '#404040';
+  const fillHi    = isW ? '#ffffff' : '#555555';
+  const stroke    = isW ? '#7a5010' : '#111111';
+  const accent    = isW ? '#c89820' : '#888888';
+  const shadow    = 'rgba(0,0,0,0.25)';
+  const scale     = s / 40;
+
+  ctx.save();
+  ctx.translate(cx - 20*scale, cy - 20*scale);
+  ctx.scale(scale, scale);
+
+  function shadow_ellipse(ex,ey,rx,ry){
+    ctx.beginPath(); ctx.ellipse(ex,ey,rx,ry,0,0,Math.PI*2);
+    ctx.fillStyle=shadow; ctx.fill();
+  }
+  function base_rect(x,y,w2,h2,r,col,op=1){
+    ctx.globalAlpha=op;
+    ctx.beginPath();
+    ctx.roundRect(x,y,w2,h2,r);
+    ctx.fillStyle=col; ctx.fill();
+    ctx.globalAlpha=1;
+  }
+
+  if(type==='P'){
+    shadow_ellipse(20,35,9,2.5);
+    base_rect(14,30,12,5,2,stroke,.85); base_rect(15,31,10,3,1.5,fillMain);
+    base_rect(15.5,22,9,8,1.5,stroke,.75); base_rect(16.5,23,7,6,1,fillMid);
+    ctx.beginPath();ctx.arc(20,17,6.8,0,Math.PI*2);ctx.fillStyle=stroke;ctx.globalAlpha=.85;ctx.fill();ctx.globalAlpha=1;
+    ctx.beginPath();ctx.arc(20,17,5.5,0,Math.PI*2);ctx.fillStyle=fillMid;ctx.fill();
+    ctx.beginPath();ctx.arc(20,17,3,0,Math.PI*2);ctx.fillStyle=fillHi;ctx.globalAlpha=.5;ctx.fill();ctx.globalAlpha=1;
+  }
+  else if(type==='R'){
+    shadow_ellipse(20,35,10,2.5);
+    base_rect(11,30,18,5,2,stroke,.85); base_rect(12,31,16,3,1.5,fillMain);
+    base_rect(13,18,14,12,1,stroke,.75); base_rect(14,19,12,10,1,fillMid);
+    base_rect(11,14,18,5,1,stroke,.85); base_rect(12,15,16,3,1,fillMain);
+    [[11,8],[18,8],[25,8]].forEach(([x])=>{base_rect(x,8,4,7,1,stroke,.85);base_rect(x+1,9,2.5,5,1,fillMid);});
+    // window slit
+    ctx.beginPath();ctx.rect(14,22,12,1.5);ctx.fillStyle=accent;ctx.globalAlpha=.3;ctx.fill();ctx.globalAlpha=1;
+  }
+  else if(type==='N'){
+    shadow_ellipse(20,35,10,2.5);
+    base_rect(12,30,16,5,2,stroke,.85); base_rect(13,31,14,3,1.5,fillMain);
+    ctx.beginPath();
+    ctx.moveTo(14,30); ctx.quadraticCurveTo(12,22,16,13); ctx.quadraticCurveTo(18,8,22,7);
+    ctx.quadraticCurveTo(28,6,29,11); ctx.quadraticCurveTo(30,17,26,21);
+    ctx.quadraticCurveTo(28,25,26,30); ctx.closePath();
+    ctx.fillStyle=stroke;ctx.globalAlpha=.88;ctx.fill();ctx.globalAlpha=1;
+    ctx.beginPath();
+    ctx.moveTo(15,30); ctx.quadraticCurveTo(13,22,17,14); ctx.quadraticCurveTo(19,9,22.5,8);
+    ctx.quadraticCurveTo(27.5,7,28.5,11.5); ctx.quadraticCurveTo(29.5,17,25.5,21);
+    ctx.quadraticCurveTo(27,25,25.5,30); ctx.closePath();
+    ctx.fillStyle=fillMid;ctx.fill();
+    ctx.fillStyle=fillHi;ctx.globalAlpha=.25;ctx.fill();ctx.globalAlpha=1;
+    // eye
+    ctx.beginPath();ctx.arc(25,11,2,0,Math.PI*2);ctx.fillStyle=stroke;ctx.fill();
+    ctx.beginPath();ctx.arc(25,11,1,0,Math.PI*2);ctx.fillStyle=accent;ctx.fill();
+  }
+  else if(type==='B'){
+    shadow_ellipse(20,35,10,2.5);
+    base_rect(12,30,16,5,2,stroke,.85); base_rect(13,31,14,3,1.5,fillMain);
+    base_rect(14,26,12,5,2,stroke,.75); base_rect(15,27,10,4,1.5,fillMid);
+    ctx.save();
+    ctx.beginPath();ctx.ellipse(20,21,7,9,0,0,Math.PI*2);ctx.fillStyle=stroke;ctx.globalAlpha=.85;ctx.fill();ctx.restore();
+    ctx.beginPath();ctx.ellipse(20,21,5.8,7.5,0,0,Math.PI*2);ctx.fillStyle=fillMid;ctx.fill();
+    ctx.beginPath();ctx.ellipse(20,21,3.5,5,0,0,Math.PI*2);ctx.fillStyle=fillHi;ctx.globalAlpha=.3;ctx.fill();ctx.globalAlpha=1;
+    ctx.beginPath();ctx.arc(20,12,3.8,0,Math.PI*2);ctx.fillStyle=stroke;ctx.globalAlpha=.85;ctx.fill();ctx.globalAlpha=1;
+    ctx.beginPath();ctx.arc(20,12,3,0,Math.PI*2);ctx.fillStyle=fillMid;ctx.fill();
+    ctx.beginPath();ctx.arc(20,9.5,1.3,0,Math.PI*2);ctx.fillStyle=accent;ctx.fill();
+    ctx.strokeStyle=stroke;ctx.globalAlpha=.35;ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(15,21);ctx.lineTo(25,21);ctx.stroke();ctx.globalAlpha=1;
+  }
+  else if(type==='Q'){
+    shadow_ellipse(20,35,11,2.5);
+    base_rect(11,30,18,5,2.5,stroke,.85); base_rect(12,31,16,3.5,2,fillMain);
+    ctx.beginPath();
+    ctx.moveTo(13,30); ctx.quadraticCurveTo(12,22,14,18);
+    ctx.lineTo(20,24); ctx.lineTo(26,18);
+    ctx.quadraticCurveTo(28,22,27,30); ctx.closePath();
+    ctx.fillStyle=stroke;ctx.globalAlpha=.85;ctx.fill();ctx.globalAlpha=1;
+    ctx.beginPath();
+    ctx.moveTo(13,30); ctx.quadraticCurveTo(12,22,14,18);
+    ctx.lineTo(20,24); ctx.lineTo(26,18);
+    ctx.quadraticCurveTo(28,22,27,30); ctx.closePath();
+    ctx.fillStyle=fillMid;ctx.fill();
+    ctx.fillStyle=fillHi;ctx.globalAlpha=.25;ctx.fill();ctx.globalAlpha=1;
+    [[14,17],[20,15],[26,17]].forEach(([bx,by])=>{
+      ctx.beginPath();ctx.arc(bx,by,3,0,Math.PI*2);ctx.fillStyle=stroke;ctx.globalAlpha=.9;ctx.fill();ctx.globalAlpha=1;
+      ctx.beginPath();ctx.arc(bx,by,2.1,0,Math.PI*2);ctx.fillStyle=fillMid;ctx.fill();
+      ctx.beginPath();ctx.arc(bx,by,1.1,0,Math.PI*2);ctx.fillStyle=fillHi;ctx.globalAlpha=.65;ctx.fill();ctx.globalAlpha=1;
+    });
+  }
+  else if(type==='K'){
+    shadow_ellipse(20,35,11,2.5);
+    base_rect(11,30,18,5,2.5,stroke,.85); base_rect(12,31,16,3.5,2,fillMain);
+    ctx.beginPath();
+    ctx.moveTo(13,30); ctx.quadraticCurveTo(12,21,15,17);
+    ctx.quadraticCurveTo(17,15,20,15); ctx.quadraticCurveTo(23,15,25,17);
+    ctx.quadraticCurveTo(28,21,27,30); ctx.closePath();
+    ctx.fillStyle=stroke;ctx.globalAlpha=.85;ctx.fill();ctx.globalAlpha=1;
+    ctx.beginPath();
+    ctx.moveTo(13,30); ctx.quadraticCurveTo(12,21,15,17);
+    ctx.quadraticCurveTo(17,15,20,15); ctx.quadraticCurveTo(23,15,25,17);
+    ctx.quadraticCurveTo(28,21,27,30); ctx.closePath();
+    ctx.fillStyle=fillMid;ctx.fill();ctx.fillStyle=fillHi;ctx.globalAlpha=.2;ctx.fill();ctx.globalAlpha=1;
+    // cross
+    base_rect(18.5,7,3,10,1,accent,.95); base_rect(15.5,10.5,9,3,1,accent,.95);
+    base_rect(19,7.5,2,9,1,fillHi,.6); base_rect(16,11,7,2,1,fillHi,.6);
+  }
+
+  ctx.restore();
+}
+
+// Draw all mini chips
+const chipMap = {eQ:['Q','#ef4444'],eN:['N','#ef4444'],eR:['R','#3b82f6'],eP:['P','#3b82f6'],pK:['K','#3b82f6'],pB:['B','#ef4444'],pQ:['Q','#ef4444'],pP:['P','#3b82f6']};
+Object.entries(chipMap).forEach(([id,[t,col]])=>{
+  const c=document.getElementById(id);if(!c)return;
+  // Determine team color for piece: enemy = dark, player = light style but colored
+  const pieceColor = id.startsWith('e') ? 'b' : 'w';
+  drawPieceCanvas(c,t,pieceColor,30);
+  // Tint the canvas to match chip color
+  const ctx2=c.getContext('2d');
+  ctx2.globalCompositeOperation='source-atop';
+  ctx2.fillStyle=col;ctx2.globalAlpha=.45;
+  ctx2.fillRect(0,0,c.width,c.height);
+  ctx2.globalCompositeOperation='source-over';ctx2.globalAlpha=1;
+});
+
+// ── Main board ────────────────────────────────────────────────────────────
+const bc=document.getElementById('board');
+const bctx=bc.getContext('2d');
+bc.width=320;bc.height=320;
+const LIGHT='#f0efe5',DARK='#4a9e5c';
+const WOOD='#6b3a1f';
+const CS=36,OFF=16,BSIZ=320;
+const SEL='rgba(255,220,40,.55)',HINT='rgba(80,200,255,.55)',CAP='rgba(255,80,80,.45)';
+const COLS_ARR=['a','b','c','d','e','f','g','h'];
+
+const initPos={'8a':'bR','8b':'bN','8c':'bB','8d':'bQ','8e':'bK','8f':'bB','8g':'bN','8h':'bR','7a':'bP','7b':'bP','7c':'bP','7d':'bP','7e':'bP','7f':'bP','7g':'bP','7h':'bP','2a':'wP','2b':'wP','2c':'wP','2d':'wP','2e':'wP','2f':'wP','2g':'wP','2h':'wP','1a':'wR','1b':'wN','1c':'wB','1d':'wQ','1e':'wK','1f':'wB','1g':'wN','1h':'wR'};
+const gameBoard={...initPos};
+let selKey=null;
+const fakeHints=['3c','3e','4d'];
+
+// Pre-render all piece types into offscreen canvases
+const pieceCache={};
+['P','R','N','B','Q','K'].forEach(t=>{
+  ['w','b'].forEach(c=>{
+    const oc=document.createElement('canvas');oc.width=CS;oc.height=CS;
+    drawPieceCanvas(oc,t,c,CS);
+    pieceCache[c+t]=oc;
+  });
+});
+
+function cellXY(key){
+  const r=parseInt(key[0]),ci=COLS_ARR.indexOf(key[1]);
+  return{x:OFF+ci*CS,y:OFF+(8-r)*CS};
+}
+
+function drawBoard(){
+  // Wood border
+  bctx.fillStyle=WOOD;bctx.fillRect(0,0,320,320);
+  // Subtle wood grain
+  bctx.strokeStyle='rgba(255,200,120,.06)';bctx.lineWidth=1;
+  for(let i=0;i<320;i+=4){bctx.beginPath();bctx.moveTo(0,i);bctx.lineTo(320,i);bctx.stroke();}
+
+  // Cells
+  for(let r=8;r>=1;r--){
+    for(let ci=0;ci<8;ci++){
+      const key=`${r}${COLS_ARR[ci]}`;
+      const x=OFF+ci*CS,y=OFF+(8-r)*CS;
+      const lt=(r+ci)%2===0;
+      let fill=lt?LIGHT:DARK;
+      if(selKey===key) fill=SEL;
+      else if(selKey&&fakeHints.includes(key)) fill=gameBoard[key]?CAP:HINT;
+      bctx.fillStyle=fill;bctx.fillRect(x,y,CS,CS);
+    }
+  }
+
+  // Coord labels
+  bctx.fillStyle='#d4a96a';bctx.font='bold 8px monospace';bctx.textAlign='center';bctx.textBaseline='middle';
+  COLS_ARR.forEach((c,i)=>{
+    bctx.fillText(c.toUpperCase(),OFF+i*CS+CS/2,9);
+    bctx.fillText(c.toUpperCase(),OFF+i*CS+CS/2,311);
+  });
+  for(let r=1;r<=8;r++){
+    bctx.fillText(r,9,OFF+(8-r)*CS+CS/2);
+    bctx.fillText(r,311,OFF+(8-r)*CS+CS/2);
+  }
+
+  // Pieces
+  for(let r=8;r>=1;r--){
+    for(let ci=0;ci<8;ci++){
+      const key=`${r}${COLS_ARR[ci]}`;
+      const code=gameBoard[key];if(!code)continue;
+      const {x,y}=cellXY(key);
+      const img=pieceCache[code];
+      if(img)bctx.drawImage(img,x,y,CS,CS);
+    }
+  }
+}
+
+drawBoard();
+
+// Click handler
+bc.addEventListener('click',e=>{
+  const rect=bc.getBoundingClientRect();
+  const px=(e.clientX-rect.left)*(320/rect.width);
+  const py=(e.clientY-rect.top)*(320/rect.height);
+  if(px<OFF||px>OFF+8*CS||py<OFF||py>OFF+8*CS)return;
+  const ci=Math.floor((px-OFF)/CS),ri=7-Math.floor((py-OFF)/CS);
+  const key=`${ri+1}${COLS_ARR[ci]}`;
+  if(selKey===key){selKey=null;}
+  else if(gameBoard[key]&&gameBoard[key][0]==='w'){selKey=key;}
+  else{selKey=null;}
+  drawBoard();
+});
+
+// GoldPopup
+let running=false;
+function triggerGold(){
+  if(running)return;running=true;
+  const area=document.getElementById('popups');area.innerHTML='';
+  const data=[{i:'♞',l:'Вилка',v:'+12'},{i:'⚔️',l:'Взятие',v:'+8'},{i:'💎',l:'Артефакт',v:'+20'},{i:'✨',l:'ИТОГО',v:'+40',t:true}];
+  const els=[];
+  data.forEach(d=>{
+    const div=document.createElement('div');
+    div.className='gpopup'+(d.t?' total':'');
+    div.innerHTML=`<span>${d.i}</span><span>${d.l}</span><span style="color:#eab308;font-weight:700">${d.v} &#8354;</span>`;
+    area.appendChild(div);els.push(div);
+  });
+  els.forEach((el,i)=>setTimeout(()=>el.classList.add('show'),i*150));
+  setTimeout(()=>{
+    els.forEach(el=>{el.style.transition='opacity .35s';el.style.opacity='0';});
+    setTimeout(()=>{area.innerHTML='';const g=document.getElementById('goldVal');g.textContent=parseInt(g.textContent)+40;running=false;},450);
+  },2200);
+}
+
+// Modal
+function showModal(type,color,piece,upg,desc,s1,s2){
+  const realType=type.replace(/[0-9]/g,'');
+  const col=color==='red'?'#ef4444':'#3b82f6';
+  const mc=document.getElementById('modalCanvas');mc.width=56;mc.height=56;
+  drawPieceCanvas(mc,realType,color==='red'?'b':'w',50);
+  const ctx3=mc.getContext('2d');
+  ctx3.globalCompositeOperation='source-atop';
+  ctx3.fillStyle=col;ctx3.globalAlpha=.4;ctx3.fillRect(0,0,56,56);
+  ctx3.globalCompositeOperation='source-over';ctx3.globalAlpha=1;
+  document.getElementById('modalPiece').className='modal-piece '+color;
+  document.getElementById('modalCard').className='modal-card '+color;
+  document.getElementById('mTitle').textContent=piece+' · '+upg;
+  document.getElementById('mType').textContent=color==='red'?'⚔️ Атака':'🛡 Защита';
+  document.getElementById('mType').className='modal-type '+color;
+  document.getElementById('mDesc').textContent=desc;
+  document.getElementById('mS1').textContent=s1;document.getElementById('mS2').textContent=s2;
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal(){document.getElementById('modal').classList.remove('show');}
+
+// Screen switch
+function goMenu(){
+  document.getElementById('battleScreen').style.display='none';
+  document.getElementById('menuScreen').style.display='flex';
+}
+function goBattle(){
+  document.getElementById('menuScreen').style.display='none';
+  document.getElementById('battleScreen').style.display='flex';
+}
+</script>
+</body></html>

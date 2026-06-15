@@ -890,32 +890,35 @@ export default function ChaosBattleScreen() {
         : 'Поставь мат сопернику';
 
   return (
-    <LinearGradient colors={['#2a1f3d', '#1a1423']} start={{ x: 0.5, y: 0.3 }} end={{ x: 0.5, y: 1 }} style={styles.gradient}>
+    <LinearGradient colors={['#0d0b14', '#1a1423', '#0f2c1f']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={styles.gradient}>
     <SafeAreaView style={styles.safe}>
       <StockfishBridgeView ref={engineRef} onMessage={handleEngineMessage} onReady={handleEngineReady} />
 
-      <Pressable style={styles.backBtn} onPress={handleBack} testID="chaos-battle-back-btn">
-        <Text style={styles.backBtnText}>‹</Text>
-      </Pressable>
-
-      <View onLayout={e => setHeaderHeight(e.nativeEvent.layout.height)}>
-        <View style={styles.header}>
-          <View style={styles.titleBlock}>
-            <View style={styles.titleRow}>
-              <Text style={styles.title}>{battleTitle}</Text>
-              <Text style={styles.eloBadge}>ELO {opponentElo}</Text>
-            </View>
-            {currentLevel === 1 && isBossBattle && (
-              <Text style={styles.knightCounter}>{knightSpawnCounterText(bossKnightSpawnsLeft)}</Text>
-            )}
+      <LinearGradient
+        colors={['rgba(8,6,16,0.98)', 'rgba(14,11,22,0.92)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.hudTop}
+        onLayout={e => setHeaderHeight(e.nativeEvent.layout.height)}
+      >
+        <View style={styles.hudRow1}>
+          <TouchableOpacity onPress={handleBack} style={styles.backBtn} testID="chaos-battle-back-btn">
+            <Text style={styles.backBtnText}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.levelName} numberOfLines={1}>{battleTitle}</Text>
+          <View style={styles.eloBadge}>
+            <Text style={styles.eloText}>ELO {opponentElo}</Text>
           </View>
-          <Text style={styles.goldBadge}>💰 {goldDisplay}</Text>
           <Text style={[styles.thinking, { opacity: isAIThinking ? 1 : 0 }]}>⏳</Text>
         </View>
 
+        {currentLevel === 1 && isBossBattle && (
+          <Text style={styles.knightCounter}>{knightSpawnCounterText(bossKnightSpawnsLeft)}</Text>
+        )}
+
         {(aiEffectGroups.length > 0 || evolutionCounterText || teleportCounterText) && (
           <UpgradeChipsRow
-            label="AI"
+            label="Эффекты:"
             groups={aiEffectGroups}
             onPressGroup={group => setSelectedUpgrade({ group, isAI: true })}
             testID="chaos-ai-upgrade-row"
@@ -935,10 +938,26 @@ export default function ChaosBattleScreen() {
             )}
           />
         )}
-      </View>
+      </LinearGradient>
 
       <View style={styles.boardWrap}>
         <View style={styles.boardFrameOuter}>
+          <LinearGradient
+            colors={['#3d1c00', '#6b3a1f', '#7a4520', '#6b3a1f', '#3d1c00']}
+            locations={[0, 0.3, 0.5, 0.7, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.frameStrip}
+          >
+            <LinearGradient
+              colors={['transparent', 'rgba(234,179,8,0.2)', 'rgba(234,179,8,0.4)', 'rgba(234,179,8,0.2)', 'transparent']}
+              locations={[0, 0.35, 0.5, 0.65, 1]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.frameStripGlow}
+            />
+          </LinearGradient>
+
           <LinearGradient
             colors={['#a0714f', '#6b4226']}
             start={{ x: 0, y: 0 }}
@@ -984,6 +1003,22 @@ export default function ChaosBattleScreen() {
               ))}
             </View>
           </LinearGradient>
+
+          <LinearGradient
+            colors={['#3d1c00', '#6b3a1f', '#7a4520', '#6b3a1f', '#3d1c00']}
+            locations={[0, 0.3, 0.5, 0.7, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.frameStrip}
+          >
+            <LinearGradient
+              colors={['transparent', 'rgba(234,179,8,0.2)', 'rgba(234,179,8,0.4)', 'rgba(234,179,8,0.2)', 'transparent']}
+              locations={[0, 0.35, 0.5, 0.65, 1]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.frameStripGlow}
+            />
+          </LinearGradient>
         </View>
         <ChaosGoldToastStack items={goldToasts} onExpire={removeGoldToast} />
         {showKnightsOutBanner && (
@@ -993,9 +1028,25 @@ export default function ChaosBattleScreen() {
         )}
       </View>
 
-      <View onLayout={e => setBottomHeight(e.nativeEvent.layout.height)}>
+      <LinearGradient
+        colors={['rgba(14,11,22,0.92)', 'rgba(8,6,16,0.98)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.hudBot}
+        onLayout={e => setBottomHeight(e.nativeEvent.layout.height)}
+      >
+        <View style={styles.hudRow1}>
+          <Text style={styles.heroName} numberOfLines={1}>⚔️ {selectedCharacter?.name ?? 'Герой'}</Text>
+          <View style={styles.goldDisplay}>
+            <View style={styles.goldCoin}>
+              <Text style={styles.goldCoinText}>₵</Text>
+            </View>
+            <Text style={styles.goldVal}>{goldDisplay}</Text>
+          </View>
+        </View>
+
         <UpgradeChipsRow
-          label="Мои"
+          label="Эффекты:"
           groups={playerEffectGroups}
           onPressGroup={group => setSelectedUpgrade({ group, isAI: false })}
           testID="chaos-player-upgrade-row"
@@ -1009,7 +1060,7 @@ export default function ChaosBattleScreen() {
             </TouchableOpacity>
           )}
         </View>
-      </View>
+      </LinearGradient>
 
       <UpgradeDetailModal
         group={selectedUpgrade?.group ?? null}
@@ -1040,26 +1091,49 @@ export default function ChaosBattleScreen() {
 const styles = StyleSheet.create({
   gradient:        { flex: 1 },
   safe:            { flex: 1 },
-  header:          { flexDirection: 'row', alignItems: 'center', paddingLeft: 60, paddingRight: 16, paddingVertical: 10, gap: 10 },
-  backBtn: {
-    position: 'absolute', top: 12, left: 16, width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center', zIndex: 60,
+
+  hudTop: {
+    paddingHorizontal: 12, paddingVertical: 7, gap: 5,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(168,85,247,0.2)',
   },
-  backBtnText:     { fontSize: 20, color: '#e5e5e5' },
-  titleBlock:      { flex: 1 },
-  titleRow:        { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title:           { color: '#f1f5f9', fontSize: 18, fontWeight: '700' },
+  hudBot: {
+    paddingHorizontal: 12, paddingVertical: 7, gap: 5,
+    borderTopWidth: 1, borderTopColor: 'rgba(234,179,8,0.2)',
+  },
+  hudRow1:         { flexDirection: 'row', alignItems: 'center', gap: 7 },
+
+  backBtn: {
+    width: 26, height: 26, borderRadius: 7,
+    backgroundColor: 'rgba(168,85,247,0.1)',
+    borderWidth: 1, borderColor: 'rgba(168,85,247,0.3)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  backBtnText:     { fontSize: 16, color: '#a855f7' },
+
+  levelName:       { fontSize: 10, color: '#e5e5e5', fontWeight: '700', letterSpacing: 0.8, flex: 1 },
   eloBadge: {
-    fontSize: 11, color: '#a855f7', backgroundColor: 'rgba(168,85,247,0.12)',
+    backgroundColor: 'rgba(168,85,247,0.12)',
     borderWidth: 1, borderColor: 'rgba(168,85,247,0.3)', borderRadius: 4,
     paddingHorizontal: 7, paddingVertical: 1,
   },
-  knightCounter:   { color: '#FF4444', fontSize: 12, fontWeight: '700', marginTop: 2 },
-  goldBadge:       { color: '#f59e0b', fontSize: 15, fontWeight: '700' },
-  thinking:        { fontSize: 20 },
+  eloText:         { fontSize: 9, color: '#a855f7' },
+
+  heroName:        { fontSize: 10, color: '#eab308', fontWeight: '700', letterSpacing: 0.8, flex: 1 },
+  goldDisplay:     { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  goldCoin: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: '#eab308',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  goldCoinText:    { fontSize: 11, fontWeight: '900', color: '#5a3000' },
+  goldVal:         { fontSize: 13, color: '#eab308', fontWeight: '700', fontFamily: 'monospace' },
+
+  knightCounter:   { color: '#FF4444', fontSize: 12, fontWeight: '700' },
+  thinking:        { fontSize: 16 },
   boardWrap:       { flex: 1, justifyContent: 'center', alignItems: 'center' },
   boardFrameOuter: { alignSelf: 'center' },
+  frameStrip:      { height: 9, width: '100%' },
+  frameStripGlow:  { ...StyleSheet.absoluteFillObject },
   woodenFrame:     { borderRadius: 8, padding: FRAME_PADDING },
   coordRow:        { flexDirection: 'row' },
   coordColumnRow:  { flexDirection: 'row' },
