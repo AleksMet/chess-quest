@@ -1,16 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><defs>
-    <radialGradient id="hl" cx="35%" cy="25%" r="50%" gradientUnits="objectBoundingBox">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.25"/>
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="sh" cx="65%" cy="80%" r="50%" gradientUnits="objectBoundingBox">
-      <stop offset="0%" stop-color="#000000" stop-opacity="0.35"/>
-      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
-    </radialGradient></defs><g fill="#2c5f2e" fill-rule="evenodd" stroke="#1a3d1b" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path stroke-linecap="butt" d="M9 39h27v-3H9zm3.5-7 1.5-2.5h17l1.5 2.5zm-.5 4v-4h21v4z"/><path stroke-linecap="butt" stroke-linejoin="miter" d="M14 29.5v-13h17v13z"/><path stroke-linecap="butt" d="M14 16.5 11 14h23l-3 2.5zM11 14V9h4v2h5V9h5v2h5V9h4v5z"/><path fill="none" stroke="#ececec" stroke-linejoin="miter" stroke-width="1" d="M12 35.5h21m-20-4h19m-18-2h17m-17-13h17M11 14h23"/></g><ellipse cx="50%" cy="94%" rx="30%" ry="5%" fill="rgba(0,0,0,0.18)"/>
-<path d="M9 39h27v-3H9zm3.5-7 1.5-2.5h17l1.5 2.5zm-.5 4v-4h21v4z" fill="url(#hl)" stroke="none"/>
-<path d="M9 39h27v-3H9zm3.5-7 1.5-2.5h17l1.5 2.5zm-.5 4v-4h21v4z" fill="url(#sh)" stroke="none"/>
-<path d="M14 29.5v-13h17v13z" fill="url(#hl)" stroke="none"/>
-<path d="M14 29.5v-13h17v13z" fill="url(#sh)" stroke="none"/>
-<path d="M14 16.5 11 14h23l-3 2.5zM11 14V9h4v2h5V9h5v2h5V9h4v5z" fill="url(#hl)" stroke="none"/>
-<path d="M14 16.5 11 14h23l-3 2.5zM11 14V9h4v2h5V9h5v2h5V9h4v5z" fill="url(#sh)" stroke="none"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="#2c2c2c" fill-rule="evenodd" stroke="#1a1a1a" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path stroke-linecap="butt" d="M9 39h27v-3H9zm3.5-7 1.5-2.5h17l1.5 2.5zm-.5 4v-4h21v4z"/><path stroke-linecap="butt" stroke-linejoin="miter" d="M14 29.5v-13h17v13z"/><path stroke-linecap="butt" d="M14 16.5 11 14h23l-3 2.5zM11 14V9h4v2h5V9h5v2h5V9h4v5z"/><path fill="none" stroke="#ececec" stroke-linejoin="miter" stroke-width="1" d="M12 35.5h21m-20-4h19m-18-2h17m-17-13h17M11 14h23"/></g></svg>

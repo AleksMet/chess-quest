@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 8,
     // Цвет тёмной клетки — заполняет субпиксельные зазоры между клетками
-    backgroundColor: '#236b3d',
+    backgroundColor: '#2d8a4e',
   },
   row: {
     flexDirection: 'row',
