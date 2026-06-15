@@ -1,1 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><defs><linearGradient id="bGrad" x1="0.2" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#1a5c1e"/><stop offset="50%" stop-color="#4aae50"/><stop offset="100%" stop-color="#a0e8a4"/></linearGradient></defs><path fill="url(#bGrad)" stroke="#0a2a0c" stroke-linecap="round" stroke-width="1.5" d="M22.5 9a4 4 0 0 0-3.22 6.38 6.48 6.48 0 0 0-.87 10.65c-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47a6.46 6.46 0 0 0-.87-10.65A4.01 4.01 0 0 0 22.5 9z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><defs>
+    <radialGradient id="hl" cx="35%" cy="25%" r="50%" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="sh" cx="65%" cy="80%" r="50%" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient></defs><path stroke="#1a3d1b" stroke-linecap="round" stroke-width="1.5" d="M22.5 9a4 4 0 0 0-3.22 6.38 6.48 6.48 0 0 0-.87 10.65c-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47a6.46 6.46 0 0 0-.87-10.65A4.01 4.01 0 0 0 22.5 9z"/><ellipse cx="50%" cy="94%" rx="30%" ry="5%" fill="rgba(0,0,0,0.18)"/>
+<path d="M22.5 9a4 4 0 0 0-3.22 6.38 6.48 6.48 0 0 0-.87 10.65c-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47a6.46 6.46 0 0 0-.87-10.65A4.01 4.01 0 0 0 22.5 9z" fill="url(#hl)" stroke="none"/>
+<path d="M22.5 9a4 4 0 0 0-3.22 6.38 6.48 6.48 0 0 0-.87 10.65c-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47a6.46 6.46 0 0 0-.87-10.65A4.01 4.01 0 0 0 22.5 9z" fill="url(#sh)" stroke="none"/>
+</svg>

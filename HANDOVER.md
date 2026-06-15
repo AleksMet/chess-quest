@@ -73,20 +73,44 @@ Roguelite-башня: магазин → бои → элита/событие �
 
 ## Что сейчас в работе
 
-- **PNG-фигуры**: `ChessPiece.tsx` теперь рендерит PNG (Cburnett,
-  перекрашены, `src/assets/pieces/*.png`) через `Image` вместо `SvgXml`.
-  `fadeDuration={0}` + `React.memo` с кастомным компаратором
-  (`pieceKey`/`size`) — устраняет мигание при перерендере доски.
+- **Ветка `feat/svg-pieces-redesign`** (от `feat/level-3-tower`):
+  редизайн доски и фигур — белая/зелёная палитра вместо
+  сине-фиолетовой.
+  - **SVG-фигуры с объёмом**: `ChessPiece.tsx` снова рендерит SVG
+    (`SvgXml` из `react-native-svg`, PNG-вариант больше не
+    используется в рендере доски). Исходники —
+    `src/assets/pieces/{piece}.svg` (Cburnett, lichess.org,
+    `src/assets/pieces/svg_originals/` — нетронутые оригиналы),
+    перекрашены: белые `#f0d9b5` / контур `#8B6914`, чёрные
+    `#2c5f2e` / детали и контур `#1a3d1b`. Добавлены радиальные
+    градиенты `hl` (подсветка) и `sh` (тень) на каждый путь + тень
+    под фигурой (`<ellipse>`) — для эффекта объёма. XML-строки
+    сгенерированы в `src/components/chess/pieceSvgXml.ts`
+    (`PIECE_SVG_XML: Record<PieceKey, string>`). `React.memo` с
+    кастомным компаратором (`pieceKey`/`size`) сохранён —
+    устраняет мигание при перерендере доски. PNG-файлы
+    (`src/assets/pieces/*.png`) остались в репозитории, но больше
+    не импортируются.
+  - **Клетки доски (`ChessSquare.tsx`)**: новая палитра —
+    светлая `#ffffff`→`#e8e8e8`, тёмная `#3aa05c`→`#236b3d`
+    (`RadialGradient`, `react-native-svg`, без изменений в логике).
+    `ChessBoard.tsx`: `boardFrame.backgroundColor` приведён к
+    `#236b3d`.
+  - **Деревянная рамка — только в `chaos-battle.tsx`**:
+    `LinearGradient` (`expo-linear-gradient`, `['#a0714f',
+    '#6b4226']`) вокруг доски с подписями координат (`a-h`/`8-1`)
+    по краям. `FRAME_PADDING=24`, `COORD_SIZE=20`, размер клетки
+    (`squareSize`) и доски (`boardSize`) пересчитаны с учётом
+    рамки. Старый рендер координат через `showCoordinates` убран
+    для этого экрана (другие экраны не тронуты).
+  - **Известное несоответствие**: `ChessPieceSVG.tsx` (мелкие
+    иконки в `chaos-shop`/`chaos-event`/`chaos-character-select`/
+    `ChaosUpgradeChips`) использует старую чёрно-белую палитру —
+    визуально не соответствует новым зелёно-белым фигурам на
+    доске. Не входило в задачу, требует отдельного редизайна.
 - **Анимация слайда фигур временно убрана**: `usePieceAnimation.ts`
   удалён, `ChessBoard.tsx` делает ход синхронно через `attemptMove`
   без промежуточной анимации (см. Known issues).
-- **Клетки доски (`ChessSquare.tsx`)**: отрисовываются через
-  `RadialGradient` (`react-native-svg`), cx/cy 50%, rx/ry 70%,
-  `gradientUnits="objectBoundingBox"` — светлая `#d4e0f9`→`#b8bbf7`,
-  тёмная `#8973f6`→`#7a66f4`. ID градиента уникален на инстанс
-  (`useId()`, без `:`). `React.memo` сохранён. Временный
-  flat-color перф-тест завершён, `RadialGradient` восстановлен
-  (коммит `0235ac7`).
 - **Перф-оптимизации в `chaos-battle.tsx`**: обновление стейта после
   хода игрока и хода ИИ отложено через `requestAnimationFrame` —
   не блокирует немедленную отрисовку перемещённой фигуры.

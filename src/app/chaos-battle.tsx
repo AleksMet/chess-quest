@@ -90,6 +90,12 @@ function berserkStreakPopupText(streak: number, bonus: number): string {
 
 const PLAYER_COLOR = 'w' as const;
 
+// Деревянная рамка вокруг доски
+const FRAME_PADDING = 24;
+const COORD_SIZE = 20;
+const FILE_LABELS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+const RANK_LABELS = ['8', '7', '6', '5', '4', '3', '2', '1'];
+
 const BATTLE_TITLES: Record<ChaosBattleNumber, string> = {
   1: '⚔️ Бой 1',
   2: '⚔️ Бой 2',
@@ -190,7 +196,9 @@ export default function ChaosBattleScreen() {
   const [headerHeight, setHeaderHeight] = useState(0);
   const [bottomHeight, setBottomHeight] = useState(0);
   const availableHeight = screenHeight - headerHeight - bottomHeight;
-  const boardSize = Math.max(0, Math.min(screenWidth, availableHeight));
+  const frameOverhead = (FRAME_PADDING + COORD_SIZE) * 2;
+  const squareSize = Math.floor(Math.max(0, Math.min(screenWidth, availableHeight) - frameOverhead) / 8);
+  const boardSize = squareSize * 8;
   const [playerMoves, setPlayerMoves] = useState(0);
   // Уровень 2+, босс с эволюцией: сколько ходов осталось до следующей эволюции фигуры ИИ
   const [movesUntilEvolution, setMovesUntilEvolution] = useState(levelConfig?.bossConfig?.evolutionMechanic?.intervalMoves ?? 5);
@@ -930,19 +938,53 @@ export default function ChaosBattleScreen() {
       </View>
 
       <View style={styles.boardWrap}>
-        <ChessBoard
-          chess={chess}
-          playerColor={PLAYER_COLOR}
-          onMove={handleMove}
-          disabled={boardDisabled}
-          lastMoveHighlight={lastMoveHighlight}
-          upgradeHighlights={[...upgradeHighlights, ...bossHighlights, ...aiUpgradeHighlights]}
-          spawnedSquare={spawnedSquare}
-          forcedSquares={berserkForce?.forcedSquares}
-          forcedMoves={activeForcedMoves}
-          size={boardSize > 0 ? boardSize : undefined}
-          showCoordinates
-        />
+        <View style={styles.boardFrameOuter}>
+          <LinearGradient
+            colors={['#a0714f', '#6b4226']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.woodenFrame}
+          >
+            <View style={[styles.coordRow, { marginLeft: COORD_SIZE }]}>
+              {FILE_LABELS.map(l => (
+                <Text key={l} style={[styles.coordLabel, { width: squareSize }]}>{l}</Text>
+              ))}
+            </View>
+
+            <View style={styles.coordColumnRow}>
+              <View style={[styles.coordColumn, { width: COORD_SIZE }]}>
+                {RANK_LABELS.map(n => (
+                  <Text key={n} style={[styles.coordLabel, { height: squareSize, lineHeight: squareSize }]}>{n}</Text>
+                ))}
+              </View>
+
+              <ChessBoard
+                chess={chess}
+                playerColor={PLAYER_COLOR}
+                onMove={handleMove}
+                disabled={boardDisabled}
+                lastMoveHighlight={lastMoveHighlight}
+                upgradeHighlights={[...upgradeHighlights, ...bossHighlights, ...aiUpgradeHighlights]}
+                spawnedSquare={spawnedSquare}
+                forcedSquares={berserkForce?.forcedSquares}
+                forcedMoves={activeForcedMoves}
+                size={boardSize > 0 ? boardSize : undefined}
+              />
+
+              <View style={[styles.coordColumn, { width: COORD_SIZE }]}>
+                {RANK_LABELS.map(n => (
+                  <Text key={n} style={[styles.coordLabel, { height: squareSize, lineHeight: squareSize }]}>{n}</Text>
+                ))}
+              </View>
+            </View>
+
+            <View style={[styles.coordRow, { marginLeft: COORD_SIZE }]}>
+              {FILE_LABELS.map(l => (
+                <Text key={l} style={[styles.coordLabel, { width: squareSize }]}>{l}</Text>
+              ))}
+            </View>
+          </LinearGradient>
+        </View>
         <ChaosGoldToastStack items={goldToasts} onExpire={removeGoldToast} />
         {showKnightsOutBanner && (
           <View style={styles.knightsOutBanner} pointerEvents="none">
@@ -1017,6 +1059,12 @@ const styles = StyleSheet.create({
   goldBadge:       { color: '#f59e0b', fontSize: 15, fontWeight: '700' },
   thinking:        { fontSize: 20 },
   boardWrap:       { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  boardFrameOuter: { alignSelf: 'center' },
+  woodenFrame:     { borderRadius: 8, padding: FRAME_PADDING },
+  coordRow:        { flexDirection: 'row' },
+  coordColumnRow:  { flexDirection: 'row' },
+  coordColumn:     { justifyContent: 'space-around' },
+  coordLabel:      { color: '#f5e6c8', fontSize: 11, fontWeight: '700', textAlign: 'center' },
   knightsOutBanner: {
     position: 'absolute', top: 60, left: 16, right: 16,
     backgroundColor: '#FF4444', borderRadius: 12,

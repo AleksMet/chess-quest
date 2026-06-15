@@ -2,8 +2,8 @@ import { memo, useId } from 'react';
 import { StyleSheet } from 'react-native';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 
-const LIGHT_GRADIENT = { from: '#d4e0f9', to: '#b8bbf7' };
-const DARK_GRADIENT = { from: '#8973f6', to: '#7a66f4' };
+const LIGHT_GRADIENT = { from: '#ffffff', to: '#e8e8e8' };
+const DARK_GRADIENT = { from: '#3aa05c', to: '#236b3d' };
 
 // Клетка доски — радиальный градиент через react-native-svg.
 // React.memo, чтобы клетки не перерисовывались при ходах.
