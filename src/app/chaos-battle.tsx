@@ -90,11 +90,6 @@ function berserkStreakPopupText(streak: number, bonus: number): string {
 
 const PLAYER_COLOR = 'w' as const;
 
-// Деревянная рамка вокруг доски
-const FRAME_PADDING = 24;
-const COORD_SIZE = 20;
-const FILE_LABELS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-const RANK_LABELS = ['8', '7', '6', '5', '4', '3', '2', '1'];
 
 const BATTLE_TITLES: Record<ChaosBattleNumber, string> = {
   1: '⚔️ Бой 1',
@@ -190,15 +185,9 @@ export default function ChaosBattleScreen() {
   });
   const [chess] = useState(() => new Chess(startFen));
 
-  // Доска по центру между HUD сверху и панелью снизу — высоты HUD/панели измеряются
-  // через onLayout, размер доски = минимум из ширины экрана и доступной высоты
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const [headerHeight, setHeaderHeight] = useState(0);
-  const [bottomHeight, setBottomHeight] = useState(0);
-  const availableHeight = screenHeight - headerHeight - bottomHeight;
-  const frameOverhead = (FRAME_PADDING + COORD_SIZE) * 2;
-  const squareSize = Math.floor(Math.max(0, Math.min(screenWidth, availableHeight) - frameOverhead) / 8);
-  const boardSize = squareSize * 8;
+  // Доска на всю ширину экрана, размер клетки — целое число пикселей
+  const { width: screenWidth } = useWindowDimensions();
+  const boardSize = Math.floor(screenWidth / 8) * 8;
   const [playerMoves, setPlayerMoves] = useState(0);
   // Уровень 2+, босс с эволюцией: сколько ходов осталось до следующей эволюции фигуры ИИ
   const [movesUntilEvolution, setMovesUntilEvolution] = useState(levelConfig?.bossConfig?.evolutionMechanic?.intervalMoves ?? 5);
@@ -890,7 +879,7 @@ export default function ChaosBattleScreen() {
         : 'Поставь мат сопернику';
 
   return (
-    <LinearGradient colors={['#0d0b14', '#1a1423', '#0f2c1f']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={styles.gradient}>
+    <LinearGradient colors={['#0d0b14', '#1a1423']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={styles.gradient}>
     <SafeAreaView style={styles.safe}>
       <StockfishBridgeView ref={engineRef} onMessage={handleEngineMessage} onReady={handleEngineReady} />
 
@@ -899,7 +888,6 @@ export default function ChaosBattleScreen() {
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.hudTop}
-        onLayout={e => setHeaderHeight(e.nativeEvent.layout.height)}
       >
         <View style={styles.hudRow1}>
           <TouchableOpacity onPress={handleBack} style={styles.backBtn} testID="chaos-battle-back-btn">
@@ -942,83 +930,23 @@ export default function ChaosBattleScreen() {
 
       <View style={styles.boardWrap}>
         <View style={styles.boardFrameOuter}>
-          <LinearGradient
-            colors={['#3d1c00', '#6b3a1f', '#7a4520', '#6b3a1f', '#3d1c00']}
-            locations={[0, 0.3, 0.5, 0.7, 1]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.frameStrip}
-          >
-            <LinearGradient
-              colors={['transparent', 'rgba(234,179,8,0.2)', 'rgba(234,179,8,0.4)', 'rgba(234,179,8,0.2)', 'transparent']}
-              locations={[0, 0.35, 0.5, 0.65, 1]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.frameStripGlow}
-            />
-          </LinearGradient>
+          <View style={styles.frameBar} />
 
-          <LinearGradient
-            colors={['#a0714f', '#6b4226']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.woodenFrame}
-          >
-            <View style={[styles.coordRow, { marginLeft: COORD_SIZE }]}>
-              {FILE_LABELS.map(l => (
-                <Text key={l} style={[styles.coordLabel, { width: squareSize }]}>{l}</Text>
-              ))}
-            </View>
+          <ChessBoard
+            chess={chess}
+            playerColor={PLAYER_COLOR}
+            onMove={handleMove}
+            disabled={boardDisabled}
+            lastMoveHighlight={lastMoveHighlight}
+            upgradeHighlights={[...upgradeHighlights, ...bossHighlights, ...aiUpgradeHighlights]}
+            spawnedSquare={spawnedSquare}
+            forcedSquares={berserkForce?.forcedSquares}
+            forcedMoves={activeForcedMoves}
+            size={boardSize > 0 ? boardSize : undefined}
+            showCoordinates
+          />
 
-            <View style={styles.coordColumnRow}>
-              <View style={[styles.coordColumn, { width: COORD_SIZE }]}>
-                {RANK_LABELS.map(n => (
-                  <Text key={n} style={[styles.coordLabel, { height: squareSize, lineHeight: squareSize }]}>{n}</Text>
-                ))}
-              </View>
-
-              <ChessBoard
-                chess={chess}
-                playerColor={PLAYER_COLOR}
-                onMove={handleMove}
-                disabled={boardDisabled}
-                lastMoveHighlight={lastMoveHighlight}
-                upgradeHighlights={[...upgradeHighlights, ...bossHighlights, ...aiUpgradeHighlights]}
-                spawnedSquare={spawnedSquare}
-                forcedSquares={berserkForce?.forcedSquares}
-                forcedMoves={activeForcedMoves}
-                size={boardSize > 0 ? boardSize : undefined}
-              />
-
-              <View style={[styles.coordColumn, { width: COORD_SIZE }]}>
-                {RANK_LABELS.map(n => (
-                  <Text key={n} style={[styles.coordLabel, { height: squareSize, lineHeight: squareSize }]}>{n}</Text>
-                ))}
-              </View>
-            </View>
-
-            <View style={[styles.coordRow, { marginLeft: COORD_SIZE }]}>
-              {FILE_LABELS.map(l => (
-                <Text key={l} style={[styles.coordLabel, { width: squareSize }]}>{l}</Text>
-              ))}
-            </View>
-          </LinearGradient>
-
-          <LinearGradient
-            colors={['#3d1c00', '#6b3a1f', '#7a4520', '#6b3a1f', '#3d1c00']}
-            locations={[0, 0.3, 0.5, 0.7, 1]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.frameStrip}
-          >
-            <LinearGradient
-              colors={['transparent', 'rgba(234,179,8,0.2)', 'rgba(234,179,8,0.4)', 'rgba(234,179,8,0.2)', 'transparent']}
-              locations={[0, 0.35, 0.5, 0.65, 1]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.frameStripGlow}
-            />
-          </LinearGradient>
+          <View style={styles.frameBar} />
         </View>
         <ChaosGoldToastStack items={goldToasts} onExpire={removeGoldToast} />
         {showKnightsOutBanner && (
@@ -1033,7 +961,6 @@ export default function ChaosBattleScreen() {
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.hudBot}
-        onLayout={e => setBottomHeight(e.nativeEvent.layout.height)}
       >
         <View style={styles.hudRow1}>
           <Text style={styles.heroName} numberOfLines={1}>⚔️ {selectedCharacter?.name ?? 'Герой'}</Text>
@@ -1131,14 +1058,8 @@ const styles = StyleSheet.create({
   knightCounter:   { color: '#FF4444', fontSize: 12, fontWeight: '700' },
   thinking:        { fontSize: 16 },
   boardWrap:       { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  boardFrameOuter: { alignSelf: 'center' },
-  frameStrip:      { height: 9, width: '100%' },
-  frameStripGlow:  { ...StyleSheet.absoluteFillObject },
-  woodenFrame:     { borderRadius: 8, padding: FRAME_PADDING },
-  coordRow:        { flexDirection: 'row' },
-  coordColumnRow:  { flexDirection: 'row' },
-  coordColumn:     { justifyContent: 'space-around' },
-  coordLabel:      { color: '#f5e6c8', fontSize: 11, fontWeight: '700', textAlign: 'center' },
+  boardFrameOuter: { width: '100%' },
+  frameBar:        { width: '100%', height: 7, backgroundColor: '#7a4520' },
   knightsOutBanner: {
     position: 'absolute', top: 60, left: 16, right: 16,
     backgroundColor: '#FF4444', borderRadius: 12,
