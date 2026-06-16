@@ -20,7 +20,6 @@ import {
   buildLevel2BossAiFen,
   resolveArmyAfterBattle,
   pieceStartingSquare,
-  findPieceSquare,
   findAllPieceSquares,
   getBerserkQueenMove,
   getGuardRookMove,
@@ -537,11 +536,6 @@ export default function ChaosBattleScreen() {
   // Ферзь-берсерк подсвечивается общей системой aiUpgradeHighlights (см. displayAiUpgrades).
   // Защитные улучшения боссу не нужны (ладья-страж не подсвечивается). Видна с первого хода игрока.
   const bossHighlights: typeof upgradeHighlights = [];
-  // Король босса всегда подсвечен золотым (#FFD700, 0.45) — единая система подсветки для всех уровней
-  if (isBossBattle) {
-    const bossKingSquare = findPieceSquare(chess, 'k', 'b');
-    if (bossKingSquare) bossHighlights.push({ square: bossKingSquare, color: 'gold', opacity: 0.45 });
-  }
 
   // Уровень 2+: симметрия — улучшения ИИ подсвечиваются так же, как у игрока:
   // Берсерк/Снайпер — красным (#FF4444), Страж — синим (#4444FF), opacity 0.35.
@@ -879,7 +873,7 @@ export default function ChaosBattleScreen() {
         : 'Поставь мат сопернику';
 
   return (
-    <LinearGradient colors={['#0d0b14', '#1a1423']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={styles.gradient}>
+    <LinearGradient colors={['#0d0b14', '#1a1423', '#0d0b14']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={styles.gradient}>
     <SafeAreaView style={styles.safe}>
       <StockfishBridgeView ref={engineRef} onMessage={handleEngineMessage} onReady={handleEngineReady} />
 
@@ -1037,15 +1031,15 @@ const styles = StyleSheet.create({
   },
   backBtnText:     { fontSize: 16, color: '#a855f7' },
 
-  levelName:       { fontSize: 10, color: '#e5e5e5', fontWeight: '700', letterSpacing: 0.8, flex: 1 },
+  levelName:       { fontSize: 15, color: '#e5e5e5', fontWeight: '700', letterSpacing: 0.8, flex: 1 },
   eloBadge: {
     backgroundColor: 'rgba(168,85,247,0.12)',
     borderWidth: 1, borderColor: 'rgba(168,85,247,0.3)', borderRadius: 4,
     paddingHorizontal: 7, paddingVertical: 1,
   },
-  eloText:         { fontSize: 9, color: '#a855f7' },
+  eloText:         { fontSize: 11, color: '#a855f7' },
 
-  heroName:        { fontSize: 10, color: '#eab308', fontWeight: '700', letterSpacing: 0.8, flex: 1 },
+  heroName:        { fontSize: 13, color: '#eab308', fontWeight: '700', letterSpacing: 0.8, flex: 1 },
   goldDisplay:     { flexDirection: 'row', alignItems: 'center', gap: 5 },
   goldCoin: {
     width: 26, height: 26, borderRadius: 13,

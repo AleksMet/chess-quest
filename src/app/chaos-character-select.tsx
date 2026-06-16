@@ -24,16 +24,16 @@ type HeroMeta = {
 
 const HERO_META: Record<string, HeroMeta> = {
   merchant: {
-    symbol: '♕', color: '#eab308', bg: '#2a1a00',
-    borderColor: 'rgba(234,179,8,0.4)', archetype: 'ТОРГОВЕЦ', archetypeColor: '#eab308',
+    symbol: '♗', color: '#eab308', bg: '#2a1a00',
+    borderColor: 'rgba(234,179,8,0.4)', archetype: 'ЭКОНОМИКА', archetypeColor: '#eab308',
   },
   berserk: {
     symbol: '♘', color: '#ef4444', bg: '#2d0808',
-    borderColor: 'rgba(239,68,68,0.4)', archetype: 'БЕРСЕРК', archetypeColor: '#ef4444',
+    borderColor: 'rgba(239,68,68,0.4)', archetype: 'АГРЕССИЯ', archetypeColor: '#ef4444',
   },
   guardian: {
-    symbol: '♔', color: '#3b82f6', bg: '#081428',
-    borderColor: 'rgba(59,130,246,0.4)', archetype: 'СТРАЖ', archetypeColor: '#3b82f6',
+    symbol: '♖', color: '#3b82f6', bg: '#081428',
+    borderColor: 'rgba(59,130,246,0.4)', archetype: 'ЗАЩИТА', archetypeColor: '#3b82f6',
   },
 };
 

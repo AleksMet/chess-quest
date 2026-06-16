@@ -70,18 +70,19 @@ export function UpgradeChipsRow({ label, groups, onPressGroup, extra, testID }: 
               key={group.effectType}
               onPress={() => onPressGroup(group)}
               testID={`upgrade-chip-${group.effectType}`}
+              style={styles.chipWrap}
             >
               <LinearGradient
                 colors={style.bg}
                 style={[styles.chip, { borderColor: style.border, shadowColor: style.shadow }]}
               >
-                <ChessPiece pieceKey={group.iconPieceKey} size={28} />
-                {group.totalCount > 1 && (
-                  <View style={[styles.counter, { backgroundColor: style.border }]}>
-                    <Text style={styles.counterText}>{group.totalCount}</Text>
-                  </View>
-                )}
+                <ChessPiece pieceKey={group.iconPieceKey} size={32} />
               </LinearGradient>
+              {group.totalCount > 1 && (
+                <View style={[styles.counter, { backgroundColor: style.border }]}>
+                  <Text style={styles.counterText}>{group.totalCount}</Text>
+                </View>
+              )}
             </Pressable>
           );
         })}
@@ -145,20 +146,22 @@ export function UpgradeDetailModal({ group, isAI, onClose }: UpgradeDetailModalP
 
 const styles = StyleSheet.create({
   row:        { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  rowLabel:   { color: '#a3a3a3', fontSize: 8, fontFamily: 'monospace', letterSpacing: 0.4, flexShrink: 0 },
+  rowLabel:   { color: '#a3a3a3', fontSize: 10, fontFamily: 'monospace', letterSpacing: 0.4, flexShrink: 0 },
   effSep:     { width: 1, height: 18, backgroundColor: 'rgba(168,85,247,0.2)', marginHorizontal: 2 },
-  chips:      { flexDirection: 'row', gap: 5, flexWrap: 'wrap', flex: 1 },
+  chips:      { flexDirection: 'row', gap: 5, flexWrap: 'wrap', flex: 1, overflow: 'visible' },
+  chipWrap:   { overflow: 'visible' },
   chip: {
-    width: 34, height: 34, borderRadius: 8, borderWidth: 1.5,
+    width: 44, height: 44, borderRadius: 8, borderWidth: 1.5,
     alignItems: 'center', justifyContent: 'center',
     shadowOpacity: 1, shadowRadius: 8, shadowOffset: { width: 0, height: 0 }, elevation: 4,
   },
   counter: {
-    position: 'absolute', top: -4, right: -4,
-    width: 14, height: 14, borderRadius: 7,
+    position: 'absolute', top: -6, right: -6,
+    minWidth: 18, height: 18, borderRadius: 9,
     alignItems: 'center', justifyContent: 'center',
+    zIndex: 10,
   },
-  counterText: { color: '#fff', fontSize: 8, fontFamily: 'monospace', fontWeight: '700' },
+  counterText: { color: '#fff', fontSize: 10, fontFamily: 'monospace', fontWeight: '700' },
 
   overlay:  { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 100 },
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' },
