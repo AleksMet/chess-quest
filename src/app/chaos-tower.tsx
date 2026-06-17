@@ -28,9 +28,8 @@ export default function ChaosTowerScreen() {
     const prevNode = towerNodes[currentFloor - 1];
     const store = useChaosModeStore.getState();
 
-    // После победы в элитном бою — гарантированный бесплатный магазин (без события и сокровища).
-    // Это касается как опционального элитного боя (узел choice), так и обязательной элиты
-    // (отдельный узел battle с battleIndex: 'elite' — уровень 3).
+    // Страховочный переход: chaos-battle уже отправляет в магазин напрямую после элиты,
+    // но если игрок вернулся на башню (например, назад), дублируем редирект.
     const wasEliteBattle =
       (prevNode?.type === 'choice' && store.chosenPath === 'elite') ||
       prevNode?.battleIndex === 'elite';

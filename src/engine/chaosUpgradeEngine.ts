@@ -52,8 +52,14 @@ export function processPlayerMove(move: Move, upgrades: PieceUpgrade[]): Upgrade
   for (const upgrade of upgrades) {
     switch (upgrade.upgradeType) {
       case 'sniper':
-        if (move.captured && upgrade.pieceType === move.piece
-            && PIECE_VALUES[move.captured] > PIECE_VALUES[move.piece]) {
+        if (move.captured && PIECE_VALUES[move.captured] > PIECE_VALUES[move.piece]) {
+          // Если известна клетка — проверяем что именно эта фигура сделала взятие
+          if (upgrade.currentSquare !== undefined) {
+            if (upgrade.currentSquare !== move.from) break;
+          } else {
+            // Fallback на проверку типа (нет данных о позиции)
+            if (upgrade.pieceType !== move.piece) break;
+          }
           triggers.push({ upgradeType: 'sniper', bonus: bonusGoldFor('sniper') });
         }
         break;

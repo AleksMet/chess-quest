@@ -353,11 +353,14 @@ export default function ChaosBattleScreen() {
     }
   }
 
-  // Снимок улучшений с актуальными счётчиками — для передачи в processPlayerMove
+  // Снимок улучшений с актуальными счётчиками и текущей клеткой — для передачи в processPlayerMove.
+  // currentSquare позволяет processPlayerMove проверять конкретный экземпляр фигуры (не тип).
   function liveUpgrades(): PieceUpgrade[] {
     return pieceUpgrades.map(u => {
       const state = upgradeStateRef.current.get(u.id);
-      return state ? { ...u, turnsOnPosition: state.turnsOnPosition, turnsAlive: state.turnsAlive } : u;
+      return state
+        ? { ...u, turnsOnPosition: state.turnsOnPosition, turnsAlive: state.turnsAlive, currentSquare: state.square }
+        : u;
     });
   }
 
@@ -838,6 +841,12 @@ export default function ChaosBattleScreen() {
     nextFloor();
     // Проклятие действует ровно один бой — снимаем после его завершения
     clearCursedPiece();
+    // Элита — бонусный магазин напрямую, минуя башню (иначе кнопка «Вперёд» показывает
+    // следующий бой, а не магазин, что сбивает игрока)
+    if (battleKey === 'elite') {
+      router.replace('/chaos-shop');
+      return;
+    }
     router.replace('/chaos-tower');
   }
 

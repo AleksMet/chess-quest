@@ -36,6 +36,9 @@ export interface PieceUpgrade {
   category: UpgradeCategory;
   turnsOnPosition: number; // для Засады — сколько ходов подряд фигура стоит на месте
   turnsAlive: number;      // для Стража — сколько ходов фигура выживает без взятия
+  // Текущая клетка фигуры во время боя — заполняется через liveUpgrades() в chaos-battle.
+  // undefined вне боя; null — фигура взята; string ('e4') — активная клетка.
+  currentSquare?: string | null;
 }
 
 // Описание улучшения для магазина
