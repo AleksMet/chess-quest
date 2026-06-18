@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 
-// Всплывающее уведомление о золоте в бою режима ХАОС: "+20 золота — Жадный".
-// Стек уведомлений в правом верхнем углу — каждое новое появляется чуть ниже предыдущих.
+// Всплывающее уведомление о золоте в бою режима ХАОС: "+20🪙 Жадный".
+// Очередь: показывает по одному попапу, 400мс задержка между ними.
 
 export interface GoldToastItem {
   id: number;
@@ -11,7 +11,6 @@ export interface GoldToastItem {
 
 const SHOW_MS = 1500;
 const FADE_MS = 200;
-const ROW_HEIGHT = 34;
 
 interface ChaosGoldToastStackProps {
   items: GoldToastItem[];
@@ -35,7 +34,7 @@ interface ChaosGoldToastProps {
   onDone: () => void;
 }
 
-function ChaosGoldToast({ text, index, onDone }: ChaosGoldToastProps) {
+function ChaosGoldToast({ text, onDone }: ChaosGoldToastProps) {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-8)).current;
   const done = useRef(false);
@@ -57,7 +56,7 @@ function ChaosGoldToast({ text, index, onDone }: ChaosGoldToastProps) {
   }, []);
 
   return (
-    <Animated.View style={[styles.toast, { top: index * ROW_HEIGHT, opacity, transform: [{ translateY }] }]}>
+    <Animated.View style={[styles.toast, { opacity, transform: [{ translateY }] }]}>
       <Text style={styles.text}>{text}</Text>
     </Animated.View>
   );
@@ -66,23 +65,23 @@ function ChaosGoldToast({ text, index, onDone }: ChaosGoldToastProps) {
 const styles = StyleSheet.create({
   stack: {
     position: 'absolute',
-    right: 6,
-    top: '50%',
-    transform: [{ translateY: -50 }],
+    top: 20,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
     zIndex: 20,
   },
   toast: {
-    position: 'absolute',
-    right: 0,
-    backgroundColor: 'rgba(15,10,25,0.93)',
-    borderRadius: 7,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    backgroundColor: 'rgba(234,179,8,0.15)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
     borderWidth: 1,
-    borderColor: 'rgba(234,179,8,0.5)',
+    borderColor: 'rgba(234,179,8,0.4)',
   },
   text: {
-    color: '#e5e5e5',
-    fontSize: 9,
+    color: '#eab308',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

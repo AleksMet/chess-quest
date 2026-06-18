@@ -25,13 +25,13 @@ describe('calcMateScore', () => {
 });
 
 describe('calcCaptureScore', () => {
-  it('pawn = 10', () => { expect(calcCaptureScore('p')).toBe(10); });
+  it('pawn = 15', () => { expect(calcCaptureScore('p')).toBe(15); });
   it('knight = 30', () => { expect(calcCaptureScore('n')).toBe(30); });
   it('bishop = 30', () => { expect(calcCaptureScore('b')).toBe(30); });
   it('rook = 50', () => { expect(calcCaptureScore('r')).toBe(50); });
-  it('queen = 90', () => { expect(calcCaptureScore('q')).toBe(90); });
+  it('queen = 85', () => { expect(calcCaptureScore('q')).toBe(85); });
   it('king = 0', () => { expect(calcCaptureScore('k')).toBe(0); });
-  it('uppercase piece type works', () => { expect(calcCaptureScore('Q')).toBe(90); });
+  it('uppercase piece type works', () => { expect(calcCaptureScore('Q')).toBe(85); });
   it('unknown piece type = 0', () => { expect(calcCaptureScore('x')).toBe(0); });
 });
 

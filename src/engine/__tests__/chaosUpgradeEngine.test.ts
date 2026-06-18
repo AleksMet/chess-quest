@@ -39,8 +39,8 @@ describe('processPlayerMove', () => {
     const chess = new Chess('k7/8/8/3p4/4P3/8/8/7K w - - 0 1');
     const move = chess.move({ from: 'e4', to: 'd5' })!;
     const upgrades = [makeUpgrade({ id: 'p_0_ambush', pieceType: 'p', upgradeType: 'ambush', category: 'defense', turnsOnPosition: 3 })];
-    // Взята пешка (10 золота за взятие) — бонус Засады равен этой же сумме, итог ×2
-    expect(processPlayerMove(move, upgrades)).toEqual([{ upgradeType: 'ambush', bonus: 10 }]);
+    // Взята пешка (15 золота за взятие) — бонус Засады равен этой же сумме, итог ×2
+    expect(processPlayerMove(move, upgrades)).toEqual([{ upgradeType: 'ambush', bonus: 15 }]);
   });
 
   it('Засада: фигура простояла меньше 3 ходов — бонус не начисляется', () => {

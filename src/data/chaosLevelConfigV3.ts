@@ -101,3 +101,15 @@ export const PROGRESS_NODES: Record<number, ProgressNode[]> = {
   1: PROGRESS_NODES_ACT_1,
   2: PROGRESS_NODES_ACT_2,
 }
+
+export const MODIFIER_DESCRIPTIONS: Record<BattleModifier, string> = {
+  reinforced_pawns: '💰 Усиленные пешки: +5 золота за каждую взятую пешку врага',
+  golden_zone:      '⭐ Горячая зона: +15 золота за контроль d4/e4/d5/e5',
+  weak_flank:       '⚡ Слабый фланг: ИИ давит с одного фланга',
+  no_castling:      '🚫 Без рокировки: противник не рокирует',
+  open_board:       '🌊 Открытая доска: больше пространства для атаки',
+  berserk_knight:   '⚔️ Берсерк-конь: конь противника всегда берёт',
+  double_knights:   '⚔️ Двойные кони: у противника два лишних коня',
+  berserk_queen:    '👑 Берсерк-ферзь: ферзь противника всегда берёт',
+  closed_board:     '🛡️ Закрытая доска: пешечные структуры заперты',
+}

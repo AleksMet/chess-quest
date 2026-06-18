@@ -3,7 +3,7 @@ export function calcMateScore(movesUsed: number, movesLimit: number): number {
 }
 
 export function calcCaptureScore(pieceType: string): number {
-  const table: Record<string, number> = { p: 10, n: 30, b: 30, r: 50, q: 90, k: 0 };
+  const table: Record<string, number> = { p: 15, n: 30, b: 30, r: 50, q: 85, k: 0 };
   return table[pieceType.toLowerCase()] ?? 0;
 }
 

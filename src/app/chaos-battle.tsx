@@ -43,7 +43,7 @@ import type { PieceUpgrade } from '../types/chaos';
 import { UPGRADE_DEFINITIONS } from '../data/chaosUpgrades';
 import { LEVEL_CONFIGS, getBattleConfig } from '../data/chaosLevelConfig';
 import { getTowerNodes } from '../data/chaosTowerConfig';
-import { PROGRESS_NODES, PROGRESS_NODES_ACT_1, getRandomModifier } from '../data/chaosLevelConfigV3';
+import { PROGRESS_NODES, PROGRESS_NODES_ACT_1, getRandomModifier, MODIFIER_DESCRIPTIONS } from '../data/chaosLevelConfigV3';
 import type { BattleType, BattleModifier } from '../types/mechanics';
 import { ProgressBar } from '../components/ProgressBar';
 import { BattleBanner } from '../components/BattleBanner';
@@ -92,6 +92,7 @@ function berserkStreakPopupText(streak: number, bonus: number): string {
 }
 
 const PLAYER_COLOR = 'w' as const;
+const HOT_ZONE_SQUARES: Square[] = ['d4', 'e4', 'd5', 'e5'];
 
 
 const BATTLE_TITLES: Record<ChaosBattleNumber, string> = {
@@ -183,6 +184,14 @@ export default function ChaosBattleScreen() {
   // TODO: mechanics-v3 — стандартные улучшения AI убраны
   const aiUpgrades: AIUpgrade[] = [];
 
+  // Тип боя V3 — вычисляется до handleMove, используется внутри колбэка и в BattleBanner
+  // cast нужен, чтобы TS не суживал тип до 'elite'|'standard' и позволял сравнение с другими BattleType
+  const v3BattleType = (
+    isBossBattle ? 'elite'
+    : battleKey === 'elite' ? 'elite'
+    : 'standard'
+  ) as BattleType;
+
   const [isBannerVisible, setIsBannerVisible] = useState(true);
   const [battleModifier] = useState<BattleModifier | null>(() =>
     getRandomModifier(currentLevel, selectedCharacter?.id ?? 'merchant')
@@ -239,16 +248,36 @@ export default function ChaosBattleScreen() {
   const cursedSquareRef = useRef<Square | null>(null);
   // Счётчик ходов для системы нарастающего давления — зеркалит playerMoves без задержки ре-рендера
   const playerMovesRef = useRef(0);
+  // Очередь попапов золота — показываем по одному с задержкой 400мс между ними
+  const pendingToastsRef = useRef<string[]>([]);
+  const toastActiveRef = useRef(false);
 
-  // Показывает золотой попап в правом верхнем углу — стекается с предыдущими, исчезает через 1.5с
-  const pushGoldToast = useCallback((text: string) => {
+  const showNextPending = useCallback(() => {
+    if (pendingToastsRef.current.length === 0) {
+      toastActiveRef.current = false;
+      return;
+    }
+    toastActiveRef.current = true;
+    const text = pendingToastsRef.current.shift()!;
     const id = goldToastIdRef.current++;
-    setGoldToasts(prev => [...prev, { id, text }]);
+    setGoldToasts([{ id, text }]);
   }, []);
 
-  const removeGoldToast = useCallback((id: number) => {
-    setGoldToasts(prev => prev.filter(t => t.id !== id));
+  // Единый механизм попапов золота — по одному с задержкой 400мс между ними
+  const pushGoldToast = useCallback((text: string) => {
+    if (!toastActiveRef.current) {
+      toastActiveRef.current = true;
+      const id = goldToastIdRef.current++;
+      setGoldToasts([{ id, text }]);
+    } else {
+      pendingToastsRef.current.push(text);
+    }
   }, []);
+
+  const removeGoldToast = useCallback((_id: number) => {
+    setGoldToasts([]);
+    setTimeout(showNextPending, 400);
+  }, [showNextPending]);
 
   // Анимация появления заспавненной фигуры длится 0.5с — снимаем подсветку чуть позже
   useEffect(() => {
@@ -449,6 +478,11 @@ export default function ChaosBattleScreen() {
   if (cursedSquare) {
     upgradeHighlights.push({ square: cursedSquare, color: 'purple', opacity: 0.45 });
   }
+
+  // Горячие зоны: золотая подсветка d4/e4/d5/e5 — всегда видна
+  const hotZoneHighlights = HOT_ZONE_SQUARES.map(square => ({
+    square, color: 'gold' as const, opacity: 0.3,
+  }));
 
   // Берсерк: если хотя бы одна берсерк-фигура игрока может взять — она обязана это сделать.
   // Возвращает клетки и список разрешённых ходов (LAN), которые ChessBoard примет как форсированные.
@@ -790,8 +824,8 @@ export default function ChaosBattleScreen() {
           goldRef.current += selectedCharacter.captureGoldBonus;
           pushGoldToast(`+${selectedCharacter.captureGoldBonus} золота — Купец`);
         }
-        // Нарастающее давление: +8 золота за взятие начиная с хода 10
-        if (newCount >= 10) {
+        // Нарастающее давление: +8 золота за взятие начиная с хода 10 (кроме objective_royal_shield)
+        if (newCount >= 10 && v3BattleType !== 'objective_royal_shield') {
           goldRef.current += 8;
           pushGoldToast('+8🪙 Давление');
         }
@@ -813,6 +847,11 @@ export default function ChaosBattleScreen() {
         // Страж: сравниваем клетку ПОСЛЕ обновления позиций — этот ход уже отражён в state.square
         checkGuardBonus();
       }
+      // Горячая зона: +15 золота если после хода фигура игрока стоит на d4/e4/d5/e5
+      if (HOT_ZONE_SQUARES.some(sq => { const p = chess.get(sq); return !!p && p.color === PLAYER_COLOR; })) {
+        goldRef.current += 15;
+        pushGoldToast('+15🪙 Горячая зона');
+      }
       setGoldDisplay(goldRef.current);
 
       // Уровень 2+, босс «Двуглавый Рыцарь»: раз в evolutionMechanic.intervalMoves ходов
@@ -833,6 +872,12 @@ export default function ChaosBattleScreen() {
 
       if (moveResult.isCheckmate) {
         const mateGold = newCount <= 10 ? CHAOS_GOLD.mateUnder10 : CHAOS_GOLD.mate11to20;
+        // Армия цела: если ≥8 фигур игрока выжили — бонус +25 золота
+        const survivingCount = chess.board().flat().filter(p => p && p.color === PLAYER_COLOR).length;
+        if (survivingCount >= 8) {
+          goldRef.current += 25;
+          pushGoldToast('+25🪙 Армия цела');
+        }
         // Победа над боссом «Всадник» открывает персонажа «Страж» — сохраняется между сессиями
         if (safeBattleNumber === 'boss') unlockGuardian();
         finishBattle('win', 'Мат противнику!', mateGold, newCount);
@@ -846,7 +891,7 @@ export default function ChaosBattleScreen() {
       requestAIMove();
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerMoves, chess, requestAIMove, artifacts, pieceUpgrades, selectedCharacter]);
+  }, [playerMoves, chess, requestAIMove, artifacts, pieceUpgrades, selectedCharacter, v3BattleType]);
 
   function handleContinue() {
     // Превращённые во время боя ферзи возвращаются пешками — переходит только купленная армия
@@ -878,11 +923,6 @@ export default function ChaosBattleScreen() {
   // Хуки уже объявлены — теперь можно безопасно делать условный return
   if (!isValidFloor) { router.replace('/chaos-tower'); return null; }
 
-  const v3BattleType: BattleType =
-    isBossBattle ? 'elite'
-    : battleKey === 'elite' ? 'elite'
-    : 'standard';
-
   const boardDisabled = result !== null || isAIThinking || chess.turn() !== PLAYER_COLOR || isBannerVisible;
 
   // Заголовок и цель боя: уровень 1 — фиксированные тексты по номеру боя;
@@ -895,13 +935,14 @@ export default function ChaosBattleScreen() {
         ? '💀 Элита'
         : `⚔️ ${node?.label ?? 'Бой'}`;
 
-  const battleGoal = currentLevel === 1
+  const baseGoal = currentLevel === 1
     ? BATTLE_GOALS[safeBattleNumber]
     : isBossBattle
       ? 'Финальный бой. Удачи!'
       : battleKey === 'elite'
         ? 'Сложный противник с эффектами — действуй решительно'
         : 'Поставь мат сопернику';
+  const battleGoal = battleModifier ? MODIFIER_DESCRIPTIONS[battleModifier] : baseGoal;
 
   return (
     <LinearGradient colors={['#0d0b14', '#1a1423', '#0d0b14']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={styles.gradient}>
@@ -974,7 +1015,7 @@ export default function ChaosBattleScreen() {
             onMove={handleMove}
             disabled={boardDisabled}
             lastMoveHighlight={lastMoveHighlight}
-            upgradeHighlights={[...upgradeHighlights, ...bossHighlights, ...aiUpgradeHighlights]}
+            upgradeHighlights={[...upgradeHighlights, ...bossHighlights, ...aiUpgradeHighlights, ...hotZoneHighlights]}
             spawnedSquare={spawnedSquare}
             forcedSquares={berserkForce?.forcedSquares}
             forcedMoves={activeForcedMoves}
@@ -1016,7 +1057,7 @@ export default function ChaosBattleScreen() {
         />
 
         <View style={styles.footer}>
-          <Text style={styles.goal}>{battleGoal}</Text>
+          <Text style={[styles.goal, battleModifier ? styles.goalModifier : styles.goalDefault]}>{battleGoal}</Text>
           {surrenderAvailable && (
             <TouchableOpacity onPress={handleSurrender} style={styles.surrenderBtn} testID="chaos-battle-surrender-btn">
               <Text style={styles.surrenderBtnText}>🏳️ Сдаться</Text>
@@ -1115,7 +1156,9 @@ const styles = StyleSheet.create({
   evolutionCounter:       { color: '#f1f5f9', fontSize: 10, lineHeight: 14, marginTop: 2 },
   evolutionCounterUrgent: { color: '#FFD700' },
   footer:          { paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', gap: 8 },
-  goal:            { color: '#64748b', fontSize: 12, textAlign: 'center' },
+  goal:            { textAlign: 'center' },
+  goalDefault:     { color: 'rgba(160,160,200,0.6)', fontSize: 12 },
+  goalModifier:    { color: '#a855f7', fontSize: 11 },
   surrenderBtn: {
     backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: '#ef4444',
     borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6,
