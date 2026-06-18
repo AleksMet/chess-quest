@@ -48,7 +48,6 @@ import type { BattleType, BattleModifier } from '../types/mechanics';
 import { ProgressBar } from '../components/ProgressBar';
 import { BattleBanner } from '../components/BattleBanner';
 import { useChaosModeStore, pieceInstanceId } from '../store/chaosModeStore';
-import { eloToSkillLevel } from '../engine/stockfish';
 import { parsePieceId } from '../engine/chaosEventEngine';
 
 // Бонус золота за «ключевые» взятия — независимо от улучшений (попап в правом верхнем углу);
@@ -221,7 +220,6 @@ export default function ChaosBattleScreen() {
 
   const isBossBattle = currentLevel === 1 ? safeBattleNumber === 'boss' : battleKey === 'boss';
   const opponentElo = currentLevel === 1 ? CHAOS_BATTLE_ELO[safeBattleNumber] : (battleConfig?.elo ?? 1000);
-  const skillLevel = eloToSkillLevel(opponentElo);
   // TODO: mechanics-v3 — стандартные улучшения AI убраны
   const aiUpgrades: AIUpgrade[] = [];
 
@@ -274,6 +272,8 @@ export default function ChaosBattleScreen() {
   const [hotZones] = useState<Square[]>(() => pickHotZones(startFen));
   // Баннер подкрепления противника — показывается 2с после спавна
   const [reinforcementText, setReinforcementText] = useState<string | null>(null);
+  // Уведомление об усилении ELO — показывается 2с после хода AI
+  const [eloBoostText, setEloBoostText] = useState<string | null>(null);
   // Alert про сдачу показывается только один раз за бой
   const surrenderAlertShown = useRef(false);
   const goldRef = useRef(0);
@@ -348,6 +348,13 @@ export default function ChaosBattleScreen() {
     const timer = setTimeout(() => setReinforcementText(null), 2000);
     return () => clearTimeout(timer);
   }, [reinforcementText]);
+
+  // Уведомление об усилении ELO показываем 2 секунды, затем прячем
+  useEffect(() => {
+    if (!eloBoostText) return;
+    const timer = setTimeout(() => setEloBoostText(null), 2000);
+    return () => clearTimeout(timer);
+  }, [eloBoostText]);
 
   useEffect(() => {
     savePurchasedPieces();
@@ -697,8 +704,10 @@ export default function ChaosBattleScreen() {
 
   const handleEngineReady = useCallback(() => {
     setEngineReady(true);
-    sendToEngine(`setoption name Skill Level value ${skillLevel}`);
-  }, [skillLevel, sendToEngine]);
+    const initSkill = Math.min(20, Math.floor(opponentElo / 100));
+    console.log('[ELO] init Stockfish:', initSkill, 'moveCount: 0', 'baseElo:', opponentElo);
+    sendToEngine(`setoption name Skill Level value ${initSkill}`);
+  }, [opponentElo, sendToEngine]);
 
   // Итог боя: золото начисляется только при победе (как и очки в остальных режимах башни);
   // артефакт «Блиц-мастер» удваивает итоговое золото при победе за CHAOS_BLITZ_MOVE_LIMIT ходов и меньше
@@ -814,8 +823,18 @@ export default function ChaosBattleScreen() {
         setIsAIThinking(false);
         checkSurrenderCondition();
 
-        // Подкрепление противника на ходах 20/25/30 (проверяем после хода ИИ)
+        // Уведомление об усилении ELO — показываем после хода AI на ходах 5/10/15/20
         const currentMoveNum = playerMovesRef.current;
+        if (currentMoveNum > 0 && currentMoveNum % 5 === 0 && currentMoveNum <= 20) {
+          const totalIncrease = Math.floor(currentMoveNum / 5) * 100;
+          const eloMsg =
+            currentMoveNum <= 10 ? `⚡ Противник усилился! ELO +${totalIncrease}` :
+            currentMoveNum === 15 ? `🔥 Противник опасен! ELO +${totalIncrease}` :
+            `💀 Противник максимален! ELO +${totalIncrease}`;
+          setEloBoostText(eloMsg);
+        }
+
+        // Подкрепление противника на ходах 20/25/30 (проверяем после хода ИИ)
         if (currentMoveNum === 20 || currentMoveNum === 25 || currentMoveNum === 30) {
           const spawned = spawnReinforcement(chess, currentLevel, currentMoveNum);
           if (spawned.length > 0) {
@@ -849,9 +868,13 @@ export default function ChaosBattleScreen() {
       applyAIMove(`${m.from}${m.to}${m.promotion ?? ''}`);
     }, 1500);
     sendToEngine(`position fen ${chess.fen()}`);
-    // Нарастающее давление: с хода 15 увеличиваем глубину поиска Stockfish
+    // Перед каждым ходом AI актуализируем Skill Level — гарантия что setoption дойдёт перед go
+    const currentSkill = Math.min(20, Math.floor(currentEloRef.current / 100));
+    console.log('[ELO] передаём в Stockfish:', currentSkill, 'moveCount:', playerMovesRef.current, 'baseElo:', opponentElo);
+    sendToEngine(`setoption name Skill Level value ${currentSkill}`);
     const moveTime = playerMovesRef.current >= 15 ? 600 : 400;
     sendToEngine(`go movetime ${moveTime}`);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chess, applyAIMove, sendToEngine]);
 
   const handleEngineMessage = useCallback((line: string) => {
@@ -877,12 +900,10 @@ export default function ChaosBattleScreen() {
       playerMovesRef.current = newCount;
       setPlayerMoves(newCount);
 
-      // Нарастающий ELO: каждые 5 ходов +100 к ELO, пересчитываем skillLevel для Stockfish
+      // Нарастающий ELO: каждые 5 ходов +100 — setoption отправляется в requestAIMove перед go
       if (newCount > 0 && newCount % 5 === 0) {
         currentEloRef.current += 100;
-        const pressureSkill = Math.min(20, Math.floor(currentEloRef.current / 100));
-        console.log('Pressure ELO:', currentEloRef.current, 'moveCount:', newCount, 'skillLevel:', pressureSkill);
-        sendToEngine(`setoption name Skill Level value ${pressureSkill}`);
+        console.log('[ELO] инкремент:', currentEloRef.current, 'moveCount:', newCount);
       }
 
       const move = moveResult.move!;
@@ -1035,8 +1056,10 @@ export default function ChaosBattleScreen() {
             <Text style={styles.backBtnText}>←</Text>
           </TouchableOpacity>
           <Text style={styles.levelName} numberOfLines={1}>{battleTitle}</Text>
-          <View style={styles.eloBadge}>
-            <Text style={styles.eloText}>ELO {opponentElo}</Text>
+          <View style={[styles.eloBadge, playerMoves >= 15 ? styles.eloBadgeDanger : playerMoves >= 10 ? styles.eloBadgeWarning : undefined]}>
+            <Text style={[styles.eloText, playerMoves >= 15 ? styles.eloTextDanger : playerMoves >= 10 ? styles.eloTextWarning : undefined]}>
+              ELO {opponentElo + Math.floor(playerMoves / 5) * 100}
+            </Text>
           </View>
           <Text style={[
             styles.moveCounter,
@@ -1117,6 +1140,11 @@ export default function ChaosBattleScreen() {
         {reinforcementText && (
           <View style={styles.reinforcementBanner} pointerEvents="none">
             <Text style={styles.reinforcementBannerText}>{reinforcementText}</Text>
+          </View>
+        )}
+        {eloBoostText && (
+          <View style={styles.eloBoostBanner} pointerEvents="none">
+            <Text style={styles.eloBoostBannerText}>{eloBoostText}</Text>
           </View>
         )}
       </View>
@@ -1217,7 +1245,11 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(168,85,247,0.3)', borderRadius: 4,
     paddingHorizontal: 7, paddingVertical: 1,
   },
+  eloBadgeWarning: { backgroundColor: 'rgba(234,179,8,0.12)', borderColor: 'rgba(234,179,8,0.3)' },
+  eloBadgeDanger:  { backgroundColor: 'rgba(239,68,68,0.12)', borderColor: 'rgba(239,68,68,0.3)' },
   eloText:         { fontSize: 11, color: '#a855f7' },
+  eloTextWarning:  { color: '#eab308' },
+  eloTextDanger:   { color: '#ef4444' },
 
   heroName:        { fontSize: 13, color: '#eab308', fontWeight: '700', letterSpacing: 0.8, flex: 1 },
   goldDisplay:     { flexDirection: 'row', alignItems: 'center', gap: 5 },
@@ -1275,4 +1307,11 @@ const styles = StyleSheet.create({
     borderRadius: 8, paddingVertical: 8, alignItems: 'center', zIndex: 50,
   },
   reinforcementBannerText: { color: '#ef4444', fontSize: 12, fontWeight: '700' },
+
+  eloBoostBanner: {
+    position: 'absolute', top: 60, left: 16, right: 16,
+    backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.4)',
+    borderRadius: 8, paddingVertical: 8, alignItems: 'center', zIndex: 50,
+  },
+  eloBoostBannerText: { color: '#ef4444', fontSize: 12, fontWeight: '700' },
 });

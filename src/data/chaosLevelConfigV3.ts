@@ -42,7 +42,7 @@ const MODIFIERS_ACT_1: BattleModifier[] = [
   'golden_zone',
   'weak_flank',
   'no_castling',
-  'open_board',
+  // open_board убран — незаметен при малом количестве фигур
   'berserk_knight',
 ]
 
