@@ -295,6 +295,8 @@ export default function ChaosBattleScreen() {
   const playerMovesRef = useRef(0);
   // Нарастающий ELO: каждые 5 ходов увеличивается на 100 и передаётся в Stockfish
   const currentEloRef = useRef(opponentElo);
+  // Горячая зона: срабатывает только один раз за бой
+  const hotZoneUsedRef = useRef(false);
   // Очередь попапов золота — показываем по одному с задержкой 400мс между ними
   const pendingToastsRef = useRef<string[]>([]);
   const toastActiveRef = useRef(false);
@@ -875,10 +877,12 @@ export default function ChaosBattleScreen() {
       playerMovesRef.current = newCount;
       setPlayerMoves(newCount);
 
-      // Нарастающий ELO: каждые 5 ходов +100 к силе Stockfish
+      // Нарастающий ELO: каждые 5 ходов +100 к ELO, пересчитываем skillLevel для Stockfish
       if (newCount > 0 && newCount % 5 === 0) {
         currentEloRef.current += 100;
-        sendToEngine(`setoption name Skill Level value ${eloToSkillLevel(currentEloRef.current)}`);
+        const pressureSkill = Math.min(20, Math.floor(currentEloRef.current / 100));
+        console.log('Pressure ELO:', currentEloRef.current, 'moveCount:', newCount, 'skillLevel:', pressureSkill);
+        sendToEngine(`setoption name Skill Level value ${pressureSkill}`);
       }
 
       const move = moveResult.move!;
@@ -917,8 +921,9 @@ export default function ChaosBattleScreen() {
         // Страж: сравниваем клетку ПОСЛЕ обновления позиций — этот ход уже отражён в state.square
         checkGuardBonus();
       }
-      // Горячая зона: +15 золота если фигура игрока заходит на случайную горячую клетку
-      if (hotZones.includes(move.to as Square) && move.color === 'w') {
+      // Горячая зона: +15 золота один раз за бой — при первом заходе на случайную горячую клетку
+      if (hotZones.includes(move.to as Square) && move.color === 'w' && !hotZoneUsedRef.current) {
+        hotZoneUsedRef.current = true;
         goldRef.current += 15;
         pushGoldToast('+15🪙 Горячая зона');
       }
