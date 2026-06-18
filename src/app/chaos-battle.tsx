@@ -43,6 +43,10 @@ import type { PieceUpgrade } from '../types/chaos';
 import { UPGRADE_DEFINITIONS } from '../data/chaosUpgrades';
 import { LEVEL_CONFIGS, getBattleConfig } from '../data/chaosLevelConfig';
 import { getTowerNodes } from '../data/chaosTowerConfig';
+import { PROGRESS_NODES, PROGRESS_NODES_ACT_1, getRandomModifier } from '../data/chaosLevelConfigV3';
+import type { BattleType, BattleModifier } from '../types/mechanics';
+import { ProgressBar } from '../components/ProgressBar';
+import { BattleBanner } from '../components/BattleBanner';
 import { useChaosModeStore, pieceInstanceId } from '../store/chaosModeStore';
 import { eloToSkillLevel } from '../engine/stockfish';
 import { parsePieceId } from '../engine/chaosEventEngine';
@@ -177,6 +181,11 @@ export default function ChaosBattleScreen() {
   const skillLevel = eloToSkillLevel(opponentElo);
   const aiUpgrades: AIUpgrade[] = battleConfig?.aiUpgrades ?? [];
 
+  const [isBannerVisible, setIsBannerVisible] = useState(true);
+  const [battleModifier] = useState<BattleModifier | null>(() =>
+    getRandomModifier(currentLevel, selectedCharacter?.id ?? 'merchant')
+  );
+
   const [startFen] = useState(() => {
     if (currentLevel === 1) return buildChaosFen(pieces, safeBattleNumber);
     if (isBossBattle) return buildLevel2BossAiFen(pieces);
@@ -226,6 +235,8 @@ export default function ChaosBattleScreen() {
   const goldToastIdRef = useRef(0);
   // Проклятие: текущая клетка проклятой фигуры — обновляется после каждого хода
   const cursedSquareRef = useRef<Square | null>(null);
+  // Счётчик ходов для системы нарастающего давления — зеркалит playerMoves без задержки ре-рендера
+  const playerMovesRef = useRef(0);
 
   // Показывает золотой попап в правом верхнем углу — стекается с предыдущими, исчезает через 1.5с
   const pushGoldToast = useCallback((text: string) => {
@@ -740,7 +751,9 @@ export default function ChaosBattleScreen() {
       applyAIMove(`${m.from}${m.to}${m.promotion ?? ''}`);
     }, 1500);
     sendToEngine(`position fen ${chess.fen()}`);
-    sendToEngine('go movetime 400');
+    // Нарастающее давление: с хода 15 увеличиваем глубину поиска Stockfish
+    const moveTime = playerMovesRef.current >= 15 ? 600 : 400;
+    sendToEngine(`go movetime ${moveTime}`);
   }, [chess, applyAIMove, sendToEngine]);
 
   const handleEngineMessage = useCallback((line: string) => {
@@ -763,6 +776,7 @@ export default function ChaosBattleScreen() {
     requestAnimationFrame(() => {
       setLastMoveHighlight(null);
       const newCount = playerMoves + 1;
+      playerMovesRef.current = newCount;
       setPlayerMoves(newCount);
 
       const move = moveResult.move!;
@@ -777,6 +791,11 @@ export default function ChaosBattleScreen() {
         if (selectedCharacter && selectedCharacter.captureGoldBonus > 0) {
           goldRef.current += selectedCharacter.captureGoldBonus;
           pushGoldToast(`+${selectedCharacter.captureGoldBonus} золота — Купец`);
+        }
+        // Нарастающее давление: +8 золота за взятие начиная с хода 10
+        if (newCount >= 10) {
+          goldRef.current += 8;
+          pushGoldToast('+8🪙 Давление');
         }
       }
       if (move.piece === 'n' && artifacts.includes('fork_master') && isKnightFork(chess, move.to as Square)) {
@@ -861,7 +880,12 @@ export default function ChaosBattleScreen() {
   // Хуки уже объявлены — теперь можно безопасно делать условный return
   if (!isValidFloor) { router.replace('/chaos-tower'); return null; }
 
-  const boardDisabled = result !== null || isAIThinking || chess.turn() !== PLAYER_COLOR;
+  const v3BattleType: BattleType =
+    isBossBattle ? 'elite'
+    : battleKey === 'elite' ? 'elite'
+    : 'standard';
+
+  const boardDisabled = result !== null || isAIThinking || chess.turn() !== PLAYER_COLOR || isBannerVisible;
 
   // Заголовок и цель боя: уровень 1 — фиксированные тексты по номеру боя;
   // уровень 2+ — по узлу башни (имя босса, «Элита» или название узла обычного боя)
@@ -900,6 +924,12 @@ export default function ChaosBattleScreen() {
           <View style={styles.eloBadge}>
             <Text style={styles.eloText}>ELO {opponentElo}</Text>
           </View>
+          <Text style={[
+            styles.moveCounter,
+            playerMoves >= 15 ? styles.moveCounterDanger
+            : playerMoves >= 10 ? styles.moveCounterWarning
+            : styles.moveCounterNormal,
+          ]}>Ход: {playerMoves}</Text>
           <Text style={[styles.thinking, { opacity: isAIThinking ? 1 : 0 }]}>⏳</Text>
         </View>
 
@@ -930,6 +960,11 @@ export default function ChaosBattleScreen() {
           />
         )}
       </LinearGradient>
+
+      <ProgressBar
+        nodes={PROGRESS_NODES[currentLevel] ?? PROGRESS_NODES_ACT_1}
+        currentIndex={currentFloor}
+      />
 
       <View style={styles.boardWrap}>
         <View style={styles.boardFrameOuter}>
@@ -1013,6 +1048,15 @@ export default function ChaosBattleScreen() {
           </Pressable>
         </View>
       )}
+
+      {isBannerVisible && !result && (
+        <BattleBanner
+          battleType={v3BattleType}
+          modifier={battleModifier}
+          elo={opponentElo}
+          onClose={() => setIsBannerVisible(false)}
+        />
+      )}
     </SafeAreaView>
     </LinearGradient>
   );
@@ -1087,4 +1131,8 @@ const styles = StyleSheet.create({
   resultGold:      { color: '#f59e0b', fontSize: 28, fontWeight: '800' },
   continueBtn:     { marginTop: 16, backgroundColor: '#22c55e', paddingVertical: 14, paddingHorizontal: 48, borderRadius: 14 },
   continueBtnText: { color: '#fff', fontSize: 17, fontWeight: '800' },
+  moveCounter:      { fontSize: 10 },
+  moveCounterNormal:  { color: '#7a6a90' },
+  moveCounterWarning: { color: '#eab308' },
+  moveCounterDanger:  { color: '#ef4444' },
 });
