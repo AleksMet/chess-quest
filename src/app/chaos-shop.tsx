@@ -146,6 +146,17 @@ export default function ChaosShopScreen() {
     router.replace('/chaos-tower');
   }
 
+  function handleExitToMenu() {
+    Alert.alert(
+      'Выйти в главное меню?',
+      'Текущий прогресс забега будет сохранён.',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        { text: 'Выйти', onPress: () => router.replace('/') },
+      ]
+    );
+  }
+
   const upgradableInstances = buildUpgradableInstances(pieces);
 
   return (
@@ -330,9 +341,14 @@ export default function ChaosShopScreen() {
       )}
 
       <View style={styles.footer}>
-        <Text style={styles.balance}>💰 Баланс: {gold}</Text>
-        <Pressable style={styles.continueBtn} onPress={handleContinue} testID="chaos-shop-continue-btn">
-          <Text style={styles.continueBtnText}>В бой ⚔️</Text>
+        <View style={styles.footerRow}>
+          <Text style={styles.balance}>💰 Баланс: {gold}</Text>
+          <Pressable style={styles.continueBtn} onPress={handleContinue} testID="chaos-shop-continue-btn">
+            <Text style={styles.continueBtnText}>В бой ⚔️</Text>
+          </Pressable>
+        </View>
+        <Pressable style={styles.exitMenuBtn} onPress={handleExitToMenu} testID="chaos-shop-exit-menu-btn">
+          <Text style={styles.exitMenuBtnText}>✕ Выйти в главное меню</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -407,11 +423,19 @@ const styles = StyleSheet.create({
   ownedUpgrade:   { color: '#cbd5e1', fontSize: 12 },
 
   footer:    {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: 'column',
     paddingHorizontal: 16, paddingVertical: 14,
-    borderTopWidth: 1, borderTopColor: '#1e293b', gap: 12,
+    borderTopWidth: 1, borderTopColor: '#1e293b',
   },
+  footerRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   balance:        { color: '#f59e0b', fontSize: 15, fontWeight: '700' },
   continueBtn:    { flex: 1, backgroundColor: '#22c55e', borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
   continueBtnText:{ color: '#fff', fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
+  exitMenuBtn:    {
+    width: '100%', height: 40, marginTop: 8,
+    backgroundColor: 'transparent',
+    borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)', borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  exitMenuBtnText: { color: '#ef4444', fontSize: 11, fontWeight: '600' },
 });

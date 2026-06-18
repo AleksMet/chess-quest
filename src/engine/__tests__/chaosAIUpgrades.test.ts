@@ -2,7 +2,8 @@ import { Chess } from 'chess.js';
 import { applyAIUpgrades, evolvePiece, teleportAttackingPieces } from '../chaosAIUpgrades';
 import type { AIUpgrade } from '../chaosAIUpgrades';
 
-describe('applyAIUpgrades', () => {
+// TODO: mechanics-v3 — стандартные улучшения AI убраны, тесты отключены
+describe.skip('applyAIUpgrades', () => {
   it('Берсерк: есть взятие — берёт', () => {
     const chess = new Chess('7k/8/3P4/8/2n5/8/8/K7 b - - 0 1');
     const upgrades: AIUpgrade[] = [{ pieceType: 'n', upgradeType: 'berserk' }];

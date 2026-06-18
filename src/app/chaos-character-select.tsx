@@ -80,15 +80,16 @@ function restrictionLines(c: ChaosCharacter): string[] {
 
 export default function ChaosCharacterSelectScreen() {
   const router = useRouter();
-  const { selectedCharacter, guardianUnlocked, loadGuardianUnlocked, setCharacter, resetRun } = useChaosModeStore();
+  const { selectedCharacter, loadGuardianUnlocked, setCharacter, resetRun } = useChaosModeStore();
 
   useEffect(() => {
     loadGuardianUnlocked();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // TODO: mechanics-v3 — Берсерк и Страж заблокированы до релиза их механик
   function isLocked(character: ChaosCharacter): boolean {
-    return character.id === 'guardian' && !guardianUnlocked;
+    return character.id === 'berserk' || character.id === 'guardian';
   }
 
   function handleSelect(character: ChaosCharacter) {
@@ -126,9 +127,9 @@ export default function ChaosCharacterSelectScreen() {
             const negatives = restrictionLines(character);
 
             return (
+              <View key={character.id} style={styles.cardWrapper}>
               <View
-                key={character.id}
-                style={[styles.card, selected && styles.cardSelected]}
+                style={[styles.card, locked && styles.cardLocked, selected && styles.cardSelected]}
                 testID={`chaos-character-${character.id}`}
               >
                 <View style={styles.cardHeader}>
@@ -201,11 +202,17 @@ export default function ChaosCharacterSelectScreen() {
                       style={styles.btnGradient}
                     >
                       <Text style={styles.selectBtnText}>
-                        {locked ? '🔒  Победи босса ур.1' : 'Выбрать'}
+                        {locked ? '🔒 Скоро' : 'Выбрать'}
                       </Text>
                     </LinearGradient>
                   )}
                 </Pressable>
+              </View>
+              {locked && (
+                <View style={styles.soonOverlay}>
+                  <Text style={styles.soonText}>Скоро</Text>
+                </View>
+              )}
               </View>
             );
           })}
@@ -261,14 +268,20 @@ const styles = StyleSheet.create({
 
   scroll: { padding: 12 },
 
+  cardWrapper: { marginBottom: 10 },
   card: {
     borderRadius: 16,
     padding: 14,
     backgroundColor: '#1a1035',
     borderWidth: 1.5,
     borderColor: 'rgba(168,85,247,0.25)',
-    marginBottom: 10,
   },
+  cardLocked: { opacity: 0.4 },
+  soonOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    borderRadius: 16, alignItems: 'center', justifyContent: 'center',
+  },
+  soonText: { color: '#a855f7', fontSize: 20, fontWeight: '800', letterSpacing: 2 },
   cardSelected: {
     borderColor: '#a855f7',
     shadowColor: '#a855f7',

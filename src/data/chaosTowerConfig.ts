@@ -23,11 +23,12 @@ export interface ChaosNodeDef {
   options?: ChaosChoiceOption[];
 }
 
-// Уровень 1 — порядок узлов снизу вверх = порядок прохождения (currentFloor 0..5)
+// Уровень 1 — порядок узлов снизу вверх = порядок прохождения (currentFloor 0..4)
 export const CHAOS_TOWER_NODES: ChaosNodeDef[] = [
   { type: 'shop',     icon: '🏪', label: 'Магазин 1', route: '/chaos-shop' },
   { type: 'battle',   icon: '⚔️', label: 'Бой 1',     route: '/chaos-battle', battleIndex: 0 },
-  { type: 'treasure', icon: '💎', label: 'Сокровище', route: '/chaos-treasure' },
+  // TODO: mechanics-v3 treasure removed
+  // { type: 'treasure', icon: '💎', label: 'Сокровище', route: '/chaos-treasure' },
   { type: 'battle',   icon: '⚔️', label: 'Бой 2',     route: '/chaos-battle', battleIndex: 1 },
   { type: 'shop',     icon: '🏪', label: 'Магазин 2', route: '/chaos-shop' },
   { type: 'boss',     icon: '👑', label: 'Босс',      route: '/chaos-boss-intro', battleIndex: 'boss' },

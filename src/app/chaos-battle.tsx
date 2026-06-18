@@ -106,12 +106,13 @@ const BATTLE_GOALS: Record<ChaosBattleNumber, string> = {
   boss: 'Финальный бой. Удачи!',
 };
 
-// На каком этаже башни проходит какой бой (currentFloor: 1 → бой 1, 3 → бой 2, 5 → босс)
+// На каком этаже башни проходит какой бой — без узла «Сокровище»:
+// shop(0)→battle1(1)→battle2(2)→shop2(3)→boss(4)
 function battleNumberForFloor(floor: number): ChaosBattleNumber | null {
   switch (floor) {
     case 1: return 1;
-    case 3: return 2;
-    case 5: return 'boss';
+    case 2: return 2;
+    case 4: return 'boss';
     default: return null;
   }
 }
@@ -179,7 +180,8 @@ export default function ChaosBattleScreen() {
   const isBossBattle = currentLevel === 1 ? safeBattleNumber === 'boss' : battleKey === 'boss';
   const opponentElo = currentLevel === 1 ? CHAOS_BATTLE_ELO[safeBattleNumber] : (battleConfig?.elo ?? 1000);
   const skillLevel = eloToSkillLevel(opponentElo);
-  const aiUpgrades: AIUpgrade[] = battleConfig?.aiUpgrades ?? [];
+  // TODO: mechanics-v3 — стандартные улучшения AI убраны
+  const aiUpgrades: AIUpgrade[] = [];
 
   const [isBannerVisible, setIsBannerVisible] = useState(true);
   const [battleModifier] = useState<BattleModifier | null>(() =>
@@ -555,12 +557,8 @@ export default function ChaosBattleScreen() {
   // Берсерк/Снайпер — красным (#FF4444), Страж — синим (#4444FF), opacity 0.35.
   const currentAiUpgrades: AIUpgrade[] = currentLevel === 1 ? [] : aiUpgrades;
 
-  // HUD «AI»: уровень 1 — battleConfig не задаёт aiUpgrades (используется только для уровней 2+),
-  // поэтому для финального боя «Всадник» берём улучшения босса напрямую из LEVEL_CONFIGS,
-  // чтобы ферзь-берсерк отображался в верхнем HUD так же, как улучшения ИИ на уровнях 2+.
-  const displayAiUpgrades: AIUpgrade[] = currentLevel === 1 && isBossBattle
-    ? (levelConfig?.bossConfig?.aiUpgrades ?? [])
-    : currentAiUpgrades;
+  // TODO: mechanics-v3 — AI-эффекты в HUD убраны вместе со стандартными улучшениями AI
+  const displayAiUpgrades: AIUpgrade[] = currentAiUpgrades;
 
   const aiUpgradeHighlights: typeof upgradeHighlights = (() => {
     if (displayAiUpgrades.length === 0) return [];
