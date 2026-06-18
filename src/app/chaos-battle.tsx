@@ -92,7 +92,48 @@ function berserkStreakPopupText(streak: number, bonus: number): string {
 }
 
 const PLAYER_COLOR = 'w' as const;
-const HOT_ZONE_SQUARES: Square[] = ['d4', 'e4', 'd5', 'e5'];
+
+const HOT_ZONE_CANDIDATES: Square[] = ['c6', 'd6', 'e6', 'f6', 'c7', 'd7', 'e7', 'f7'];
+
+function pickHotZones(fen: string): Square[] {
+  const tempChess = new Chess(fen);
+  const available = HOT_ZONE_CANDIDATES.filter(sq => !tempChess.get(sq));
+  const shuffled = available.sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, Math.random() > 0.5 ? 2 : 1);
+}
+
+const REINFORCEMENTS: Record<number, Record<number, PieceSymbol[]>> = {
+  1: { 20: ['p'],       25: ['n'],       30: ['p', 'n'] },
+  2: { 20: ['n'],       25: ['r'],       30: ['n', 'r'] },
+  3: { 20: ['r'],       25: ['q'],       30: ['r', 'q'] },
+};
+
+const PIECE_NAMES_RU: Record<string, string> = {
+  p: 'пешка', n: 'конь', r: 'ладья', q: 'ферзь', b: 'слон', k: 'король',
+};
+
+// Спавнит подкрепление противника на рядах 7-8; возвращает список заспавненных фигур
+function spawnReinforcement(chess: Chess, act: number, moveNum: number): PieceSymbol[] {
+  const pieces = REINFORCEMENTS[act]?.[moveNum];
+  if (!pieces) return [];
+  const SPAWN_ROWS = ['7', '8'];
+  const COLS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+  const spawned: PieceSymbol[] = [];
+  pieces.forEach(piece => {
+    const candidates: Square[] = [];
+    SPAWN_ROWS.forEach(row => {
+      COLS.forEach(col => {
+        const sq = (col + row) as Square;
+        if (!chess.get(sq)) candidates.push(sq);
+      });
+    });
+    if (candidates.length === 0) return;
+    const sq = candidates[Math.floor(Math.random() * candidates.length)];
+    chess.put({ type: piece, color: 'b' }, sq);
+    spawned.push(piece);
+  });
+  return spawned;
+}
 
 
 const BATTLE_TITLES: Record<ChaosBattleNumber, string> = {
@@ -229,6 +270,10 @@ export default function ChaosBattleScreen() {
   const [showKnightsOutBanner, setShowKnightsOutBanner] = useState(false);
   // Механика сдачи: кнопка «Сдаться» появляется в HUD после того, как у игрока остался только король
   const [surrenderAvailable, setSurrenderAvailable] = useState(false);
+  // Горячие зоны: 1-2 случайные клетки рядов 6-7, выбираются при старте боя
+  const [hotZones] = useState<Square[]>(() => pickHotZones(startFen));
+  // Баннер подкрепления противника — показывается 2с после спавна
+  const [reinforcementText, setReinforcementText] = useState<string | null>(null);
   // Alert про сдачу показывается только один раз за бой
   const surrenderAlertShown = useRef(false);
   const goldRef = useRef(0);
@@ -248,6 +293,8 @@ export default function ChaosBattleScreen() {
   const cursedSquareRef = useRef<Square | null>(null);
   // Счётчик ходов для системы нарастающего давления — зеркалит playerMoves без задержки ре-рендера
   const playerMovesRef = useRef(0);
+  // Нарастающий ELO: каждые 5 ходов увеличивается на 100 и передаётся в Stockfish
+  const currentEloRef = useRef(opponentElo);
   // Очередь попапов золота — показываем по одному с задержкой 400мс между ними
   const pendingToastsRef = useRef<string[]>([]);
   const toastActiveRef = useRef(false);
@@ -292,6 +339,13 @@ export default function ChaosBattleScreen() {
     const timer = setTimeout(() => setShowKnightsOutBanner(false), 1000);
     return () => clearTimeout(timer);
   }, [showKnightsOutBanner]);
+
+  // Баннер подкрепления противника показываем 2 секунды, затем прячем
+  useEffect(() => {
+    if (!reinforcementText) return;
+    const timer = setTimeout(() => setReinforcementText(null), 2000);
+    return () => clearTimeout(timer);
+  }, [reinforcementText]);
 
   useEffect(() => {
     savePurchasedPieces();
@@ -479,9 +533,9 @@ export default function ChaosBattleScreen() {
     upgradeHighlights.push({ square: cursedSquare, color: 'purple', opacity: 0.45 });
   }
 
-  // Горячие зоны: золотая подсветка d4/e4/d5/e5 — всегда видна
-  const hotZoneHighlights = HOT_ZONE_SQUARES.map(square => ({
-    square, color: 'gold' as const, opacity: 0.3,
+  // Горячие зоны: золотая подсветка случайных клеток рядов 6-7 — всегда видна
+  const hotZoneHighlights = hotZones.map(square => ({
+    square, color: 'gold' as const, opacity: 0.35,
   }));
 
   // Берсерк: если хотя бы одна берсерк-фигура игрока может взять — она обязана это сделать.
@@ -758,6 +812,16 @@ export default function ChaosBattleScreen() {
         setIsAIThinking(false);
         checkSurrenderCondition();
 
+        // Подкрепление противника на ходах 20/25/30 (проверяем после хода ИИ)
+        const currentMoveNum = playerMovesRef.current;
+        if (currentMoveNum === 20 || currentMoveNum === 25 || currentMoveNum === 30) {
+          const spawned = spawnReinforcement(chess, currentLevel, currentMoveNum);
+          if (spawned.length > 0) {
+            const names = spawned.map(p => PIECE_NAMES_RU[p] ?? p).join(' и ');
+            setReinforcementText(`⚠️ Подкрепление врага! +${names}`);
+          }
+        }
+
         if (chess.isCheckmate()) {
           finishBattle('lose', 'Мат!', 0, playerMoves);
           return;
@@ -811,6 +875,12 @@ export default function ChaosBattleScreen() {
       playerMovesRef.current = newCount;
       setPlayerMoves(newCount);
 
+      // Нарастающий ELO: каждые 5 ходов +100 к силе Stockfish
+      if (newCount > 0 && newCount % 5 === 0) {
+        currentEloRef.current += 100;
+        sendToEngine(`setoption name Skill Level value ${eloToSkillLevel(currentEloRef.current)}`);
+      }
+
       const move = moveResult.move!;
       setLastMoveHighlight({ from: move.from as Square, to: move.to as Square, color: 'player' });
       if (move.captured) {
@@ -824,10 +894,10 @@ export default function ChaosBattleScreen() {
           goldRef.current += selectedCharacter.captureGoldBonus;
           pushGoldToast(`+${selectedCharacter.captureGoldBonus} золота — Купец`);
         }
-        // Нарастающее давление: +8 золота за взятие начиная с хода 10 (кроме objective_royal_shield)
-        if (newCount >= 10 && v3BattleType !== 'objective_royal_shield') {
-          goldRef.current += 8;
-          pushGoldToast('+8🪙 Давление');
+        // Усиленные пешки: +5 золота за каждую взятую пешку врага
+        if (move.captured === 'p' && battleModifier === 'reinforced_pawns') {
+          goldRef.current += 5;
+          pushGoldToast('+5🪙 Усиленные пешки');
         }
       }
       if (move.piece === 'n' && artifacts.includes('fork_master') && isKnightFork(chess, move.to as Square)) {
@@ -847,8 +917,8 @@ export default function ChaosBattleScreen() {
         // Страж: сравниваем клетку ПОСЛЕ обновления позиций — этот ход уже отражён в state.square
         checkGuardBonus();
       }
-      // Горячая зона: +15 золота если после хода фигура игрока стоит на d4/e4/d5/e5
-      if (HOT_ZONE_SQUARES.some(sq => { const p = chess.get(sq); return !!p && p.color === PLAYER_COLOR; })) {
+      // Горячая зона: +15 золота если фигура игрока заходит на случайную горячую клетку
+      if (hotZones.includes(move.to as Square) && move.color === 'w') {
         goldRef.current += 15;
         pushGoldToast('+15🪙 Горячая зона');
       }
@@ -891,7 +961,7 @@ export default function ChaosBattleScreen() {
       requestAIMove();
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerMoves, chess, requestAIMove, artifacts, pieceUpgrades, selectedCharacter, v3BattleType]);
+  }, [playerMoves, chess, requestAIMove, artifacts, pieceUpgrades, selectedCharacter, v3BattleType, hotZones, battleModifier, sendToEngine]);
 
   function handleContinue() {
     // Превращённые во время боя ферзи возвращаются пешками — переходит только купленная армия
@@ -969,6 +1039,14 @@ export default function ChaosBattleScreen() {
             : playerMoves >= 10 ? styles.moveCounterWarning
             : styles.moveCounterNormal,
           ]}>Ход: {playerMoves}</Text>
+          {playerMoves >= 15 && playerMoves < 30 && (
+            <Text style={[
+              styles.reinforceCounter,
+              playerMoves >= 18 ? styles.reinforceCounterDanger : styles.reinforceCounterWarning,
+            ]}>
+              {`⚠️ Подкр. через: ${playerMoves < 20 ? 20 - playerMoves : playerMoves < 25 ? 25 - playerMoves : 30 - playerMoves}`}
+            </Text>
+          )}
           <Text style={[styles.thinking, { opacity: isAIThinking ? 1 : 0 }]}>⏳</Text>
         </View>
 
@@ -1029,6 +1107,11 @@ export default function ChaosBattleScreen() {
         {showKnightsOutBanner && (
           <View style={styles.knightsOutBanner} pointerEvents="none">
             <Text style={styles.knightsOutBannerText}>Кони закончились!</Text>
+          </View>
+        )}
+        {reinforcementText && (
+          <View style={styles.reinforcementBanner} pointerEvents="none">
+            <Text style={styles.reinforcementBannerText}>{reinforcementText}</Text>
           </View>
         )}
       </View>
@@ -1176,4 +1259,15 @@ const styles = StyleSheet.create({
   moveCounterNormal:  { color: '#7a6a90' },
   moveCounterWarning: { color: '#eab308' },
   moveCounterDanger:  { color: '#ef4444' },
+
+  reinforceCounter:        { fontSize: 9 },
+  reinforceCounterWarning: { color: '#eab308' },
+  reinforceCounterDanger:  { color: '#ef4444' },
+
+  reinforcementBanner: {
+    position: 'absolute', top: 100, left: 16, right: 16,
+    backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.4)',
+    borderRadius: 8, paddingVertical: 8, alignItems: 'center', zIndex: 50,
+  },
+  reinforcementBannerText: { color: '#ef4444', fontSize: 12, fontWeight: '700' },
 });
