@@ -7,7 +7,7 @@ export const ACT_1_CONFIG: ActConfig = {
     { type: 'standard', elo: 800 },
     { type: 'objective_queen_hunt', elo: 1000 },
     { type: 'standard', elo: 1100 },
-    { type: 'elite', elo: 1300 },
+    { type: 'elite', elo: 1300, aiSpecialUpgrades: ['vortex'] },
   ],
 }
 
@@ -19,7 +19,7 @@ export const ACT_2_CONFIG: ActConfig = {
     { type: 'objective_pawn_march', elo: 1100 },
     { type: 'standard', elo: 1200, isChoice: true },
     { type: 'objective_queen_hunt', elo: 1300 },
-    { type: 'elite', elo: 1500 },
+    { type: 'elite', elo: 1500, aiSpecialUpgrades: ['vortex', 'ricochet'] },
   ],
 }
 
@@ -31,7 +31,7 @@ export const ACT_3_CONFIG: ActConfig = {
     { type: 'objective_royal_shield', elo: 1300 },
     { type: 'standard', elo: 1400, isChoice: true },
     { type: 'objective_pawn_march', elo: 1500 },
-    { type: 'elite', elo: 1600 },
+    { type: 'elite', elo: 1600, aiSpecialUpgrades: ['vortex', 'ricochet'] },
   ],
 }
 

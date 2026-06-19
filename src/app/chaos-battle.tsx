@@ -44,7 +44,7 @@ import { UPGRADE_DEFINITIONS } from '../data/chaosUpgrades';
 import { LEVEL_CONFIGS, getBattleConfig } from '../data/chaosLevelConfig';
 import { getTowerNodes } from '../data/chaosTowerConfig';
 import { PROGRESS_NODES, PROGRESS_NODES_ACT_1, getRandomModifier, MODIFIER_DESCRIPTIONS, ACT_CONFIGS } from '../data/chaosLevelConfigV3';
-import type { BattleType, BattleModifier } from '../types/mechanics';
+import type { BattleType, BattleModifier, AISpecialUpgradeConfig } from '../types/mechanics';
 import { ProgressBar } from '../components/ProgressBar';
 import { BattleBanner } from '../components/BattleBanner';
 import { useChaosModeStore, pieceInstanceId } from '../store/chaosModeStore';
@@ -237,6 +237,17 @@ export default function ChaosBattleScreen() {
     ? getBattleConfig(levelConfig, battleKey)
     : null;
 
+  // Текущий узел конфига — для AI специальных улучшений (vortex, ricochet)
+  const currentBattleNode = (() => {
+    if (battleKey === 'elite') {
+      return ACT_CONFIGS[currentLevel - 1]?.nodes.find(n => n.type === 'elite') ?? null;
+    }
+    if (typeof battleKey === 'number') {
+      return ACT_CONFIGS[currentLevel - 1]?.nodes[battleKey] ?? null;
+    }
+    return null;
+  })();
+
   const isValidFloor = currentLevel === 1 ? battleNumber !== null : battleKey !== null;
 
   const isBossBattle = currentLevel === 1 ? safeBattleNumber === 'boss' : battleKey === 'boss';
@@ -337,6 +348,8 @@ export default function ChaosBattleScreen() {
   const playerMovesRef = useRef(0);
   // Горячая зона: срабатывает только один раз за бой
   const hotZoneUsedRef = useRef(false);
+  // AI специальные улучшения: Конь-Вихрь (vortex) и Слон-Рикошет (ricochet)
+  const aiSpecialUpgradeConfigsRef = useRef<AISpecialUpgradeConfig[]>([]);
   // Objective — Охота на Ферзя: отслеживаем только ферзя ИИ
   const [aiQueenAlive, setAiQueenAlive] = useState(true);
   const aiQueenAliveRef = useRef(true);
@@ -476,6 +489,24 @@ export default function ChaosBattleScreen() {
       });
     }
     setPieceEffects(effects);
+
+    // Инициализируем AI специальные улучшения для элитного боя
+    const specialUpgradeTypes = currentBattleNode?.aiSpecialUpgrades ?? [];
+    const specialConfigs: AISpecialUpgradeConfig[] = [];
+    for (const upgradeType of specialUpgradeTypes) {
+      if (upgradeType === 'vortex') {
+        const squares = findAllPieceSquares(chess, 'n', 'b');
+        if (squares.length > 0) {
+          specialConfigs.push({ type: 'vortex', square: squares[0], piece: 'n', usedThisTurn: false });
+        }
+      } else if (upgradeType === 'ricochet') {
+        const squares = findAllPieceSquares(chess, 'b', 'b');
+        if (squares.length > 0) {
+          specialConfigs.push({ type: 'ricochet', square: squares[0], piece: 'b', usedThisTurn: false });
+        }
+      }
+    }
+    aiSpecialUpgradeConfigsRef.current = specialConfigs;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -700,6 +731,13 @@ export default function ChaosBattleScreen() {
   // Защитные улучшения боссу не нужны (ладья-страж не подсвечивается). Видна с первого хода игрока.
   const bossHighlights: typeof upgradeHighlights = [];
 
+  // AI спец. улучшения: золотая подсветка клеток Коня-Вихря и Слона-Рикошета
+  const aiSpecialUpgradeHighlights = aiSpecialUpgradeConfigsRef.current.map(config => ({
+    square: config.square as Square,
+    color: 'gold' as const,
+    opacity: 0.5,
+  }));
+
   // Уровень 2+: симметрия — улучшения ИИ подсвечиваются так же, как у игрока:
   // Берсерк/Снайпер — красным (#FF4444), Страж — синим (#4444FF), opacity 0.35.
   const currentAiUpgrades: AIUpgrade[] = currentLevel === 1 ? [] : aiUpgrades;
@@ -865,6 +903,39 @@ export default function ChaosBattleScreen() {
         }
         setLastMoveHighlight({ from, to, color: 'opponent' });
 
+        // AI спец. улучшение: обновляем позицию фигуры с улучшением (переместилась)
+        for (const config of aiSpecialUpgradeConfigsRef.current) {
+          if (config.square === from) {
+            config.square = to;
+            break;
+          }
+        }
+        // AI спец. улучшение: дополнительный ход после взятия (вихрь / рикошет)
+        if (move.captured) {
+          const specialConfig = aiSpecialUpgradeConfigsRef.current.find(
+            c => c.square === to && !c.usedThisTurn
+          );
+          if (specialConfig) {
+            const pieceOnBoard = chess.get(to as Square);
+            if (pieceOnBoard && pieceOnBoard.color === 'b' && pieceOnBoard.type === specialConfig.piece) {
+              specialConfig.usedThisTurn = true;
+              const extraLegal = chess.moves({ square: to as Square, verbose: true });
+              if (extraLegal.length > 0) {
+                const extraMove = extraLegal[Math.floor(Math.random() * extraLegal.length)];
+                const extraChessMove = chess.move({ from: extraMove.from, to: extraMove.to });
+                if (extraChessMove) {
+                  if (pieceUpgrades.length > 0) {
+                    trackUpgradeMove(extraMove.from as Square, extraMove.to as Square);
+                  }
+                  specialConfig.square = extraMove.to;
+                  pushGoldToast(specialConfig.type === 'vortex' ? '⚡ Конь-Вихрь!' : '⚡ Слон-Рикошет!');
+                  setLastMoveHighlight({ from: extraMove.from as Square, to: extraMove.to as Square, color: 'opponent' });
+                }
+              }
+            }
+          }
+        }
+
         // Уровень 3, Ведьма Диагоналей: раз в teleportMechanic.intervalMoves ходов
         // атакующие фигуры (слоны-снайперы, конь-берсерк) телепортируются на ряды 5-8
         if (isBossBattle && levelConfig.bossConfig.teleportMechanic) {
@@ -916,6 +987,10 @@ export default function ChaosBattleScreen() {
   const requestAIMove = useCallback(() => {
     if (chess.isGameOver() || chess.turn() === PLAYER_COLOR) return;
     setIsAIThinking(true);
+    // Сбрасываем флаг «использован в этом ходу» для AI специальных улучшений
+    for (const config of aiSpecialUpgradeConfigsRef.current) {
+      config.usedThisTurn = false;
+    }
     if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
     aiTimeoutRef.current = setTimeout(() => {
       aiTimeoutRef.current = null;
@@ -963,6 +1038,10 @@ export default function ChaosBattleScreen() {
       const move = moveResult.move!;
       setLastMoveHighlight({ from: move.from as Square, to: move.to as Square, color: 'player' });
       if (move.captured) {
+        // Игрок взял AI фигуру с спец. улучшением — удаляем её из списка
+        aiSpecialUpgradeConfigsRef.current = aiSpecialUpgradeConfigsRef.current.filter(
+          c => c.square !== move.to
+        );
         goldRef.current += calcCaptureScore(move.captured);
         // Ключевое взятие (конь/слон/ладья/ферзь) — попап с золотом независимо от улучшений; пешки не показываем
         if (KEY_CAPTURE_PIECES.includes(move.captured)) {
@@ -1170,6 +1249,12 @@ export default function ChaosBattleScreen() {
           <Text style={styles.knightCounter}>{knightSpawnCounterText(bossKnightSpawnsLeft)}</Text>
         )}
 
+        {currentBattleNode?.aiSpecialUpgrades && currentBattleNode.aiSpecialUpgrades.length > 0 && (
+          <Text style={styles.aiSpecialUpgradeHud}>
+            {currentBattleNode.aiSpecialUpgrades.map(t => t === 'vortex' ? '⚡ Вихрь' : '⚡ Рикошет').join(' | ')}
+          </Text>
+        )}
+
         {(aiEffectGroups.length > 0 || evolutionCounterText || teleportCounterText) && (
           <UpgradeChipsRow
             label="Эффекты:"
@@ -1234,7 +1319,7 @@ export default function ChaosBattleScreen() {
             onMove={handleMove}
             disabled={boardDisabled}
             lastMoveHighlight={lastMoveHighlight}
-            upgradeHighlights={[...upgradeHighlights, ...bossHighlights, ...aiUpgradeHighlights, ...hotZoneHighlights]}
+            upgradeHighlights={[...upgradeHighlights, ...bossHighlights, ...aiUpgradeHighlights, ...hotZoneHighlights, ...aiSpecialUpgradeHighlights]}
             spawnedSquare={spawnedSquare}
             forcedSquares={berserkForce?.forcedSquares}
             forcedMoves={activeForcedMoves}
@@ -1322,6 +1407,7 @@ export default function ChaosBattleScreen() {
           battleType={v3BattleType}
           modifier={battleModifier}
           elo={opponentElo}
+          aiSpecialUpgrades={currentBattleNode?.aiSpecialUpgrades}
           onClose={() => setIsBannerVisible(false)}
         />
       )}
@@ -1374,7 +1460,8 @@ const styles = StyleSheet.create({
   goldCoinText:    { fontSize: 11, fontWeight: '900', color: '#5a3000' },
   goldVal:         { fontSize: 13, color: '#eab308', fontWeight: '700', fontFamily: 'monospace' },
 
-  knightCounter:   { color: '#FF4444', fontSize: 12, fontWeight: '700' },
+  knightCounter:        { color: '#FF4444', fontSize: 12, fontWeight: '700' },
+  aiSpecialUpgradeHud:  { color: '#eab308', fontSize: 10, fontWeight: '700' },
   thinking:        { fontSize: 16 },
   boardWrap:       { flex: 1, justifyContent: 'center', alignItems: 'center' },
   boardFrameOuter: { width: '100%' },

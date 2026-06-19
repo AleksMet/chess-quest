@@ -16,10 +16,20 @@ export type BattleModifier =
   | 'berserk_queen'
   | 'closed_board'
 
+export type AISpecialUpgrade = 'vortex' | 'ricochet'
+
+export type AISpecialUpgradeConfig = {
+  type: AISpecialUpgrade
+  square: string
+  piece: 'n' | 'b'
+  usedThisTurn: boolean
+}
+
 export type BattleNode = {
   type: BattleType
   elo: number
   modifiers?: BattleModifier[]
+  aiSpecialUpgrades?: AISpecialUpgrade[]
   isChoice?: boolean
 }
 

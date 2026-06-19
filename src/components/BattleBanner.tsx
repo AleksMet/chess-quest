@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { View, Text, StyleSheet, Animated, Pressable } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import type { BattleType, BattleModifier } from '../types/mechanics'
+import type { BattleType, BattleModifier, AISpecialUpgrade } from '../types/mechanics'
 
 const BATTLE_TYPE_LABELS: Record<BattleType, string> = {
   standard: '⚔️ Стандартный бой',
@@ -44,14 +44,20 @@ const MODIFIER_LABELS: Record<BattleModifier, string> = {
   closed_board: 'Закрытая доска',
 }
 
+const AI_SPECIAL_UPGRADE_LABELS: Record<AISpecialUpgrade, string> = {
+  vortex:   '⚡ Конь-Вихрь: после взятия делает ещё один ход',
+  ricochet: '⚡ Слон-Рикошет: после взятия уходит по диагонали',
+}
+
 type Props = {
   battleType: BattleType
   modifier: BattleModifier | null
   elo: number
+  aiSpecialUpgrades?: AISpecialUpgrade[]
   onClose: () => void
 }
 
-export function BattleBanner({ battleType, modifier, elo, onClose }: Props) {
+export function BattleBanner({ battleType, modifier, elo, aiSpecialUpgrades, onClose }: Props) {
   const objectiveInfo = OBJECTIVE_INFO[battleType] ?? null
   const opacity = useRef(new Animated.Value(0)).current
 
@@ -82,6 +88,15 @@ export function BattleBanner({ battleType, modifier, elo, onClose }: Props) {
             {objectiveInfo.penalty && (
               <Text style={styles.objectivePenalty}>{objectiveInfo.penalty}</Text>
             )}
+          </View>
+        )}
+        {battleType === 'elite' && aiSpecialUpgrades && aiSpecialUpgrades.length > 0 && (
+          <View style={styles.specialUpgradeBlock}>
+            {aiSpecialUpgrades.map(upgrade => (
+              <Text key={upgrade} style={styles.specialUpgradeText}>
+                {AI_SPECIAL_UPGRADE_LABELS[upgrade]}
+              </Text>
+            ))}
           </View>
         )}
         <Pressable onPress={onClose} style={styles.startBtnWrap}>
@@ -170,4 +185,15 @@ const styles = StyleSheet.create({
   objectiveGoal:    { fontSize: 13, color: '#eab308', fontWeight: '700', textAlign: 'center' },
   objectiveBonus:   { fontSize: 11, color: '#4ade80', textAlign: 'center' },
   objectivePenalty: { fontSize: 11, color: '#ef4444', textAlign: 'center' },
+  specialUpgradeBlock: {
+    backgroundColor: 'rgba(239,68,68,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.2)',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+    width: '100%',
+    gap: 4,
+  },
+  specialUpgradeText: { fontSize: 11, color: '#ef4444', textAlign: 'center' },
 })
