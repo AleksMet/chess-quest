@@ -23,14 +23,23 @@ export interface ChaosNodeDef {
   options?: ChaosChoiceOption[];
 }
 
-// Уровень 1 — порядок узлов снизу вверх = порядок прохождения (currentFloor 0..4)
+// Уровень 1 — порядок узлов снизу вверх = порядок прохождения (currentFloor 0..7)
+// floor 0: начальный магазин (автоматически открывается tower-экраном при currentFloor===0)
+// floor 1: Бой 1 (battleIndex=0 → ACT_1_CONFIG.nodes[0] = standard, elo=800)
+// floor 2: Охота (battleIndex=1 → ACT_1_CONFIG.nodes[1] = queen_hunt, elo=1000)
+// floor 3: Магазин
+// floor 4: Бой 2 (battleIndex=2 → ACT_1_CONFIG.nodes[2] = standard, elo=1100)
+// floor 5: Элита (battleIndex='elite' → elo=1300, прямой редирект в магазин после победы)
+// floor 6: Магазин
+// floor 7: Босс
 export const CHAOS_TOWER_NODES: ChaosNodeDef[] = [
   { type: 'shop',     icon: '🏪', label: 'Магазин 1', route: '/chaos-shop' },
   { type: 'battle',   icon: '⚔️', label: 'Бой 1',     route: '/chaos-battle', battleIndex: 0 },
-  // TODO: mechanics-v3 treasure removed
-  // { type: 'treasure', icon: '💎', label: 'Сокровище', route: '/chaos-treasure' },
-  { type: 'battle',   icon: '⚔️', label: 'Бой 2',     route: '/chaos-battle', battleIndex: 1 },
+  { type: 'battle',   icon: '🎯', label: 'Охота',      route: '/chaos-battle', battleIndex: 1 },
   { type: 'shop',     icon: '🏪', label: 'Магазин 2', route: '/chaos-shop' },
+  { type: 'battle',   icon: '⚔️', label: 'Бой 2',     route: '/chaos-battle', battleIndex: 2 },
+  { type: 'battle',   icon: '💀', label: 'Элита',     route: '/chaos-battle', battleIndex: 'elite' },
+  { type: 'shop',     icon: '🏪', label: 'Магазин 3', route: '/chaos-shop' },
   { type: 'boss',     icon: '👑', label: 'Босс',      route: '/chaos-boss-intro', battleIndex: 'boss' },
 ];
 

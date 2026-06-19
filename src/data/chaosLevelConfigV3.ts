@@ -77,20 +77,21 @@ export function isBattleTypeAllowed(type: BattleType, characterId: string): bool
   return !excluded.includes(type)
 }
 
-// Узлы прогресс-бара совпадают с узлами башни 1-в-1 (индекс = currentFloor),
-// чтобы currentFloor можно было напрямую передавать как currentIndex в ProgressBar.
+// Прогресс-бар не включает начальный магазин (floor 0) —
+// currentIndex = currentFloor - 1, чтобы индексы совпадали.
 export const PROGRESS_NODES_ACT_1: ProgressNode[] = [
-  // CHAOS_TOWER_NODES: shop(0) battle(1) battle(2) shop(3) boss(4)
-  { icon: '🏪', label: 'Магазин', type: 'shop' },
+  // floor 1..7 → index 0..6
   { icon: '⚔️', label: 'Бой 1',  type: 'standard' },
   { icon: '🎯', label: 'Охота',   type: 'objective_queen_hunt' },
+  { icon: '🏪', label: 'Магазин', type: 'shop' },
+  { icon: '⚔️', label: 'Бой 2',  type: 'standard' },
+  { icon: '💀', label: 'Элита',   type: 'elite' },
   { icon: '🏪', label: 'Магазин', type: 'shop' },
   { icon: '👑', label: 'Босс',    type: 'boss' },
 ]
 
 export const PROGRESS_NODES_ACT_2: ProgressNode[] = [
-  // LEVEL_2_TOWER: shop(0) battle(1) choice(2) battle(3) battle(4) shop(5) boss(6)
-  { icon: '🏪', label: 'Магазин', type: 'shop' },
+  // floor 1..6 → index 0..5
   { icon: '⚔️', label: 'Бой 1',  type: 'standard' },
   { icon: '🔀', label: 'Выбор',   type: 'standard' },
   { icon: '⚔️', label: 'Бой 2',  type: 'standard' },

@@ -166,13 +166,15 @@ const BATTLE_GOALS: Record<ChaosBattleNumber, string> = {
   boss: 'Финальный бой. Удачи!',
 };
 
-// На каком этаже башни проходит какой бой — без узла «Сокровище»:
-// shop(0)→battle1(1)→battle2(2)→shop2(3)→boss(4)
+// Состав армии ИИ по этажу (уровень 1): 1 — слабый, 2 — усиленный, 'boss' — финальный.
+// floor: shop(0)→бой1(1)→охота(2)→shop(3)→бой2(4)→элита(5)→shop(6)→boss(7)
 function battleNumberForFloor(floor: number): ChaosBattleNumber | null {
   switch (floor) {
     case 1: return 1;
     case 2: return 2;
-    case 4: return 'boss';
+    case 4: return 2;
+    case 5: return 2;
+    case 7: return 'boss';
     default: return null;
   }
 }
@@ -238,7 +240,15 @@ export default function ChaosBattleScreen() {
   const isValidFloor = currentLevel === 1 ? battleNumber !== null : battleKey !== null;
 
   const isBossBattle = currentLevel === 1 ? safeBattleNumber === 'boss' : battleKey === 'boss';
-  const opponentElo = currentLevel === 1 ? CHAOS_BATTLE_ELO[safeBattleNumber] : (battleConfig?.elo ?? 1000);
+  const opponentElo = (() => {
+    if (isBossBattle) return CHAOS_BATTLE_ELO['boss'];
+    if (currentLevel === 1) {
+      if (typeof battleKey === 'number') return ACT_CONFIGS[0].nodes[battleKey]?.elo ?? CHAOS_BATTLE_ELO[safeBattleNumber];
+      if (battleKey === 'elite') return ACT_CONFIGS[0].nodes[3]?.elo ?? 1300;
+      return CHAOS_BATTLE_ELO[safeBattleNumber];
+    }
+    return battleConfig?.elo ?? 1000;
+  })();
   // TODO: mechanics-v3 — стандартные улучшения AI убраны
   const aiUpgrades: AIUpgrade[] = [];
 
@@ -253,6 +263,9 @@ export default function ChaosBattleScreen() {
     }
     return 'standard';
   })();
+
+  // eslint-disable-next-line no-console
+  console.log('[NAV] currentFloor:', currentFloor, 'battleType:', v3BattleType);
 
   const isQueenHunt   = v3BattleType === 'objective_queen_hunt';
   const isPawnMarch   = v3BattleType === 'objective_pawn_march';
@@ -1194,7 +1207,7 @@ export default function ChaosBattleScreen() {
 
       <ProgressBar
         nodes={PROGRESS_NODES[currentLevel] ?? PROGRESS_NODES_ACT_1}
-        currentIndex={currentFloor}
+        currentIndex={currentFloor - 1}
       />
 
       {(isQueenHunt || isPawnMarch || isRoyalShield) && (
