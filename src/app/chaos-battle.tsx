@@ -41,7 +41,7 @@ import {
 import { applyAIUpgrades, evolvePiece, teleportAttackingPieces, type AIUpgrade } from '../engine/chaosAIUpgrades';
 import type { PieceUpgrade } from '../types/chaos';
 import { UPGRADE_DEFINITIONS } from '../data/chaosUpgrades';
-import { LEVEL_CONFIGS, getBattleConfig } from '../data/chaosLevelConfig';
+import { LEVEL_CONFIGS } from '../data/chaosLevelConfig';
 import { getTowerNodes } from '../data/chaosTowerConfig';
 import { PROGRESS_NODES, PROGRESS_NODES_ACT_1, getRandomModifier, MODIFIER_DESCRIPTIONS, ACT_CONFIGS } from '../data/chaosLevelConfigV3';
 import type { BattleType, BattleModifier, AISpecialUpgradeConfig } from '../types/mechanics';
@@ -233,10 +233,6 @@ export default function ChaosBattleScreen() {
     if (node.type === 'choice') return chosenPath;
     return node.battleIndex ?? null;
   })();
-  const battleConfig = currentLevel !== 1 && levelConfig && battleKey !== null
-    ? getBattleConfig(levelConfig, battleKey)
-    : null;
-
   // Текущий узел конфига — для AI специальных улучшений (vortex, ricochet)
   const currentBattleNode = (() => {
     if (battleKey === 'elite') {
@@ -260,8 +256,17 @@ export default function ChaosBattleScreen() {
       if (battleKey === 'elite') return ACT_CONFIGS[0].nodes[3]?.elo ?? 1300;
       return CHAOS_BATTLE_ELO[safeBattleNumber];
     }
-    return battleConfig?.elo ?? 1000;
+    // Level 2+: читаем ELO из ACT_CONFIGS (v3), а не из устаревшего battleConfig
+    if (typeof battleKey === 'number') {
+      return ACT_CONFIGS[currentLevel - 1]?.nodes[battleKey]?.elo ?? 1000;
+    }
+    if (battleKey === 'elite') {
+      return ACT_CONFIGS[currentLevel - 1]?.nodes.find(n => n.type === 'elite')?.elo ?? 1000;
+    }
+    return 1000;
   })();
+  // eslint-disable-next-line no-console
+  console.log('[ELO] act:', currentLevel, 'floor:', currentFloor, 'battleKey:', battleKey, 'elo:', opponentElo, 'node:', currentBattleNode);
   // TODO: mechanics-v3 — стандартные улучшения AI убраны
   const aiUpgrades: AIUpgrade[] = [];
 
@@ -965,8 +970,16 @@ export default function ChaosBattleScreen() {
           }
         };
 
-        // AI спец. улучшение: дополнительный ход после взятия — пауза 600мс чтобы
-        // игрок видел первый и второй ход по отдельности; isAIThinking остаётся true
+        // Досрочное завершение: если игра закончилась после первого хода — второй не нужен
+        if (chess.isGameOver()) {
+          finalizeTurn();
+          return;
+        }
+
+        // AI спец. улучшение: дополнительный ход после взятия — пауза 600мс.
+        // После первого хода AI chess.turn() = 'w', поэтому chess.moves() для чёрной
+        // фигуры вернул бы []. Решение: вычисляем ходы через временный экземпляр Chess
+        // с FEN где ходят чёрные, и перед вторым ходом загружаем этот FEN в основной chess.
         let triggeredSecondMove = false;
         if (move.captured) {
           const specialConfig = aiSpecialUpgradeConfigsRef.current.find(
@@ -976,11 +989,16 @@ export default function ChaosBattleScreen() {
             const pieceOnBoard = chess.get(to as Square);
             if (pieceOnBoard && pieceOnBoard.color === 'b' && pieceOnBoard.type === specialConfig.piece) {
               specialConfig.usedThisTurn = true;
-              const extraLegal = chess.moves({ square: to as Square, verbose: true });
+              const fenParts = chess.fen().split(' ');
+              fenParts[1] = 'b';
+              const fenForBlack = fenParts.join(' ');
+              const tempChess = new Chess(fenForBlack);
+              const extraLegal = tempChess.moves({ square: to as Square, verbose: true });
               if (extraLegal.length > 0) {
                 triggeredSecondMove = true;
                 const extraMove = extraLegal[Math.floor(Math.random() * extraLegal.length)];
                 setTimeout(() => {
+                  chess.load(fenForBlack);
                   const extraChessMove = chess.move({ from: extraMove.from, to: extraMove.to });
                   if (extraChessMove) {
                     if (pieceUpgrades.length > 0) {
