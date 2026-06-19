@@ -11,6 +11,28 @@ const BATTLE_TYPE_LABELS: Record<BattleType, string> = {
   elite: '💀 Элитное Испытание',
 }
 
+type ObjectiveInfo = { icon: string; goal: string; bonus: string; penalty?: string }
+
+const OBJECTIVE_INFO: Partial<Record<BattleType, ObjectiveInfo>> = {
+  objective_queen_hunt: {
+    icon: '🎯',
+    goal: 'Уничтожь ферзя врага',
+    bonus: '+50🪙 если первым',
+    penalty: '-30🪙 если потеряешь своего',
+  },
+  objective_pawn_march: {
+    icon: '🏰',
+    goal: 'Продвинь пешку до ряда 6',
+    bonus: '+40🪙 за каждую (макс 2)',
+  },
+  objective_royal_shield: {
+    icon: '🛡️',
+    goal: 'Не более 2 шахов за бой',
+    bonus: '+60🪙 если выполнил',
+    penalty: 'Бонус сгорает на 3-м шахе',
+  },
+}
+
 const MODIFIER_LABELS: Record<BattleModifier, string> = {
   reinforced_pawns: 'Усиленные пешки',
   golden_zone: 'Золотая зона',
@@ -31,6 +53,7 @@ type Props = {
 }
 
 export function BattleBanner({ battleType, modifier, elo, onClose }: Props) {
+  const objectiveInfo = OBJECTIVE_INFO[battleType] ?? null
   const opacity = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
@@ -52,6 +75,16 @@ export function BattleBanner({ battleType, modifier, elo, onClose }: Props) {
           <Text style={styles.modifier}>⚡ {MODIFIER_LABELS[modifier]}</Text>
         )}
         <Text style={styles.eloText}>ELO {elo}</Text>
+        {objectiveInfo && (
+          <View style={styles.objectiveBlock}>
+            <Text style={styles.objectiveIcon}>{objectiveInfo.icon}</Text>
+            <Text style={styles.objectiveGoal}>{objectiveInfo.goal}</Text>
+            <Text style={styles.objectiveBonus}>{objectiveInfo.bonus}</Text>
+            {objectiveInfo.penalty && (
+              <Text style={styles.objectivePenalty}>{objectiveInfo.penalty}</Text>
+            )}
+          </View>
+        )}
         <Pressable onPress={onClose} style={styles.startBtnWrap}>
           <LinearGradient
             colors={['#8a5e18', '#c8963c']}
@@ -123,4 +156,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  objectiveBlock: {
+    backgroundColor: 'rgba(234,179,8,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(234,179,8,0.2)',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+    alignItems: 'center',
+    gap: 4,
+    width: '100%',
+  },
+  objectiveIcon:    { fontSize: 24 },
+  objectiveGoal:    { fontSize: 13, color: '#eab308', fontWeight: '700', textAlign: 'center' },
+  objectiveBonus:   { fontSize: 11, color: '#4ade80', textAlign: 'center' },
+  objectivePenalty: { fontSize: 11, color: '#ef4444', textAlign: 'center' },
 })

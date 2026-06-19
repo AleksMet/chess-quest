@@ -102,6 +102,15 @@ export const PROGRESS_NODES: Record<number, ProgressNode[]> = {
   2: PROGRESS_NODES_ACT_2,
 }
 
+export function getCurrentBattleType(act: number, floor: number): BattleType {
+  const nodes = PROGRESS_NODES[act]
+  if (!nodes || !nodes[floor]) return 'standard'
+  const nodeType = nodes[floor].type
+  if (nodeType === 'boss') return 'elite'
+  if (nodeType === 'shop' || nodeType === 'event') return 'standard'
+  return nodeType as BattleType
+}
+
 export const MODIFIER_DESCRIPTIONS: Record<BattleModifier, string> = {
   reinforced_pawns: '💰 Усиленные пешки: +5 золота за каждую взятую пешку врага',
   golden_zone:      '⭐ Горячая зона: +15 золота за контроль d4/e4/d5/e5',

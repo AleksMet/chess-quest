@@ -43,7 +43,7 @@ import type { PieceUpgrade } from '../types/chaos';
 import { UPGRADE_DEFINITIONS } from '../data/chaosUpgrades';
 import { LEVEL_CONFIGS, getBattleConfig } from '../data/chaosLevelConfig';
 import { getTowerNodes } from '../data/chaosTowerConfig';
-import { PROGRESS_NODES, PROGRESS_NODES_ACT_1, getRandomModifier, MODIFIER_DESCRIPTIONS } from '../data/chaosLevelConfigV3';
+import { PROGRESS_NODES, PROGRESS_NODES_ACT_1, getRandomModifier, MODIFIER_DESCRIPTIONS, getCurrentBattleType } from '../data/chaosLevelConfigV3';
 import type { BattleType, BattleModifier } from '../types/mechanics';
 import { ProgressBar } from '../components/ProgressBar';
 import { BattleBanner } from '../components/BattleBanner';
@@ -242,13 +242,15 @@ export default function ChaosBattleScreen() {
   // TODO: mechanics-v3 — стандартные улучшения AI убраны
   const aiUpgrades: AIUpgrade[] = [];
 
-  // Тип боя V3 — вычисляется до handleMove, используется внутри колбэка и в BattleBanner
-  // cast нужен, чтобы TS не суживал тип до 'elite'|'standard' и позволял сравнение с другими BattleType
-  const v3BattleType = (
-    isBossBattle ? 'elite'
+  // Тип боя V3 — для уровня 1 всегда standard/elite; для уровня 2+ читается из PROGRESS_NODES
+  const v3BattleType: BattleType = isBossBattle ? 'elite'
     : battleKey === 'elite' ? 'elite'
-    : 'standard'
-  ) as BattleType;
+    : currentLevel === 1 ? 'standard'
+    : getCurrentBattleType(currentLevel, currentFloor);
+
+  const isQueenHunt   = v3BattleType === 'objective_queen_hunt';
+  const isPawnMarch   = v3BattleType === 'objective_pawn_march';
+  const isRoyalShield = v3BattleType === 'objective_royal_shield';
 
   const [isBannerVisible, setIsBannerVisible] = useState(true);
   const [battleModifier] = useState<BattleModifier | null>(() =>
@@ -258,7 +260,7 @@ export default function ChaosBattleScreen() {
   const [startFen] = useState(() => {
     if (currentLevel === 1) return buildChaosFen(pieces, safeBattleNumber);
     if (isBossBattle) return buildLevel2BossAiFen(pieces);
-    return buildLevel2AiFen(pieces, aiUpgrades);
+    return buildLevel2AiFen(pieces, aiUpgrades, isPawnMarch);
   });
   const [chess] = useState(() => new Chess(startFen));
 
@@ -314,6 +316,18 @@ export default function ChaosBattleScreen() {
   const playerMovesRef = useRef(0);
   // Горячая зона: срабатывает только один раз за бой
   const hotZoneUsedRef = useRef(false);
+  // Objective — Охота на Ферзя: статус ферзей обеих сторон
+  const [playerQueenAlive, setPlayerQueenAlive] = useState(true);
+  const [aiQueenAlive, setAiQueenAlive] = useState(true);
+  const playerQueenAliveRef = useRef(true);
+  const aiQueenAliveRef = useRef(true);
+  // Objective — Пешечный Марш: лучший ряд пешки и счётчик бонусов (макс 2)
+  const [bestPawnRank, setBestPawnRank] = useState(2);
+  const pawnMarchBonusCountRef = useRef(0);
+  const pawnsAtRank6PlusRef = useRef(0);
+  // Objective — Королевский Щит: количество шахов королю игрока за бой
+  const [checkCount, setCheckCount] = useState(0);
+  const checkCountRef = useRef(0);
   // Очередь попапов золота — показываем по одному с задержкой 400мс между ними
   const pendingToastsRef = useRef<string[]>([]);
   const toastActiveRef = useRef(false);
@@ -810,6 +824,19 @@ export default function ChaosBattleScreen() {
           checkProvocateurBonus();
           setGoldDisplay(goldRef.current);
         }
+        // Охота на Ферзя: ИИ взял ферзя игрока
+        if (isQueenHunt && move.captured === 'q') {
+          playerQueenAliveRef.current = false;
+          setPlayerQueenAlive(false);
+        }
+        // Королевский Щит: шах королю игрока после хода ИИ
+        if (isRoyalShield && chess.inCheck()) {
+          const nc = checkCountRef.current + 1;
+          checkCountRef.current = nc;
+          setCheckCount(nc);
+          pushGoldToast(`⚠️ Шах! (${nc}/2)`);
+          if (nc === 3) pushGoldToast('💀 Щит пробит!');
+        }
         // Босс «Всадник»: каждый ход королём — новый конь на случайной клетке рядов 5-8,
         // появляется с плавным проявлением (анимация в ChessBoard через spawnedSquare).
         // Лимит призывов — bossKnightSpawnsLeft, проверяем ДО мутации доски в spawnKnightOnKingMove
@@ -841,9 +868,9 @@ export default function ChaosBattleScreen() {
         setIsAIThinking(false);
         checkSurrenderCondition();
 
-        // Уведомление об усилении ELO — показываем после хода AI на ходах 10/15/20
+        // Уведомление об усилении ELO — не для Королевского Щита (там давление не растёт)
         const currentMoveNum = playerMovesRef.current;
-        if (currentMoveNum === 10 || currentMoveNum === 15 || currentMoveNum === 20) {
+        if (!isRoyalShield && (currentMoveNum === 10 || currentMoveNum === 15 || currentMoveNum === 20)) {
           const totalIncrease = getPressureElo(opponentElo, currentMoveNum) - opponentElo;
           const eloMsg =
             currentMoveNum <= 15 ? `⚡ Противник усилился! ELO +${totalIncrease}` :
@@ -851,8 +878,8 @@ export default function ChaosBattleScreen() {
           setEloBoostText(eloMsg);
         }
 
-        // Подкрепление противника на ходах 15/20/25 (проверяем после хода ИИ)
-        if (currentMoveNum === 15 || currentMoveNum === 20 || currentMoveNum === 25) {
+        // Подкрепление противника на ходах 15/20/25 — не для Королевского Щита
+        if (!isRoyalShield && (currentMoveNum === 15 || currentMoveNum === 20 || currentMoveNum === 25)) {
           const spawned = spawnReinforcement(chess, currentLevel, currentMoveNum);
           if (spawned.length > 0) {
             const names = spawned.map(p => PIECE_NAMES_RU[p] ?? p).join(' и ');
@@ -885,8 +912,8 @@ export default function ChaosBattleScreen() {
       applyAIMove(`${m.from}${m.to}${m.promotion ?? ''}`);
     }, 1500);
     sendToEngine(`position fen ${chess.fen()}`);
-    // Перед каждым ходом AI актуализируем Skill Level — гарантия что setoption дойдёт перед go
-    const pressureElo = getPressureElo(opponentElo, playerMovesRef.current);
+    // Перед каждым ходом AI актуализируем Skill Level — для Royal Shield давление не растёт
+    const pressureElo = isRoyalShield ? opponentElo : getPressureElo(opponentElo, playerMovesRef.current);
     const skillLevel = eloToSkillLevel(pressureElo);
     // eslint-disable-next-line no-console
     console.log('[ELO] pressureElo:', pressureElo, 'skillLevel:', skillLevel);
@@ -937,6 +964,26 @@ export default function ChaosBattleScreen() {
           goldRef.current += 5;
           pushGoldToast('+5🪙 Усиленные пешки');
         }
+        // Охота на Ферзя: игрок взял ферзя ИИ
+        if (isQueenHunt && move.captured === 'q') {
+          aiQueenAliveRef.current = false;
+          setAiQueenAlive(false);
+        }
+      }
+      // Пешечный Марш: обновляем лучший ряд и проверяем достижение ряда 6
+      if (isPawnMarch) {
+        const whitePawns = chess.board().flat().filter(p => p && p.color === 'w' && p.type === 'p');
+        const maxRank = whitePawns.length > 0
+          ? Math.max(...whitePawns.map(p => parseInt(p!.square[1], 10)))
+          : 2;
+        setBestPawnRank(maxRank);
+        const atRank6 = whitePawns.filter(p => parseInt(p!.square[1], 10) >= 6).length;
+        if (atRank6 > pawnsAtRank6PlusRef.current && pawnMarchBonusCountRef.current < 2) {
+          goldRef.current += 40;
+          pushGoldToast('🏰 +40🪙 Пешечный марш!');
+          pawnMarchBonusCountRef.current += 1;
+        }
+        pawnsAtRank6PlusRef.current = atRank6;
       }
       if (move.piece === 'n' && artifacts.includes('fork_master') && isKnightFork(chess, move.to as Square)) {
         goldRef.current += CHAOS_FORK_BONUS;
@@ -986,6 +1033,26 @@ export default function ChaosBattleScreen() {
         if (survivingCount >= 8) {
           goldRef.current += 25;
           pushGoldToast('+25🪙 Армия цела');
+        }
+        // Objective: Охота на Ферзя
+        if (isQueenHunt) {
+          if (!aiQueenAliveRef.current) {
+            goldRef.current += 50;
+            pushGoldToast('🎯 +50🪙 Ферзь повержен!');
+          }
+          if (!playerQueenAliveRef.current) {
+            goldRef.current = Math.max(0, goldRef.current - 30);
+            pushGoldToast('💀 -30🪙 Ферзь потерян');
+          }
+        }
+        // Objective: Королевский Щит
+        if (isRoyalShield) {
+          if (checkCountRef.current <= 2) {
+            goldRef.current += 60;
+            pushGoldToast('🛡️ +60🪙 Король защищён!');
+          } else {
+            pushGoldToast('🛡️ Бонус потерян');
+          }
         }
         // Победа над боссом «Всадник» открывает персонажа «Страж» — сохраняется между сессиями
         if (safeBattleNumber === 'boss') unlockGuardian();
@@ -1071,7 +1138,7 @@ export default function ChaosBattleScreen() {
           <Text style={styles.levelName} numberOfLines={1}>{battleTitle}</Text>
           <View style={[styles.eloBadge, playerMoves >= 15 ? styles.eloBadgeDanger : playerMoves >= 10 ? styles.eloBadgeWarning : undefined]}>
             <Text style={[styles.eloText, playerMoves >= 15 ? styles.eloTextDanger : playerMoves >= 10 ? styles.eloTextWarning : undefined]}>
-              ELO {getPressureElo(opponentElo, playerMoves)}
+              ELO {isRoyalShield ? opponentElo : getPressureElo(opponentElo, playerMoves)}
             </Text>
           </View>
           <Text style={[
@@ -1080,7 +1147,7 @@ export default function ChaosBattleScreen() {
             : playerMoves >= 10 ? styles.moveCounterWarning
             : styles.moveCounterNormal,
           ]}>Ход: {playerMoves}</Text>
-          {playerMoves >= 10 && playerMoves < 25 && (
+          {!isRoyalShield && playerMoves >= 10 && playerMoves < 25 && (
             <Text style={[
               styles.reinforceCounter,
               playerMoves >= 13 ? styles.reinforceCounterDanger : styles.reinforceCounterWarning,
@@ -1123,6 +1190,31 @@ export default function ChaosBattleScreen() {
         nodes={PROGRESS_NODES[currentLevel] ?? PROGRESS_NODES_ACT_1}
         currentIndex={currentFloor}
       />
+
+      {(isQueenHunt || isPawnMarch || isRoyalShield) && (
+        <View style={styles.objectiveStrip}>
+          {isQueenHunt && (
+            <Text style={styles.objectiveStripText}>
+              {`🎯 Ферзь врага: ${aiQueenAlive ? '✓' : '✗'}  |  Твой ферзь: ${playerQueenAlive ? '✓' : '✗'}`}
+            </Text>
+          )}
+          {isPawnMarch && (
+            <Text style={styles.objectiveStripText}>
+              {`🏰 Лучшая пешка: ряд ${bestPawnRank} → цель: ряд 6`}
+            </Text>
+          )}
+          {isRoyalShield && (
+            <Text style={[
+              styles.objectiveStripText,
+              checkCount >= 2 ? styles.objectiveStripDanger
+                : checkCount >= 1 ? styles.objectiveStripWarning
+                : styles.objectiveStripOk,
+            ]}>
+              {`🛡️ Шахов: ${checkCount} / 2`}
+            </Text>
+          )}
+        </View>
+      )}
 
       <View style={styles.boardWrap}>
         <View style={styles.boardFrameOuter}>
@@ -1327,4 +1419,17 @@ const styles = StyleSheet.create({
     borderRadius: 8, paddingVertical: 8, alignItems: 'center', zIndex: 50,
   },
   eloBoostBannerText: { color: '#ef4444', fontSize: 12, fontWeight: '700' },
+
+  objectiveStrip: {
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(234,179,8,0.15)',
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  objectiveStripText: { fontSize: 10, color: '#a0a0c8', textAlign: 'center' },
+  objectiveStripOk:      { color: '#4ade80' },
+  objectiveStripWarning: { color: '#eab308' },
+  objectiveStripDanger:  { color: '#ef4444' },
 });

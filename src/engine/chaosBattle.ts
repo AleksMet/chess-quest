@@ -173,10 +173,13 @@ const LEVEL2_BACK_RANK_POOL: Partial<Record<PieceSymbol, Square[]>> = {
 // Собирает позицию для боёв уровня 2+: армия игрока (белые) против состава ИИ —
 // король e8 + 6 пешек a7-f7 + по фигуре на каждое улучшение из aiUpgrades (расставляются
 // на задней линии по типу фигуры, см. LEVEL2_BACK_RANK_POOL)
-export function buildLevel2AiFen(playerPieces: ChessPiece[], aiUpgrades: AIUpgrade[]): string {
+export function buildLevel2AiFen(playerPieces: ChessPiece[], aiUpgrades: AIUpgrade[], extraPawns = false): string {
   const aiBoard = emptyBoard();
   place(aiBoard, 'e8', 'k');
-  ['a', 'b', 'c', 'd', 'e', 'f'].forEach(f => place(aiBoard, `${f}7`, 'p'));
+  const pawnFiles = extraPawns
+    ? ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+    : ['a', 'b', 'c', 'd', 'e', 'f'];
+  pawnFiles.forEach(f => place(aiBoard, `${f}7`, 'p'));
 
   const used: Partial<Record<PieceSymbol, number>> = {};
   for (const upgrade of aiUpgrades) {
