@@ -59,14 +59,15 @@ describe('buildChaosFen', () => {
     expect((board.match(/r/g) ?? []).length).toBe(1);
   });
 
-  it('boss AI army matches GDD spec: king + 8 pawns + 2 queens + 2 rooks + knight', () => {
+  it('boss AI army: full back rank + 8 pawns + extra queen on d6', () => {
     const fen = buildChaosFen(STARTING_PIECES, 'boss');
     const board = fen.split(' ')[0];
     expect((board.match(/k/g) ?? []).length).toBe(1);
     expect((board.match(/p/g) ?? []).length).toBe(8);
     expect((board.match(/q/g) ?? []).length).toBe(2);
     expect((board.match(/r/g) ?? []).length).toBe(2);
-    expect((board.match(/n/g) ?? []).length).toBe(1);
+    expect((board.match(/n/g) ?? []).length).toBe(2);
+    expect((board.match(/b/g) ?? []).length).toBe(2);
   });
 
   it('boss has an extra queen advanced to d6', () => {
