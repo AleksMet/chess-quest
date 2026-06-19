@@ -3,6 +3,7 @@ import type { PieceSymbol, Square } from 'chess.js';
 import type { ChessPiece } from '../store/chaosModeStore';
 import type { AIUpgrade } from './chaosAIUpgrades';
 import type { BattleType } from '../types/mechanics';
+import { sanitizeFen } from './fenUtils';
 
 // Режим «ХАОС»: бои собранной игроком армией против фиксированных составов ИИ
 export type ChaosBattleNumber = 1 | 2 | 'boss';
@@ -277,32 +278,6 @@ export function buildLevel2StandardAiFen(
 
 // Убирает пешки с 1-й и 8-й горизонталей перед передачей FEN в chess.js —
 // обходит "Invalid FEN: some pawns are on the edge rows".
-function sanitizeFen(fen: string): string {
-  const parts = fen.split(' ')
-  const rows = parts[0].split('/')
-
-  const stripPawns = (row: string): string => {
-    const cleaned = row.replace(/[pP]/g, '1')
-    let result = ''
-    let count = 0
-    for (const ch of cleaned) {
-      if (/\d/.test(ch)) {
-        count += parseInt(ch, 10)
-      } else {
-        if (count > 0) { result += count; count = 0 }
-        result += ch
-      }
-    }
-    if (count > 0) result += count
-    return result
-  }
-
-  rows[0] = stripPawns(rows[0])  // 8-я горизонталь
-  rows[7] = stripPawns(rows[7])  // 1-я горизонталь
-
-  parts[0] = rows.join('/')
-  return parts.join(' ')
-}
 
 // Собирает армию игрока для следующего боя из итоговой позиции (Вариант В превращения):
 // ферзь, выросший из пешки во время боя, возвращается пешкой; купленный ферзь остаётся ферзём.

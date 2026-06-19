@@ -31,6 +31,7 @@ import {
   type ChaosBattleNumber,
   type BossMoveCandidate,
 } from '../engine/chaosBattle';
+import { sanitizeFen } from '../engine/fenUtils';
 import { calcCaptureScore } from '../engine/scoreEngine';
 import {
   processPlayerMove,
@@ -991,7 +992,7 @@ export default function ChaosBattleScreen() {
               specialConfig.usedThisTurn = true;
               const fenParts = chess.fen().split(' ');
               fenParts[1] = 'b';
-              const fenForBlack = fenParts.join(' ');
+              const fenForBlack = sanitizeFen(fenParts.join(' '));
               const tempChess = new Chess(fenForBlack);
               const extraLegal = tempChess.moves({ square: to as Square, verbose: true });
               if (extraLegal.length > 0) {
