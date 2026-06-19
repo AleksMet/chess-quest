@@ -14,6 +14,7 @@ import type { EffectGroup, EffectGroupPiece } from '../components/ui/ChaosUpgrad
 import type { EffectCategory, PieceEffect } from '../types/pieceEffects';
 import type { PieceKey } from '../components/chess/ChessPieceSVG';
 import type { MoveResult } from '../engine/chessLogic';
+import { eloToSkillLevel } from '../engine/stockfish';
 import {
   buildChaosFen,
   buildLevel2AiFen,
@@ -101,10 +102,16 @@ function pickHotZones(fen: string): Square[] {
   return shuffled.slice(0, Math.random() > 0.5 ? 2 : 1);
 }
 
+function getPressureElo(baseElo: number, moveCount: number): number {
+  if (moveCount < 10) return baseElo;
+  const increments = Math.floor((moveCount - 10) / 5) + 1;
+  return baseElo + increments * 100;
+}
+
 const REINFORCEMENTS: Record<number, Record<number, PieceSymbol[]>> = {
-  1: { 20: ['p'],       25: ['n'],       30: ['p', 'n'] },
-  2: { 20: ['n'],       25: ['r'],       30: ['n', 'r'] },
-  3: { 20: ['r'],       25: ['q'],       30: ['r', 'q'] },
+  1: { 15: ['p'],       20: ['n'],       25: ['p', 'n'] },
+  2: { 15: ['n'],       20: ['r'],       25: ['n', 'r'] },
+  3: { 15: ['r'],       20: ['q'],       25: ['r', 'q'] },
 };
 
 const PIECE_NAMES_RU: Record<string, string> = {
@@ -293,8 +300,6 @@ export default function ChaosBattleScreen() {
   const cursedSquareRef = useRef<Square | null>(null);
   // Счётчик ходов для системы нарастающего давления — зеркалит playerMoves без задержки ре-рендера
   const playerMovesRef = useRef(0);
-  // Нарастающий ELO: каждые 5 ходов увеличивается на 100 и передаётся в Stockfish
-  const currentEloRef = useRef(opponentElo);
   // Горячая зона: срабатывает только один раз за бой
   const hotZoneUsedRef = useRef(false);
   // Очередь попапов золота — показываем по одному с задержкой 400мс между ними
@@ -704,8 +709,9 @@ export default function ChaosBattleScreen() {
 
   const handleEngineReady = useCallback(() => {
     setEngineReady(true);
-    const initSkill = Math.min(20, Math.floor(opponentElo / 100));
-    console.log('[ELO] init Stockfish:', initSkill, 'moveCount: 0', 'baseElo:', opponentElo);
+    const initSkill = eloToSkillLevel(opponentElo);
+    // eslint-disable-next-line no-console
+    console.log('[ELO] init Stockfish skillLevel:', initSkill, 'baseElo:', opponentElo);
     sendToEngine(`setoption name Skill Level value ${initSkill}`);
   }, [opponentElo, sendToEngine]);
 
@@ -823,19 +829,18 @@ export default function ChaosBattleScreen() {
         setIsAIThinking(false);
         checkSurrenderCondition();
 
-        // Уведомление об усилении ELO — показываем после хода AI на ходах 5/10/15/20
+        // Уведомление об усилении ELO — показываем после хода AI на ходах 10/15/20
         const currentMoveNum = playerMovesRef.current;
-        if (currentMoveNum > 0 && currentMoveNum % 5 === 0 && currentMoveNum <= 20) {
-          const totalIncrease = Math.floor(currentMoveNum / 5) * 100;
+        if (currentMoveNum === 10 || currentMoveNum === 15 || currentMoveNum === 20) {
+          const totalIncrease = getPressureElo(opponentElo, currentMoveNum) - opponentElo;
           const eloMsg =
-            currentMoveNum <= 10 ? `⚡ Противник усилился! ELO +${totalIncrease}` :
-            currentMoveNum === 15 ? `🔥 Противник опасен! ELO +${totalIncrease}` :
-            `💀 Противник максимален! ELO +${totalIncrease}`;
+            currentMoveNum <= 15 ? `⚡ Противник усилился! ELO +${totalIncrease}` :
+            `🔥 Противник опасен! ELO +${totalIncrease}`;
           setEloBoostText(eloMsg);
         }
 
-        // Подкрепление противника на ходах 20/25/30 (проверяем после хода ИИ)
-        if (currentMoveNum === 20 || currentMoveNum === 25 || currentMoveNum === 30) {
+        // Подкрепление противника на ходах 15/20/25 (проверяем после хода ИИ)
+        if (currentMoveNum === 15 || currentMoveNum === 20 || currentMoveNum === 25) {
           const spawned = spawnReinforcement(chess, currentLevel, currentMoveNum);
           if (spawned.length > 0) {
             const names = spawned.map(p => PIECE_NAMES_RU[p] ?? p).join(' и ');
@@ -869,9 +874,11 @@ export default function ChaosBattleScreen() {
     }, 1500);
     sendToEngine(`position fen ${chess.fen()}`);
     // Перед каждым ходом AI актуализируем Skill Level — гарантия что setoption дойдёт перед go
-    const currentSkill = Math.min(20, Math.floor(currentEloRef.current / 100));
-    console.log('[ELO] передаём в Stockfish:', currentSkill, 'moveCount:', playerMovesRef.current, 'baseElo:', opponentElo);
-    sendToEngine(`setoption name Skill Level value ${currentSkill}`);
+    const pressureElo = getPressureElo(opponentElo, playerMovesRef.current);
+    const skillLevel = eloToSkillLevel(pressureElo);
+    // eslint-disable-next-line no-console
+    console.log('[ELO] pressureElo:', pressureElo, 'skillLevel:', skillLevel);
+    sendToEngine(`setoption name Skill Level value ${skillLevel}`);
     const moveTime = playerMovesRef.current >= 15 ? 600 : 400;
     sendToEngine(`go movetime ${moveTime}`);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -899,12 +906,6 @@ export default function ChaosBattleScreen() {
       const newCount = playerMoves + 1;
       playerMovesRef.current = newCount;
       setPlayerMoves(newCount);
-
-      // Нарастающий ELO: каждые 5 ходов +100 — setoption отправляется в requestAIMove перед go
-      if (newCount > 0 && newCount % 5 === 0) {
-        currentEloRef.current += 100;
-        console.log('[ELO] инкремент:', currentEloRef.current, 'moveCount:', newCount);
-      }
 
       const move = moveResult.move!;
       setLastMoveHighlight({ from: move.from as Square, to: move.to as Square, color: 'player' });
@@ -1058,7 +1059,7 @@ export default function ChaosBattleScreen() {
           <Text style={styles.levelName} numberOfLines={1}>{battleTitle}</Text>
           <View style={[styles.eloBadge, playerMoves >= 15 ? styles.eloBadgeDanger : playerMoves >= 10 ? styles.eloBadgeWarning : undefined]}>
             <Text style={[styles.eloText, playerMoves >= 15 ? styles.eloTextDanger : playerMoves >= 10 ? styles.eloTextWarning : undefined]}>
-              ELO {opponentElo + Math.floor(playerMoves / 5) * 100}
+              ELO {getPressureElo(opponentElo, playerMoves)}
             </Text>
           </View>
           <Text style={[
@@ -1067,12 +1068,12 @@ export default function ChaosBattleScreen() {
             : playerMoves >= 10 ? styles.moveCounterWarning
             : styles.moveCounterNormal,
           ]}>Ход: {playerMoves}</Text>
-          {playerMoves >= 15 && playerMoves < 30 && (
+          {playerMoves >= 10 && playerMoves < 25 && (
             <Text style={[
               styles.reinforceCounter,
-              playerMoves >= 18 ? styles.reinforceCounterDanger : styles.reinforceCounterWarning,
+              playerMoves >= 13 ? styles.reinforceCounterDanger : styles.reinforceCounterWarning,
             ]}>
-              {`⚠️ Подкр. через: ${playerMoves < 20 ? 20 - playerMoves : playerMoves < 25 ? 25 - playerMoves : 30 - playerMoves}`}
+              {`⚠️ Подкр. через: ${playerMoves < 15 ? 15 - playerMoves : playerMoves < 20 ? 20 - playerMoves : 25 - playerMoves}`}
             </Text>
           )}
           <Text style={[styles.thinking, { opacity: isAIThinking ? 1 : 0 }]}>⏳</Text>
