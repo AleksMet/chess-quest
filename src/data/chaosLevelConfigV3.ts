@@ -79,7 +79,7 @@ export function isBattleTypeAllowed(type: BattleType, characterId: string): bool
 
 export const PROGRESS_NODES_ACT_1: ProgressNode[] = [
   { icon: '⚔️', label: 'Бой 1', type: 'standard' },
-  { icon: '🎯', label: 'Объектив', type: 'objective_queen_hunt' },
+  { icon: '🎯', label: 'Охота', type: 'objective_queen_hunt' },
   { icon: '🏪', label: 'Магазин', type: 'shop' },
   { icon: '⚔️', label: 'Бой 2', type: 'standard' },
   { icon: '💀', label: 'Элита', type: 'elite' },
@@ -89,9 +89,9 @@ export const PROGRESS_NODES_ACT_1: ProgressNode[] = [
 
 export const PROGRESS_NODES_ACT_2: ProgressNode[] = [
   { icon: '⚔️', label: 'Бой 1', type: 'standard' },
-  { icon: '🎯', label: 'Объектив', type: 'objective_pawn_march' },
-  { icon: '⚔️', label: 'Бой/Элита', type: 'standard' },
-  { icon: '🎯', label: 'Объектив', type: 'objective_queen_hunt' },
+  { icon: '🏰', label: 'Марш', type: 'objective_pawn_march' },
+  { icon: '⚔️', label: 'Бой 2', type: 'standard' },
+  { icon: '🎯', label: 'Охота', type: 'objective_queen_hunt' },
   { icon: '💀', label: 'Элита', type: 'elite' },
   { icon: '🏪', label: 'Магазин', type: 'shop' },
   { icon: '👑', label: 'Босс', type: 'boss' },

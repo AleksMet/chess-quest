@@ -43,7 +43,7 @@ import type { PieceUpgrade } from '../types/chaos';
 import { UPGRADE_DEFINITIONS } from '../data/chaosUpgrades';
 import { LEVEL_CONFIGS, getBattleConfig } from '../data/chaosLevelConfig';
 import { getTowerNodes } from '../data/chaosTowerConfig';
-import { PROGRESS_NODES, PROGRESS_NODES_ACT_1, getRandomModifier, MODIFIER_DESCRIPTIONS, getCurrentBattleType } from '../data/chaosLevelConfigV3';
+import { PROGRESS_NODES, PROGRESS_NODES_ACT_1, getRandomModifier, MODIFIER_DESCRIPTIONS, getCurrentBattleType, ACT_1_CONFIG } from '../data/chaosLevelConfigV3';
 import type { BattleType, BattleModifier } from '../types/mechanics';
 import { ProgressBar } from '../components/ProgressBar';
 import { BattleBanner } from '../components/BattleBanner';
@@ -242,11 +242,16 @@ export default function ChaosBattleScreen() {
   // TODO: mechanics-v3 — стандартные улучшения AI убраны
   const aiUpgrades: AIUpgrade[] = [];
 
-  // Тип боя V3 — для уровня 1 всегда standard/elite; для уровня 2+ читается из PROGRESS_NODES
-  const v3BattleType: BattleType = isBossBattle ? 'elite'
-    : battleKey === 'elite' ? 'elite'
-    : currentLevel === 1 ? 'standard'
-    : getCurrentBattleType(currentLevel, currentFloor);
+  // Тип боя V3 — уровень 1: читается из ACT_1_CONFIG.nodes по battleKey (battleIndex);
+  // уровень 2+: читается из PROGRESS_NODES через getCurrentBattleType
+  const v3BattleType: BattleType = (() => {
+    if (isBossBattle) return 'elite';
+    if (battleKey === 'elite') return 'elite';
+    if (currentLevel === 1 && typeof battleKey === 'number') {
+      return ACT_1_CONFIG.nodes[battleKey]?.type ?? 'standard';
+    }
+    return getCurrentBattleType(currentLevel, currentFloor);
+  })();
 
   const isQueenHunt   = v3BattleType === 'objective_queen_hunt';
   const isPawnMarch   = v3BattleType === 'objective_pawn_march';
@@ -260,7 +265,7 @@ export default function ChaosBattleScreen() {
   const [startFen] = useState(() => {
     if (currentLevel === 1) return buildChaosFen(pieces, safeBattleNumber);
     if (isBossBattle) return buildLevel2BossAiFen(pieces);
-    return buildLevel2AiFen(pieces, aiUpgrades, isPawnMarch);
+    return buildLevel2AiFen(pieces, aiUpgrades, isPawnMarch, isQueenHunt);
   });
   const [chess] = useState(() => new Chess(startFen));
 

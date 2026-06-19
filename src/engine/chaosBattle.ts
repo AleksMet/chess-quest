@@ -119,6 +119,7 @@ function buildAiBoard(battleNumber: ChaosBattleNumber): Board {
     case 2:
       place(board, 'e8', 'k');
       sixPawnFiles.forEach(f => place(board, `${f}7`, 'p'));
+      place(board, 'd8', 'q');
       place(board, 'b8', 'n');
       place(board, 'g8', 'n');
       place(board, 'c8', 'b');
@@ -173,9 +174,10 @@ const LEVEL2_BACK_RANK_POOL: Partial<Record<PieceSymbol, Square[]>> = {
 // Собирает позицию для боёв уровня 2+: армия игрока (белые) против состава ИИ —
 // король e8 + 6 пешек a7-f7 + по фигуре на каждое улучшение из aiUpgrades (расставляются
 // на задней линии по типу фигуры, см. LEVEL2_BACK_RANK_POOL)
-export function buildLevel2AiFen(playerPieces: ChessPiece[], aiUpgrades: AIUpgrade[], extraPawns = false): string {
+export function buildLevel2AiFen(playerPieces: ChessPiece[], aiUpgrades: AIUpgrade[], extraPawns = false, ensureQueen = false): string {
   const aiBoard = emptyBoard();
   place(aiBoard, 'e8', 'k');
+  if (ensureQueen) place(aiBoard, 'd8', 'q');
   const pawnFiles = extraPawns
     ? ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
     : ['a', 'b', 'c', 'd', 'e', 'f'];
