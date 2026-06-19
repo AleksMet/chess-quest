@@ -14,12 +14,12 @@ export const ACT_1_CONFIG: ActConfig = {
 export const ACT_2_CONFIG: ActConfig = {
   act: 2,
   startGold: 120,
+  bossElo: 1900,
   nodes: [
-    { type: 'standard', elo: 1000 },
-    { type: 'objective_pawn_march', elo: 1100 },
-    { type: 'standard', elo: 1200, isChoice: true },
-    { type: 'objective_queen_hunt', elo: 1300 },
-    { type: 'elite', elo: 1500, aiSpecialUpgrades: ['vortex', 'ricochet'] },
+    { type: 'standard', elo: 1300 },
+    { type: 'standard', elo: 1400, isChoice: true },
+    { type: 'objective_pawn_march', elo: 1500 },
+    { type: 'elite', elo: 1700, aiSpecialUpgrades: ['vortex', 'ricochet'] },
   ],
 }
 
@@ -92,10 +92,10 @@ export const PROGRESS_NODES_ACT_1: ProgressNode[] = [
 
 export const PROGRESS_NODES_ACT_2: ProgressNode[] = [
   // floor 1..6 → index 0..5
-  { icon: '⚔️', label: 'Бой 1',  type: 'standard' },
-  { icon: '🔀', label: 'Выбор',   type: 'standard' },
-  { icon: '⚔️', label: 'Бой 2',  type: 'standard' },
-  { icon: '🎯', label: 'Охота',   type: 'objective_queen_hunt' },
+  { icon: '⚔️', label: 'Бой 1',   type: 'standard' },
+  { icon: '⚔️', label: 'Выбор',   type: 'standard' },
+  { icon: '🏰', label: 'Марш',    type: 'objective_pawn_march' },
+  { icon: '💀', label: 'Элита',   type: 'elite' },
   { icon: '🏪', label: 'Магазин', type: 'shop' },
   { icon: '👑', label: 'Босс',    type: 'boss' },
 ]

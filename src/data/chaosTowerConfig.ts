@@ -43,36 +43,16 @@ export const CHAOS_TOWER_NODES: ChaosNodeDef[] = [
   { type: 'boss',     icon: '👑', label: 'Босс',      route: '/chaos-boss-intro', battleIndex: 'boss' },
 ];
 
-// Уровень 2 — Долина Коней, с выбором маршрута после Боя 1 (floor 2)
+// Уровень 2 — Долина Коней: линейный путь без форка
+// shop(0) → Бой1(1) → Выбор(2) → Марш(3) → Элита(4) → shop(5) → Босс(6)
 export const LEVEL_2_TOWER: ChaosNodeDef[] = [
-  { type: 'shop',     icon: '🏪', label: 'Магазин 1', route: '/chaos-shop' },
-  { type: 'battle',   icon: '⚔️', label: 'Бой 1',     route: '/chaos-battle', battleIndex: 0 },
-  {
-    type: 'choice',
-    icon: '🔀',
-    label: 'Выбор маршрута',
-    route: '/chaos-choice',
-    options: [
-      {
-        label: '⚔️ Элита',
-        sublabel: 'Сложнее, но после победы — бесплатный магазин',
-        route: '/chaos-battle',
-        battleIndex: 'elite',
-        style: 'danger',
-      },
-      {
-        label: '🛡️ Обычный бой',
-        sublabel: 'Безопаснее',
-        route: '/chaos-battle',
-        battleIndex: 1,
-        style: 'normal',
-      },
-    ],
-  },
-  { type: 'battle',   icon: '⚔️', label: 'Бой 3', route: '/chaos-battle', battleIndex: 2 },
-  { type: 'battle',   icon: '⚔️', label: 'Бой 4', route: '/chaos-battle', battleIndex: 3 },
-  { type: 'shop',     icon: '🏪', label: 'Магазин 2', route: '/chaos-shop' },
-  { type: 'boss',     icon: '👑', label: 'Босс',      route: '/chaos-boss-intro', battleIndex: 'boss' },
+  { type: 'shop',   icon: '🏪', label: 'Магазин 1', route: '/chaos-shop' },
+  { type: 'battle', icon: '⚔️', label: 'Бой 1',     route: '/chaos-battle', battleIndex: 0 },
+  { type: 'battle', icon: '⚔️', label: 'Выбор',     route: '/chaos-battle', battleIndex: 1 },
+  { type: 'battle', icon: '🏰', label: 'Марш',      route: '/chaos-battle', battleIndex: 2 },
+  { type: 'battle', icon: '💀', label: 'Элита',     route: '/chaos-battle', battleIndex: 'elite' },
+  { type: 'shop',   icon: '🏪', label: 'Магазин 2', route: '/chaos-shop' },
+  { type: 'boss',   icon: '👑', label: 'Босс',      route: '/chaos-boss-intro', battleIndex: 'boss' },
 ];
 
 // Уровень 3 — Храм Диагоналей: после Боя 4 — обязательная элита перед вторым магазином и боссом

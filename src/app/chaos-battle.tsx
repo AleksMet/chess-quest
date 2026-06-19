@@ -254,7 +254,7 @@ export default function ChaosBattleScreen() {
   // eslint-disable-next-line no-console
   console.log('[BOSS] isBossBattle:', isBossBattle, 'floor:', currentFloor);
   const opponentElo = (() => {
-    if (isBossBattle) return CHAOS_BATTLE_ELO['boss'];
+    if (isBossBattle) return ACT_CONFIGS[currentLevel - 1]?.bossElo ?? CHAOS_BATTLE_ELO['boss'];
     if (currentLevel === 1) {
       if (typeof battleKey === 'number') return ACT_CONFIGS[0].nodes[battleKey]?.elo ?? CHAOS_BATTLE_ELO[safeBattleNumber];
       if (battleKey === 'elite') return ACT_CONFIGS[0].nodes[3]?.elo ?? 1300;

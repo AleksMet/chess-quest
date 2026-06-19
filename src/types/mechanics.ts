@@ -36,6 +36,7 @@ export type BattleNode = {
 export type ActConfig = {
   act: number
   startGold: number
+  bossElo?: number
   nodes: BattleNode[]
 }
 
