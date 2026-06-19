@@ -43,7 +43,7 @@ import type { PieceUpgrade } from '../types/chaos';
 import { UPGRADE_DEFINITIONS } from '../data/chaosUpgrades';
 import { LEVEL_CONFIGS, getBattleConfig } from '../data/chaosLevelConfig';
 import { getTowerNodes } from '../data/chaosTowerConfig';
-import { PROGRESS_NODES, PROGRESS_NODES_ACT_1, getRandomModifier, MODIFIER_DESCRIPTIONS, getCurrentBattleType, ACT_1_CONFIG } from '../data/chaosLevelConfigV3';
+import { PROGRESS_NODES, PROGRESS_NODES_ACT_1, getRandomModifier, MODIFIER_DESCRIPTIONS, ACT_CONFIGS } from '../data/chaosLevelConfigV3';
 import type { BattleType, BattleModifier } from '../types/mechanics';
 import { ProgressBar } from '../components/ProgressBar';
 import { BattleBanner } from '../components/BattleBanner';
@@ -242,15 +242,16 @@ export default function ChaosBattleScreen() {
   // TODO: mechanics-v3 — стандартные улучшения AI убраны
   const aiUpgrades: AIUpgrade[] = [];
 
-  // Тип боя V3 — уровень 1: читается из ACT_1_CONFIG.nodes по battleKey (battleIndex);
-  // уровень 2+: читается из PROGRESS_NODES через getCurrentBattleType
+  // Тип боя V3: battleKey (= battleIndex узла башни) индексирует ACT_CONFIGS[level].nodes.
+  // Это единственный источник истины — PROGRESS_NODES используется только для отображения.
   const v3BattleType: BattleType = (() => {
     if (isBossBattle) return 'elite';
     if (battleKey === 'elite') return 'elite';
-    if (currentLevel === 1 && typeof battleKey === 'number') {
-      return ACT_1_CONFIG.nodes[battleKey]?.type ?? 'standard';
+    if (typeof battleKey === 'number') {
+      const actConfig = ACT_CONFIGS[currentLevel - 1];
+      return actConfig?.nodes[battleKey]?.type ?? 'standard';
     }
-    return getCurrentBattleType(currentLevel, currentFloor);
+    return 'standard';
   })();
 
   const isQueenHunt   = v3BattleType === 'objective_queen_hunt';

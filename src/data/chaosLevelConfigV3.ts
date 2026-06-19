@@ -77,24 +77,26 @@ export function isBattleTypeAllowed(type: BattleType, characterId: string): bool
   return !excluded.includes(type)
 }
 
+// Узлы прогресс-бара совпадают с узлами башни 1-в-1 (индекс = currentFloor),
+// чтобы currentFloor можно было напрямую передавать как currentIndex в ProgressBar.
 export const PROGRESS_NODES_ACT_1: ProgressNode[] = [
-  { icon: '⚔️', label: 'Бой 1', type: 'standard' },
-  { icon: '🎯', label: 'Охота', type: 'objective_queen_hunt' },
+  // CHAOS_TOWER_NODES: shop(0) battle(1) battle(2) shop(3) boss(4)
   { icon: '🏪', label: 'Магазин', type: 'shop' },
-  { icon: '⚔️', label: 'Бой 2', type: 'standard' },
-  { icon: '💀', label: 'Элита', type: 'elite' },
+  { icon: '⚔️', label: 'Бой 1',  type: 'standard' },
+  { icon: '🎯', label: 'Охота',   type: 'objective_queen_hunt' },
   { icon: '🏪', label: 'Магазин', type: 'shop' },
-  { icon: '👑', label: 'Босс', type: 'boss' },
+  { icon: '👑', label: 'Босс',    type: 'boss' },
 ]
 
 export const PROGRESS_NODES_ACT_2: ProgressNode[] = [
-  { icon: '⚔️', label: 'Бой 1', type: 'standard' },
-  { icon: '🏰', label: 'Марш', type: 'objective_pawn_march' },
-  { icon: '⚔️', label: 'Бой 2', type: 'standard' },
-  { icon: '🎯', label: 'Охота', type: 'objective_queen_hunt' },
-  { icon: '💀', label: 'Элита', type: 'elite' },
+  // LEVEL_2_TOWER: shop(0) battle(1) choice(2) battle(3) battle(4) shop(5) boss(6)
   { icon: '🏪', label: 'Магазин', type: 'shop' },
-  { icon: '👑', label: 'Босс', type: 'boss' },
+  { icon: '⚔️', label: 'Бой 1',  type: 'standard' },
+  { icon: '🔀', label: 'Выбор',   type: 'standard' },
+  { icon: '⚔️', label: 'Бой 2',  type: 'standard' },
+  { icon: '🎯', label: 'Охота',   type: 'objective_queen_hunt' },
+  { icon: '🏪', label: 'Магазин', type: 'shop' },
+  { icon: '👑', label: 'Босс',    type: 'boss' },
 ]
 
 export const PROGRESS_NODES: Record<number, ProgressNode[]> = {
