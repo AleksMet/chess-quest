@@ -1,4 +1,5 @@
 import type { PieceSymbol } from 'chess.js';
+import type { UpgradeRarity } from './mechanics';
 
 export type ChaosEventId =
   | 'old_blacksmith' | 'deserter' | 'war_loot' | 'secret_arsenal'
@@ -17,13 +18,19 @@ export interface ChaosEventDef {
   optionDecline?: string;
 }
 
-// Типы улучшений фигур в режиме ХАОС
+// Типы улучшений фигур в режиме ХАОС (семейства × уровни ур.1/2/3)
 export type UpgradeType =
-  | 'berserk'      // Берсерк
-  | 'sniper'       // Снайпер
-  | 'provocateur'  // Провокатор
-  | 'guard'        // Страж
-  | 'ambush';      // Засада
+  | 'berserk'    | 'berserk_2'    | 'berserk_3'
+  | 'guard'      | 'guard_2'      | 'guard_3'
+  | 'fortifier'  | 'fortifier_2'  | 'fortifier_3'
+  | 'initiator'  | 'initiator_2'  | 'initiator_3'
+  | 'sniper'     | 'sniper_2'     | 'sniper_3'
+  | 'caretaker'  | 'caretaker_2'  | 'caretaker_3'
+  | 'marauder'   | 'marauder_2'   | 'marauder_3'
+  | 'scout'      | 'scout_2'      | 'scout_3'
+  | 'legend'     | 'legend_2'     | 'legend_3'
+  | 'provocateur'
+  | 'ambush'
 
 export type UpgradeCategory = 'attack' | 'defense';
 
@@ -46,9 +53,10 @@ export interface ChaosUpgradeDefinition {
   type: UpgradeType;
   category: UpgradeCategory;
   name: string;
-  description: string; // пояснение для игрока
+  description: string;
   price: number;
   bonusGold: number;
+  rarity: UpgradeRarity;
 }
 
 // Идентификатор персонажа режима ХАОС

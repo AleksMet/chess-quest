@@ -86,19 +86,29 @@ describe('berserkStreakBonus', () => {
 });
 
 describe('guardSurvivalBonus', () => {
-  it('каждые 5 ходов выживания приносят +15 золота', () => {
-    expect(guardSurvivalBonus(5)).toBe(15);
-    expect(guardSurvivalBonus(10)).toBe(15);
+  it('guard I: каждые 5 ходов выживания приносят +15 золота', () => {
+    expect(guardSurvivalBonus('guard', 5)).toBe(15);
+    expect(guardSurvivalBonus('guard', 10)).toBe(15);
   });
 
-  it('между порогами в 5 ходов бонус не начисляется', () => {
-    expect(guardSurvivalBonus(1)).toBe(0);
-    expect(guardSurvivalBonus(4)).toBe(0);
-    expect(guardSurvivalBonus(6)).toBe(0);
+  it('guard I: между порогами бонус не начисляется', () => {
+    expect(guardSurvivalBonus('guard', 1)).toBe(0);
+    expect(guardSurvivalBonus('guard', 4)).toBe(0);
+    expect(guardSurvivalBonus('guard', 6)).toBe(0);
   });
 
-  it('0 ходов выживания — бонуса нет', () => {
-    expect(guardSurvivalBonus(0)).toBe(0);
+  it('guard I: 0 ходов — бонуса нет', () => {
+    expect(guardSurvivalBonus('guard', 0)).toBe(0);
+  });
+
+  it('guard II: срабатывает каждые 4 хода, бонус выше', () => {
+    expect(guardSurvivalBonus('guard_2', 4)).toBe(28);
+    expect(guardSurvivalBonus('guard_2', 5)).toBe(0);
+  });
+
+  it('guard III: срабатывает каждые 3 хода, максимальный бонус', () => {
+    expect(guardSurvivalBonus('guard_3', 3)).toBe(45);
+    expect(guardSurvivalBonus('guard_3', 4)).toBe(0);
   });
 });
 

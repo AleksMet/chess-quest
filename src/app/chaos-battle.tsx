@@ -65,6 +65,11 @@ function upgradeBonusGold(upgradeType: PieceUpgrade['upgradeType']): number {
   return UPGRADE_DEFINITIONS.find(d => d.type === upgradeType)?.bonusGold ?? 0;
 }
 
+// Проверяет принадлежность к семейству улучшений (berserk / berserk_2 / berserk_3 → все «берсерк»)
+function isUpgradeFamily(type: PieceUpgrade['upgradeType'], family: string): boolean {
+  return type === family || type.startsWith(`${family}_`);
+}
+
 function upgradeName(upgradeType: PieceUpgrade['upgradeType']): string {
   return UPGRADE_DEFINITIONS.find(d => d.type === upgradeType)?.name ?? upgradeType;
 }
@@ -461,7 +466,7 @@ export default function ChaosBattleScreen() {
         turnsOnPosition: 0,
         turnsAlive: 0,
       });
-      if (upgrade.upgradeType === 'guard' && square) guardPositions[upgrade.id] = square;
+      if (isUpgradeFamily(upgrade.upgradeType, 'guard') && square) guardPositions[upgrade.id] = square;
     }
     upgradeStateRef.current = map;
     berserkStreakRef.current = {};
@@ -568,7 +573,7 @@ export default function ChaosBattleScreen() {
   // нужно знать клетку, с которой фигура ходила в этот раз (move.from)
   function checkBerserkStreak(move: Move) {
     for (const upgrade of pieceUpgrades) {
-      if (upgrade.upgradeType !== 'berserk') continue;
+      if (!isUpgradeFamily(upgrade.upgradeType, 'berserk')) continue;
       const state = upgradeStateRef.current.get(upgrade.id);
       if (!state || state.square !== move.from) continue;
       if (move.captured) {
@@ -588,7 +593,7 @@ export default function ChaosBattleScreen() {
   // осталась на месте — +1; при достижении кратного guardTriggerTurns начисляем золото.
   function checkGuardBonus() {
     for (const upgrade of pieceUpgrades) {
-      if (upgrade.upgradeType !== 'guard') continue;
+      if (!isUpgradeFamily(upgrade.upgradeType, 'guard')) continue;
       const state = upgradeStateRef.current.get(upgrade.id);
       if (!state?.square) continue;
 
@@ -601,7 +606,7 @@ export default function ChaosBattleScreen() {
 
       const turns = (guardTurnsRef.current[upgrade.id] ?? 0) + 1;
       guardTurnsRef.current[upgrade.id] = turns;
-      const bonus = guardSurvivalBonus(turns, guardTriggerTurns);
+      const bonus = guardSurvivalBonus(upgrade.upgradeType, turns, guardTriggerTurns);
       if (bonus > 0) {
         goldRef.current += bonus;
         pushGoldToast(`+${bonus} золота — Страж`);
@@ -649,7 +654,7 @@ export default function ChaosBattleScreen() {
     const forcedSquares: Square[] = [];
     const forcedMoves: string[] = [];
     for (const upgrade of pieceUpgrades) {
-      if (upgrade.upgradeType !== 'berserk') continue;
+      if (!isUpgradeFamily(upgrade.upgradeType, 'berserk')) continue;
       const state = upgradeStateRef.current.get(upgrade.id);
       if (!state?.square) continue;
       const captures = chess.moves({ square: state.square, verbose: true }).filter(m => m.captured);
@@ -763,7 +768,7 @@ export default function ChaosBattleScreen() {
     if (displayAiUpgrades.length === 0) return [];
     const map = new Map<Square, { square: Square; color: 'red' | 'blue' | 'gold' | 'purple'; opacity: number }>();
     for (const upgrade of displayAiUpgrades) {
-      const color = upgrade.upgradeType === 'guard' ? 'blue' : 'red';
+      const color = isUpgradeFamily(upgrade.upgradeType, 'guard') ? 'blue' : 'red';
       for (const square of findAllPieceSquares(chess, upgrade.pieceType, 'b')) {
         map.set(square, { square, color, opacity: 0.35 });
       }

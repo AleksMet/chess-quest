@@ -5,8 +5,9 @@ import { useRouter } from 'expo-router';
 import { ChessPieceSVG, type PieceKey } from '../components/chess/ChessPieceSVG';
 import { useChaosModeStore, pieceInstanceId, type ChessPiece } from '../store/chaosModeStore';
 import { getTowerNodes } from '../data/chaosTowerConfig';
-import { UPGRADE_DEFINITIONS } from '../data/chaosUpgrades';
+import { UPGRADE_DEFINITIONS, getShopUpgrades } from '../data/chaosUpgrades';
 import type { ChaosUpgradeDefinition, UpgradeType } from '../types/chaos';
+import type { UpgradeRarity } from '../types/mechanics';
 
 interface ShopItem {
   piece: ChessPiece;
@@ -45,6 +46,30 @@ const UPGRADABLE_NAMES: Partial<Record<ChessPiece, string>> = {
 const CATEGORY_ICON: Record<'attack' | 'defense', string> = {
   attack: '🔴',
   defense: '🔵',
+};
+
+const RARITY_BORDER: Record<UpgradeRarity, string> = {
+  common:    'rgba(255,255,255,0.15)',
+  uncommon:  'rgba(34,197,94,0.35)',
+  rare:      'rgba(59,130,246,0.35)',
+  epic:      'rgba(168,85,247,0.45)',
+  legendary: 'rgba(234,179,8,0.55)',
+};
+
+const RARITY_LABEL_COLOR: Record<UpgradeRarity, string> = {
+  common:    '#94a3b8',
+  uncommon:  '#22c55e',
+  rare:      '#3b82f6',
+  epic:      '#a855f7',
+  legendary: '#eab308',
+};
+
+const RARITY_LABELS: Record<UpgradeRarity, string> = {
+  common:    '⚪ Обычное',
+  uncommon:  '🟢 Необычное',
+  rare:      '🔵 Редкое',
+  epic:      '🟣 Эпическое',
+  legendary: '🟡 Легендарное',
 };
 
 interface UpgradableInstance {
@@ -95,6 +120,9 @@ export default function ChaosShopScreen() {
   const shopFloors = towerNodes.reduce<number[]>((acc, n, i) => (n.type === 'shop' ? [...acc, i] : acc), []);
   const isSecondShop = currentFloor === shopFloors[shopFloors.length - 1];
   const title = isSecondShop ? '🏪 Магазин 2' : '🏪 Магазин 1';
+
+  // Пул улучшений фиксируется при открытии магазина — зависит от акта и типа магазина
+  const [shopUpgrades] = useState(() => getShopUpgrades(currentLevel, isSecondShop));
 
   function countOf(piece: ChessPiece): number {
     return pieces.filter(p => p === piece).length;
@@ -246,7 +274,7 @@ export default function ChaosShopScreen() {
             Улучшение привязывается к конкретной фигуре. Максимум 2 улучшения на одну фигуру.
           </Text>
 
-          {UPGRADE_DEFINITIONS.map(def => {
+          {shopUpgrades.map(def => {
             const isSelected = selectedUpgrade === def.type;
             const available = isUpgradeAvailable(def.category);
             const price = getUpgradePrice(def.price, def.category);
@@ -254,7 +282,7 @@ export default function ChaosShopScreen() {
             const canAfford = gold >= price;
 
             let buttonLabel = 'Выбрать';
-            if (!available) buttonLabel = 'Недоступно для персонажа';
+            if (!available) buttonLabel = '🚫 Недоступно';
             else if (isSelected) buttonLabel = 'Выбрано';
             else if (!canAfford) buttonLabel = 'Мало золота';
 
@@ -263,11 +291,21 @@ export default function ChaosShopScreen() {
             return (
               <Pressable
                 key={def.type}
-                style={[styles.upgradeCard, isSelected && styles.upgradeCardSelected, cardDisabled && styles.cardLocked]}
+                style={[
+                  styles.upgradeCard,
+                  { borderColor: RARITY_BORDER[def.rarity] },
+                  isSelected && styles.upgradeCardSelected,
+                  !available && styles.characterLocked,
+                ]}
                 onPress={() => handleSelectUpgrade(def)}
                 disabled={!available}
                 testID={`chaos-shop-upgrade-${def.type}`}
               >
+                <View style={styles.rarityBadge}>
+                  <Text style={[styles.rarityBadgeText, { color: RARITY_LABEL_COLOR[def.rarity] }]}>
+                    {RARITY_LABELS[def.rarity]}
+                  </Text>
+                </View>
                 <Text style={styles.categoryIcon}>{CATEGORY_ICON[def.category]}</Text>
                 <View style={styles.cardInfo}>
                   <Text style={styles.cardName}>{def.name}</Text>
@@ -421,6 +459,15 @@ const styles = StyleSheet.create({
   targetLockedLabel: { color: '#f87171', fontSize: 9, textAlign: 'center' },
 
   ownedUpgrade:   { color: '#cbd5e1', fontSize: 12 },
+
+  characterLocked: { opacity: 0.4 },
+
+  rarityBadge: {
+    position: 'absolute', top: 8, right: 8,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2,
+  },
+  rarityBadgeText: { fontSize: 8, fontWeight: '700' },
 
   footer:    {
     flexDirection: 'column',

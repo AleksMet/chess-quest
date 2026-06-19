@@ -40,6 +40,8 @@ export type ActConfig = {
   nodes: BattleNode[]
 }
 
+export type UpgradeRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
+
 export type ProgressNode = {
   icon: string
   label: string

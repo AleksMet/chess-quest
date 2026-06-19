@@ -30,10 +30,15 @@ export function berserkStreakBonus(streak: number, startBonus: number = BERSERK_
   return BERSERK_STREAK_GOLD[index];
 }
 
-// Страж: награда за каждые triggerTurns ходов выживания (turnsAlive — счётчик ходов после обновления);
-// у персонажа «Страж» порог снижен до guardTriggerTurns вместо стандартных 5
-export function guardSurvivalBonus(turnsAlive: number, triggerTurns: number = 5): number {
-  return turnsAlive > 0 && turnsAlive % triggerTurns === 0 ? bonusGoldFor('guard') : 0;
+// Страж: награда за каждые triggerTurns ходов выживания.
+// upgradeType — конкретный тип (guard / guard_2 / guard_3) для правильного bonusGold.
+// guard_2 срабатывает каждые 4 хода, guard_3 — каждые 3.
+export function guardSurvivalBonus(upgradeType: UpgradeType, turnsAlive: number, triggerTurns: number = 5): number {
+  const effectiveTrigger =
+    upgradeType === 'guard_3' ? Math.min(triggerTurns, 3) :
+    upgradeType === 'guard_2' ? Math.min(triggerTurns, 4) :
+    triggerTurns;
+  return turnsAlive > 0 && turnsAlive % effectiveTrigger === 0 ? bonusGoldFor(upgradeType) : 0;
 }
 
 // Провокатор: фигура стоит под атакой чёрных
@@ -52,15 +57,15 @@ export function processPlayerMove(move: Move, upgrades: PieceUpgrade[]): Upgrade
   for (const upgrade of upgrades) {
     switch (upgrade.upgradeType) {
       case 'sniper':
+      case 'sniper_2':
+      case 'sniper_3':
         if (move.captured && PIECE_VALUES[move.captured] > PIECE_VALUES[move.piece]) {
-          // Если известна клетка — проверяем что именно эта фигура сделала взятие
           if (upgrade.currentSquare !== undefined) {
             if (upgrade.currentSquare !== move.from) break;
           } else {
-            // Fallback на проверку типа (нет данных о позиции)
             if (upgrade.pieceType !== move.piece) break;
           }
-          triggers.push({ upgradeType: 'sniper', bonus: bonusGoldFor('sniper') });
+          triggers.push({ upgradeType: upgrade.upgradeType, bonus: bonusGoldFor(upgrade.upgradeType) });
         }
         break;
       case 'ambush':
