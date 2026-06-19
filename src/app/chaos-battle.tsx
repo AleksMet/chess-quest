@@ -240,6 +240,8 @@ export default function ChaosBattleScreen() {
   const isValidFloor = currentLevel === 1 ? battleNumber !== null : battleKey !== null;
 
   const isBossBattle = currentLevel === 1 ? safeBattleNumber === 'boss' : battleKey === 'boss';
+  // eslint-disable-next-line no-console
+  console.log('[BOSS] isBossBattle:', isBossBattle, 'floor:', currentFloor);
   const opponentElo = (() => {
     if (isBossBattle) return CHAOS_BATTLE_ELO['boss'];
     if (currentLevel === 1) {
@@ -335,10 +337,8 @@ export default function ChaosBattleScreen() {
   const playerMovesRef = useRef(0);
   // Горячая зона: срабатывает только один раз за бой
   const hotZoneUsedRef = useRef(false);
-  // Objective — Охота на Ферзя: статус ферзей обеих сторон
-  const [playerQueenAlive, setPlayerQueenAlive] = useState(true);
+  // Objective — Охота на Ферзя: отслеживаем только ферзя ИИ
   const [aiQueenAlive, setAiQueenAlive] = useState(true);
-  const playerQueenAliveRef = useRef(true);
   const aiQueenAliveRef = useRef(true);
   // Objective — Пешечный Марш: лучший ряд пешки и счётчик бонусов (макс 2)
   const [bestPawnRank, setBestPawnRank] = useState(2);
@@ -843,11 +843,6 @@ export default function ChaosBattleScreen() {
           checkProvocateurBonus();
           setGoldDisplay(goldRef.current);
         }
-        // Охота на Ферзя: ИИ взял ферзя игрока
-        if (isQueenHunt && move.captured === 'q') {
-          playerQueenAliveRef.current = false;
-          setPlayerQueenAlive(false);
-        }
         // Королевский Щит: шах королю игрока после хода ИИ
         if (isRoyalShield && chess.inCheck()) {
           const nc = checkCountRef.current + 1;
@@ -1053,16 +1048,10 @@ export default function ChaosBattleScreen() {
           goldRef.current += 25;
           pushGoldToast('+25🪙 Армия цела');
         }
-        // Objective: Охота на Ферзя
-        if (isQueenHunt) {
-          if (!aiQueenAliveRef.current) {
-            goldRef.current += 50;
-            pushGoldToast('🎯 +50🪙 Ферзь повержен!');
-          }
-          if (!playerQueenAliveRef.current) {
-            goldRef.current = Math.max(0, goldRef.current - 30);
-            pushGoldToast('💀 -30🪙 Ферзь потерян');
-          }
+        // Objective: Охота на Ферзя — бонус только за уничтожение ферзя ИИ
+        if (isQueenHunt && !aiQueenAliveRef.current) {
+          goldRef.current += 50;
+          pushGoldToast('🎯 +50🪙 Ферзь повержен!');
         }
         // Objective: Королевский Щит
         if (isRoyalShield) {
@@ -1214,7 +1203,7 @@ export default function ChaosBattleScreen() {
         <View style={styles.objectiveStrip}>
           {isQueenHunt && (
             <Text style={styles.objectiveStripText}>
-              {`🎯 Ферзь врага: ${aiQueenAlive ? '✓' : '✗'}  |  Твой ферзь: ${playerQueenAlive ? '✓' : '✗'}`}
+              {`🎯 Ферзь врага: ${aiQueenAlive ? '✓' : '✗'}`}
             </Text>
           )}
           {isPawnMarch && (

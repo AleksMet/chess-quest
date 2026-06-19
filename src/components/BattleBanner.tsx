@@ -17,8 +17,7 @@ const OBJECTIVE_INFO: Partial<Record<BattleType, ObjectiveInfo>> = {
   objective_queen_hunt: {
     icon: '🎯',
     goal: 'Уничтожь ферзя врага',
-    bonus: '+50🪙 если первым',
-    penalty: '-30🪙 если потеряешь своего',
+    bonus: '+50🪙 за взятие ферзя',
   },
   objective_pawn_march: {
     icon: '🏰',

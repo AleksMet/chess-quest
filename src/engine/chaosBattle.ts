@@ -126,13 +126,17 @@ function buildAiBoard(battleNumber: ChaosBattleNumber): Board {
       place(board, 'a8', 'r');
       break;
     case 'boss':
-      place(board, 'e8', 'k');
-      FILES.forEach(f => place(board, `${f}7`, 'p'));
-      place(board, 'd8', 'q');
-      place(board, 'd6', 'q');
+      // Полная задняя линия + d6 ферзь как дополнительная угроза «Всадника»
       place(board, 'a8', 'r');
-      place(board, 'h8', 'r');
       place(board, 'b8', 'n');
+      place(board, 'c8', 'b');
+      place(board, 'd8', 'q');
+      place(board, 'e8', 'k');
+      place(board, 'f8', 'b');
+      place(board, 'g8', 'n');
+      place(board, 'h8', 'r');
+      FILES.forEach(f => place(board, `${f}7`, 'p'));
+      place(board, 'd6', 'q');
       break;
   }
 
