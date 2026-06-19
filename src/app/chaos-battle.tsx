@@ -14,7 +14,6 @@ import type { EffectGroup, EffectGroupPiece } from '../components/ui/ChaosUpgrad
 import type { EffectCategory, PieceEffect } from '../types/pieceEffects';
 import type { PieceKey } from '../components/chess/ChessPieceSVG';
 import type { MoveResult } from '../engine/chessLogic';
-import { eloToSkillLevel } from '../engine/stockfish';
 import {
   buildChaosFen,
   buildLevel2AiFen,
@@ -100,6 +99,19 @@ function pickHotZones(fen: string): Square[] {
   const available = HOT_ZONE_CANDIDATES.filter(sq => !tempChess.get(sq));
   const shuffled = available.sort(() => Math.random() - 0.5);
   return shuffled.slice(0, Math.random() > 0.5 ? 2 : 1);
+}
+
+function eloToSkillLevel(elo: number): number {
+  if (elo <= 800)  return 5;
+  if (elo <= 900)  return 7;
+  if (elo <= 1000) return 9;
+  if (elo <= 1100) return 11;
+  if (elo <= 1200) return 13;
+  if (elo <= 1300) return 15;
+  if (elo <= 1400) return 17;
+  if (elo <= 1500) return 18;
+  if (elo <= 1600) return 19;
+  return 20;
 }
 
 function getPressureElo(baseElo: number, moveCount: number): number {
