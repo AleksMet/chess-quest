@@ -25,14 +25,14 @@ describe('processPlayerMove', () => {
     const chess = new Chess('k5q1/8/5N2/8/8/8/8/7K w - - 0 1');
     const move = chess.move({ from: 'f6', to: 'g8' })!;
     const upgrades = [makeUpgrade({ id: 'n_0_sniper', pieceType: 'n', upgradeType: 'sniper' })];
-    expect(processPlayerMove(move, upgrades)).toEqual([{ upgradeType: 'sniper', bonus: 50 }]);
+    expect(processPlayerMove(move, upgrades, chess, 0)).toEqual([{ upgradeType: 'sniper', bonus: 50 }]);
   });
 
   it('Снайпер: ферзь берёт пешку — жертва не дороже атакующей фигуры — ничего не срабатывает', () => {
     const chess = new Chess('k7/8/8/3p4/3Q4/8/8/7K w - - 0 1');
     const move = chess.move({ from: 'd4', to: 'd5' })!;
     const upgrades = [makeUpgrade({ id: 'q_0_sniper', pieceType: 'q', upgradeType: 'sniper' })];
-    expect(processPlayerMove(move, upgrades)).toEqual([]);
+    expect(processPlayerMove(move, upgrades, chess, 0)).toEqual([]);
   });
 
   it('Засада: фигура простояла на месте 3+ хода и берёт оттуда — бонус удваивает золото за взятие', () => {
@@ -40,21 +40,21 @@ describe('processPlayerMove', () => {
     const move = chess.move({ from: 'e4', to: 'd5' })!;
     const upgrades = [makeUpgrade({ id: 'p_0_ambush', pieceType: 'p', upgradeType: 'ambush', category: 'defense', turnsOnPosition: 3 })];
     // Взята пешка (15 золота за взятие) — бонус Засады равен этой же сумме, итог ×2
-    expect(processPlayerMove(move, upgrades)).toEqual([{ upgradeType: 'ambush', bonus: 15 }]);
+    expect(processPlayerMove(move, upgrades, chess, 0)).toEqual([{ upgradeType: 'ambush', bonus: 15 }]);
   });
 
   it('Засада: фигура простояла меньше 3 ходов — бонус не начисляется', () => {
     const chess = new Chess('k7/8/8/3p4/4P3/8/8/7K w - - 0 1');
     const move = chess.move({ from: 'e4', to: 'd5' })!;
     const upgrades = [makeUpgrade({ id: 'p_0_ambush', pieceType: 'p', upgradeType: 'ambush', category: 'defense', turnsOnPosition: 2 })];
-    expect(processPlayerMove(move, upgrades)).toEqual([]);
+    expect(processPlayerMove(move, upgrades, chess, 0)).toEqual([]);
   });
 
   it('Засада: фигура простояла 3+ хода, но ход без взятия — бонус не начисляется', () => {
     const chess = new Chess();
     const move = chess.move({ from: 'e2', to: 'e4' })!;
     const upgrades = [makeUpgrade({ id: 'p_0_ambush', pieceType: 'p', upgradeType: 'ambush', category: 'defense', turnsOnPosition: 3 })];
-    expect(processPlayerMove(move, upgrades)).toEqual([]);
+    expect(processPlayerMove(move, upgrades, chess, 0)).toEqual([]);
   });
 });
 
@@ -86,9 +86,9 @@ describe('berserkStreakBonus', () => {
 });
 
 describe('guardSurvivalBonus', () => {
-  it('guard I: каждые 5 ходов выживания приносят +15 золота', () => {
-    expect(guardSurvivalBonus('guard', 5)).toBe(15);
-    expect(guardSurvivalBonus('guard', 10)).toBe(15);
+  it('guard I: каждые 5 ходов выживания приносят +14 золота', () => {
+    expect(guardSurvivalBonus('guard', 5)).toBe(14);
+    expect(guardSurvivalBonus('guard', 10)).toBe(14);
   });
 
   it('guard I: между порогами бонус не начисляется', () => {
@@ -102,12 +102,12 @@ describe('guardSurvivalBonus', () => {
   });
 
   it('guard II: срабатывает каждые 4 хода, бонус выше', () => {
-    expect(guardSurvivalBonus('guard_2', 4)).toBe(28);
+    expect(guardSurvivalBonus('guard_2', 4)).toBe(18);
     expect(guardSurvivalBonus('guard_2', 5)).toBe(0);
   });
 
   it('guard III: срабатывает каждые 3 хода, максимальный бонус', () => {
-    expect(guardSurvivalBonus('guard_3', 3)).toBe(45);
+    expect(guardSurvivalBonus('guard_3', 3)).toBe(25);
     expect(guardSurvivalBonus('guard_3', 4)).toBe(0);
   });
 });

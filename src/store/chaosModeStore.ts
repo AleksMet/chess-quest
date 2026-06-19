@@ -94,6 +94,8 @@ interface ChaosState {
   setNextRoute: (route: string | null) => void;
   setCursedPiece: (id: string) => void;
   clearCursedPiece: () => void;
+  battlesCompleted: number;
+  incrementBattlesCompleted: () => void;
   resetRun: () => void;
 }
 
@@ -125,6 +127,7 @@ function runState(character: ChaosCharacter | null) {
     pendingEventId: null as string | null,
     nextRoute: null as string | null,
     cursedPieceId: null as string | null,
+    battlesCompleted: 0,
   };
 }
 
@@ -240,6 +243,8 @@ export const useChaosModeStore = create<ChaosState>((set, get) => ({
   setNextRoute: (route) => set({ nextRoute: route }),
   setCursedPiece: (id) => set({ cursedPieceId: id }),
   clearCursedPiece: () => set({ cursedPieceId: null }),
+
+  incrementBattlesCompleted: () => set(s => ({ battlesCompleted: s.battlesCompleted + 1 })),
 
   resetRun: () => set(s => ({ ...runState(s.selectedCharacter) })),
 }));

@@ -36,7 +36,7 @@ import { calcCaptureScore } from '../engine/scoreEngine';
 import {
   processPlayerMove,
   berserkStreakBonus,
-  guardSurvivalBonus,
+  isNearKing,
   isProvocateurThreatened,
 } from '../engine/chaosUpgradeEngine';
 import { applyAIUpgrades, evolvePiece, teleportAttackingPieces, type AIUpgrade } from '../engine/chaosAIUpgrades';
@@ -54,9 +54,6 @@ import { parsePieceId } from '../engine/chaosEventEngine';
 // Бонус золота за «ключевые» взятия — независимо от улучшений (попап в правом верхнем углу);
 // пешки не учитываются (см. ЗАДАЧА 3 спецификации режима ХАОС)
 const KEY_CAPTURE_PIECES: PieceSymbol[] = ['n', 'b', 'r', 'q'];
-
-// Страж награждает каждые 5 ходов выживания (см. guardSurvivalBonus в движке улучшений)
-const GUARD_TRIGGER_TURNS = 5;
 
 // Лимит призывов коней боссом «Всадник» (уровень 1)
 const BOSS_KNIGHT_SPAWNS_LEVEL1 = 5;
@@ -220,10 +217,8 @@ export default function ChaosBattleScreen() {
     addGold, addScore, setPieces, savePurchasedPieces, nextFloor, unlockGuardian,
     bossKnightSpawnsLeft, setBossKnightSpawnsLeft,
     cursedPieceId, clearCursedPiece, setPieceEffects,
+    battlesCompleted, incrementBattlesCompleted,
   } = useChaosModeStore();
-
-  // Каждые guardTriggerTurns ходов выживания срабатывает Страж — у персонажа «Страж» порог ниже стандартного
-  const guardTriggerTurns = selectedCharacter?.guardTriggerTurns ?? GUARD_TRIGGER_TURNS;
 
   // Уровень 1 проходит по старой логике без изменений (battleNumberForFloor → 1|2|'boss')
   const battleNumber = currentLevel === 1 ? battleNumberForFloor(currentFloor) : null;
@@ -355,6 +350,8 @@ export default function ChaosBattleScreen() {
   const upgradeStateRef = useRef<Map<string, UpgradeRuntimeState>>(new Map());
   // Серия взятий подряд Берсерком — ключ: id улучшения, значение: длина текущей серии
   const berserkStreakRef = useRef<Record<string, number>>({});
+  // Инициатор: сколько взятий эта фигура уже сделала в текущем бою — ключ: id улучшения
+  const initiatorCaptureRef = useRef<Record<string, number>>({});
   // Страж: клетка фигуры на конец предыдущего хода и счётчик ходов БЕЗ движения — ключ: id улучшения.
   // Сравниваем текущую клетку с записанной, чтобы отличить «осталась на месте» от «вернулась туда же» —
   // в обоих случаях клетка совпадает, считаем это «не двигалась» (ровно по спецификации Стража).
@@ -470,6 +467,7 @@ export default function ChaosBattleScreen() {
     }
     upgradeStateRef.current = map;
     berserkStreakRef.current = {};
+    initiatorCaptureRef.current = {};
     guardPositionsRef.current = guardPositions;
     guardTurnsRef.current = {};
 
@@ -588,29 +586,93 @@ export default function ChaosBattleScreen() {
     }
   }
 
-  // Страж: награда за каждые guardTriggerTurns ходов БЕЗ движения фигуры (не за выживание!).
-  // Сравниваем клетку с записанной на конце предыдущего хода: сдвинулась — счётчик в 0,
-  // осталась на месте — +1; при достижении кратного guardTriggerTurns начисляем золото.
+  // Страж: +золото каждый ход пока фигура стоит в радиусе 2 клеток от короля (макс 5 раз за бой).
   function checkGuardBonus() {
+    let kingSquare: Square | null = null;
+    for (const row of chess.board()) {
+      for (const cell of row) {
+        if (cell && cell.color === 'w' && cell.type === 'k') {
+          kingSquare = cell.square as Square;
+          break;
+        }
+      }
+      if (kingSquare) break;
+    }
+    if (!kingSquare) return;
+
     for (const upgrade of pieceUpgrades) {
       if (!isUpgradeFamily(upgrade.upgradeType, 'guard')) continue;
       const state = upgradeStateRef.current.get(upgrade.id);
       if (!state?.square) continue;
 
-      const prevSquare = guardPositionsRef.current[upgrade.id];
-      guardPositionsRef.current[upgrade.id] = state.square;
-      if (prevSquare !== state.square) {
-        guardTurnsRef.current[upgrade.id] = 0;
-        continue;
-      }
+      const triggerCount = guardTurnsRef.current[upgrade.id] ?? 0;
+      if (triggerCount >= 5) continue;
 
-      const turns = (guardTurnsRef.current[upgrade.id] ?? 0) + 1;
-      guardTurnsRef.current[upgrade.id] = turns;
-      const bonus = guardSurvivalBonus(upgrade.upgradeType, turns, guardTriggerTurns);
-      if (bonus > 0) {
-        goldRef.current += bonus;
-        pushGoldToast(`+${bonus} золота — Страж`);
+      if (!isNearKing(state.square, kingSquare)) continue;
+
+      guardTurnsRef.current[upgrade.id] = triggerCount + 1;
+      const bonus = upgradeBonusGold(upgrade.upgradeType);
+      goldRef.current += bonus;
+      pushGoldToast(`+${bonus} золота — Страж`);
+    }
+  }
+
+  // Фортификатор: +золото каждый ход пока улучшённая пешка стоит на 6-7 горизонтали
+  function checkFortifierBonus() {
+    for (const upgrade of pieceUpgrades) {
+      if (!isUpgradeFamily(upgrade.upgradeType, 'fortifier')) continue;
+      const state = upgradeStateRef.current.get(upgrade.id);
+      if (!state?.square) continue;
+
+      const piece = chess.get(state.square);
+      if (!piece || piece.type !== 'p') continue;
+
+      const rank = parseInt(state.square[1]);
+      if (rank < 6) continue;
+
+      const bonus = upgradeBonusGold(upgrade.upgradeType);
+      goldRef.current += bonus;
+      pushGoldToast(`+${bonus} золота — ${upgradeName(upgrade.upgradeType)}`);
+    }
+  }
+
+  // Опекун: возвращает клетки союзных фигур, которые фигура на caretakerSquare защищает своим атакующим ходом.
+  // Создаём временную позицию с ходом белых, заменяем каждого союзника чёрной фигурой и проверяем взятие.
+  function getDefendedAllies(caretakerSquare: Square): Square[] {
+    const defended: Square[] = [];
+    const fenParts = chess.fen().split(' ');
+    fenParts[1] = 'w';
+    for (const row of chess.board()) {
+      for (const cell of row) {
+        if (!cell || cell.color !== 'w' || cell.square === caretakerSquare) continue;
+        const allySquare = cell.square as Square;
+        try {
+          const temp = new Chess(fenParts.join(' '));
+          temp.remove(allySquare);
+          temp.put({ type: cell.type, color: 'b' }, allySquare);
+          if (temp.moves({ square: caretakerSquare, verbose: true }).some(m => m.to === allySquare)) {
+            defended.push(allySquare);
+          }
+        } catch {
+          // позиция невалидна — пропускаем
+        }
       }
+    }
+    return defended;
+  }
+
+  // Опекун: +золото каждый ход пока фигура защищает хотя бы одного союзника
+  function checkCaretakerBonus() {
+    for (const upgrade of pieceUpgrades) {
+      if (!isUpgradeFamily(upgrade.upgradeType, 'caretaker')) continue;
+      const state = upgradeStateRef.current.get(upgrade.id);
+      if (!state?.square) continue;
+
+      if (getDefendedAllies(state.square).length === 0) continue;
+
+      const bonus = upgradeBonusGold(upgrade.upgradeType);
+      goldRef.current += bonus;
+      pushGoldToast(`+${bonus} золота — ${upgradeName(upgrade.upgradeType)}`);
     }
   }
 
@@ -825,6 +887,7 @@ export default function ChaosBattleScreen() {
     if (r === 'win') {
       total = goldRef.current + outcomeGold;
       if (artifacts.includes('blitz_master') && movesUsed <= CHAOS_BLITZ_MOVE_LIMIT) total *= 2;
+      incrementBattlesCompleted();
     }
     finalGoldRef.current = total;
     setGoldDisplay(total);
@@ -1124,18 +1187,36 @@ export default function ChaosBattleScreen() {
         goldRef.current += CHAOS_FORK_BONUS;
       }
       if (pieceUpgrades.length > 0) {
-        // Снайпер и Засада оцениваются по состоянию ДО обновления счётчиков —
-        // turnsOnPosition должен отражать, сколько ходов фигура простояла на клетке, с которой берёт
-        for (const trigger of processPlayerMove(move, liveUpgrades())) {
+        // processPlayerMove, Берсерк, Инициатор — по состоянию ДО обновления позиций (state.square === move.from)
+        for (const trigger of processPlayerMove(move, liveUpgrades(), chess, battlesCompleted)) {
           goldRef.current += trigger.bonus;
           pushGoldToast(`+${trigger.bonus} золота — ${upgradeName(trigger.upgradeType)}`);
         }
-        // Берсерк: определяем серию по клетке ДО хода — тоже до обновления позиций
         checkBerserkStreak(move);
+        // Инициатор: бонус за первые N взятий этой фигурой за бой
+        if (move.captured) {
+          for (const upgrade of pieceUpgrades) {
+            if (!isUpgradeFamily(upgrade.upgradeType, 'initiator')) continue;
+            const initState = upgradeStateRef.current.get(upgrade.id);
+            if (!initState?.square || initState.square !== (move.from as Square)) continue;
+            const maxCaptures = upgrade.upgradeType === 'initiator' ? 1
+              : upgrade.upgradeType === 'initiator_2' ? 2 : 3;
+            const captured = initiatorCaptureRef.current[upgrade.id] ?? 0;
+            if (captured < maxCaptures) {
+              initiatorCaptureRef.current[upgrade.id] = captured + 1;
+              const bonus = upgrade.upgradeType === 'initiator' ? 65
+                : upgrade.upgradeType === 'initiator_2' ? 85 : 100;
+              goldRef.current += bonus;
+              pushGoldToast(`+${bonus} золота — ${upgradeName(upgrade.upgradeType)}`);
+            }
+          }
+        }
         trackUpgradeMove(move.from as Square, move.to as Square);
         tickUpgradeCounters();
-        // Страж: сравниваем клетку ПОСЛЕ обновления позиций — этот ход уже отражён в state.square
+        // Страж, Фортификатор, Опекун — ПОСЛЕ обновления позиций
         checkGuardBonus();
+        checkFortifierBonus();
+        checkCaretakerBonus();
       }
       // Горячая зона: +15 золота один раз за бой — при первом заходе на случайную горячую клетку
       if (hotZones.includes(move.to as Square) && move.color === 'w' && !hotZoneUsedRef.current) {

@@ -21,53 +21,53 @@ export const UPGRADE_DEFINITIONS: ChaosUpgradeDefinition[] = [
 
   // ── СТРАЖ (защита) ──────────────────────────────────────────────────────────
   {
-    type: 'guard', category: 'defense', rarity: 'common', price: 50, bonusGold: 15,
+    type: 'guard', category: 'defense', rarity: 'common', price: 50, bonusGold: 14,
     name: 'Страж I',
-    description: 'Награда за выживание. Фигура выжила 5 ходов — получай золото. Береги её.',
+    description: '+14 золота каждый ход рядом с королём (радиус 2, макс 5 раз).',
   },
   {
-    type: 'guard_2', category: 'defense', rarity: 'uncommon', price: 85, bonusGold: 28,
+    type: 'guard_2', category: 'defense', rarity: 'uncommon', price: 85, bonusGold: 18,
     name: 'Страж II',
-    description: 'Опытный страж. Золото каждые 4 хода выживания вместо 5.',
+    description: '+18 золота каждый ход рядом с королём (радиус 2, макс 5 раз).',
   },
   {
-    type: 'guard_3', category: 'defense', rarity: 'rare', price: 130, bonusGold: 45,
+    type: 'guard_3', category: 'defense', rarity: 'rare', price: 130, bonusGold: 25,
     name: 'Страж III',
-    description: 'Бессмертный страж. Щедрое золото каждые 3 хода выживания.',
+    description: '+25 золота каждый ход рядом с королём (радиус 2, макс 5 раз).',
   },
 
   // ── ФОРТИФИКАТОР (защита) ───────────────────────────────────────────────────
   {
     type: 'fortifier', category: 'defense', rarity: 'common', price: 55, bonusGold: 20,
     name: 'Фортификатор I',
-    description: 'Фигура стоит в центре — каждый ход контроля приносит золото.',
+    description: '+20 золота каждый ход пока эта пешка стоит на 6-7 горизонтали.',
   },
   {
-    type: 'fortifier_2', category: 'defense', rarity: 'uncommon', price: 90, bonusGold: 35,
+    type: 'fortifier_2', category: 'defense', rarity: 'uncommon', price: 90, bonusGold: 25,
     name: 'Фортификатор II',
-    description: 'Улучшенный фортификатор. Больший бонус за удержание центра.',
+    description: '+25 золота каждый ход пока эта пешка стоит на 6-7 горизонтали.',
   },
   {
-    type: 'fortifier_3', category: 'defense', rarity: 'rare', price: 140, bonusGold: 55,
+    type: 'fortifier_3', category: 'defense', rarity: 'rare', price: 140, bonusGold: 28,
     name: 'Фортификатор III',
-    description: 'Несокрушимый фортификатор. Центр приносит максимальное золото.',
+    description: '+28 золота каждый ход пока эта пешка стоит на 6-7 горизонтали.',
   },
 
   // ── ИНИЦИАТОР (атака) ───────────────────────────────────────────────────────
   {
-    type: 'initiator', category: 'attack', rarity: 'common', price: 65, bonusGold: 25,
+    type: 'initiator', category: 'attack', rarity: 'common', price: 65, bonusGold: 65,
     name: 'Инициатор I',
-    description: 'Первое взятие партии приносит бонусное золото. Начинай агрессивно.',
+    description: '+65 золота за первое взятие в бою этой фигурой.',
   },
   {
-    type: 'initiator_2', category: 'attack', rarity: 'uncommon', price: 105, bonusGold: 42,
+    type: 'initiator_2', category: 'attack', rarity: 'uncommon', price: 105, bonusGold: 85,
     name: 'Инициатор II',
-    description: 'Опытный инициатор. Первые два взятия приносят золото.',
+    description: '+85 золота за первые 2 взятия в бою этой фигурой.',
   },
   {
-    type: 'initiator_3', category: 'attack', rarity: 'rare', price: 160, bonusGold: 65,
+    type: 'initiator_3', category: 'attack', rarity: 'rare', price: 160, bonusGold: 100,
     name: 'Инициатор III',
-    description: 'Мастер первого удара. Максимальный бонус за ранние взятия.',
+    description: '+100 золота за первые 3 взятия в бою этой фигурой.',
   },
 
   // ── СНАЙПЕР (атака) ─────────────────────────────────────────────────────────
@@ -89,19 +89,19 @@ export const UPGRADE_DEFINITIONS: ChaosUpgradeDefinition[] = [
 
   // ── ОПЕКУН (защита) ─────────────────────────────────────────────────────────
   {
-    type: 'caretaker', category: 'defense', rarity: 'uncommon', price: 75, bonusGold: 35,
+    type: 'caretaker', category: 'defense', rarity: 'uncommon', price: 75, bonusGold: 12,
     name: 'Опекун I',
-    description: 'Фигура рядом с союзником — каждый ход защиты приносит золото.',
+    description: '+12 золота каждый ход пока фигура защищает хотя бы одного союзника.',
   },
   {
-    type: 'caretaker_2', category: 'defense', rarity: 'rare', price: 120, bonusGold: 58,
+    type: 'caretaker_2', category: 'defense', rarity: 'rare', price: 120, bonusGold: 16,
     name: 'Опекун II',
-    description: 'Верный опекун. Повышенный бонус за прикрытие союзных фигур.',
+    description: '+16 золота каждый ход пока фигура защищает союзника.',
   },
   {
-    type: 'caretaker_3', category: 'defense', rarity: 'epic', price: 185, bonusGold: 90,
+    type: 'caretaker_3', category: 'defense', rarity: 'epic', price: 185, bonusGold: 20,
     name: 'Опекун III',
-    description: 'Непробиваемый щит. Максимальный бонус за защиту каждого союзника.',
+    description: '+20 золота каждый ход пока фигура защищает союзника.',
   },
 
   // ── МАРОДЁР (атака) ─────────────────────────────────────────────────────────
@@ -123,36 +123,36 @@ export const UPGRADE_DEFINITIONS: ChaosUpgradeDefinition[] = [
 
   // ── РАЗВЕДЧИК (атака) ───────────────────────────────────────────────────────
   {
-    type: 'scout', category: 'attack', rarity: 'rare', price: 100, bonusGold: 60,
+    type: 'scout', category: 'attack', rarity: 'rare', price: 100, bonusGold: 18,
     name: 'Разведчик I',
-    description: 'Фигура вышла на вражескую половину доски — получай золото.',
+    description: '+18 золота за вилку (атака 2+ фигур противника одновременно).',
   },
   {
-    type: 'scout_2', category: 'attack', rarity: 'epic', price: 165, bonusGold: 95,
+    type: 'scout_2', category: 'attack', rarity: 'epic', price: 165, bonusGold: 22,
     name: 'Разведчик II',
-    description: 'Опытный разведчик. Высокий бонус за глубокое проникновение.',
+    description: '+22 золота за вилку или тихий ход с угрозой двум фигурам.',
   },
   {
-    type: 'scout_3', category: 'attack', rarity: 'legendary', price: 260, bonusGold: 140,
+    type: 'scout_3', category: 'attack', rarity: 'legendary', price: 260, bonusGold: 30,
     name: 'Разведчик III',
-    description: 'Тень за линиями врага. Легендарный бонус за контроль вражеских рядов.',
+    description: '+30 золота за тройную вилку (атака 3+ фигур одновременно).',
   },
 
   // ── ЛЕГЕНДА (атака) ─────────────────────────────────────────────────────────
   {
-    type: 'legend', category: 'attack', rarity: 'epic', price: 210, bonusGold: 110,
+    type: 'legend', category: 'attack', rarity: 'epic', price: 210, bonusGold: 0,
     name: 'Легенда I',
-    description: 'Двойной бонус за любое взятие. Эта фигура — легенда поля боя.',
+    description: '+8% золота за захват за каждый пережитый бой (макс +40%).',
   },
   {
-    type: 'legend_2', category: 'attack', rarity: 'legendary', price: 340, bonusGold: 165,
+    type: 'legend_2', category: 'attack', rarity: 'legendary', price: 340, bonusGold: 0,
     name: 'Легенда II',
-    description: 'Живая легенда. Огромный бонус за каждое взятие, любой фигурой.',
+    description: '+12% золота за захват за каждый пережитый бой (макс +48%).',
   },
   {
-    type: 'legend_3', category: 'attack', rarity: 'legendary', price: 500, bonusGold: 240,
+    type: 'legend_3', category: 'attack', rarity: 'legendary', price: 500, bonusGold: 0,
     name: 'Легенда III',
-    description: 'Бессмертная легенда. Максимально возможная добыча за каждый захват.',
+    description: '+15% золота за захват за каждый пережитый бой (макс +60%).',
   },
 
   // ── Устаревшие типы (обратная совместимость) ────────────────────────────────
