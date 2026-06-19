@@ -16,7 +16,7 @@ import type { PieceKey } from '../components/chess/ChessPieceSVG';
 import type { MoveResult } from '../engine/chessLogic';
 import {
   buildChaosFen,
-  buildLevel2AiFen,
+  buildLevel2StandardAiFen,
   buildLevel2BossAiFen,
   resolveArmyAfterBattle,
   pieceStartingSquare,
@@ -290,9 +290,17 @@ export default function ChaosBattleScreen() {
   );
 
   const [startFen] = useState(() => {
-    if (currentLevel === 1) return buildChaosFen(pieces, safeBattleNumber);
-    if (isBossBattle) return buildLevel2BossAiFen(pieces);
-    return buildLevel2AiFen(pieces, aiUpgrades, isPawnMarch, isQueenHunt);
+    let fen: string;
+    if (currentLevel === 1) {
+      fen = buildChaosFen(pieces, safeBattleNumber);
+    } else if (isBossBattle) {
+      fen = buildLevel2BossAiFen(pieces);
+    } else {
+      fen = buildLevel2StandardAiFen(pieces, v3BattleType);
+    }
+    // eslint-disable-next-line no-console
+    console.log('[ENEMY] level:', currentLevel, 'floor:', currentFloor, 'battleType:', v3BattleType, 'fen:', fen.split(' ')[0]);
+    return fen;
   });
   const [chess] = useState(() => new Chess(startFen));
 
@@ -910,7 +918,56 @@ export default function ChaosBattleScreen() {
             break;
           }
         }
-        // AI спец. улучшение: дополнительный ход после взятия (вихрь / рикошет)
+
+        // Завершение хода AI: телепортация, передача хода игроку, ELO/подкрепление, проверка конца
+        const finalizeTurn = () => {
+          // Уровень 3, Ведьма Диагоналей: раз в teleportMechanic.intervalMoves ходов
+          if (isBossBattle && levelConfig.bossConfig.teleportMechanic) {
+            const teleportMechanic = levelConfig.bossConfig.teleportMechanic;
+            if (playerMoves > 0 && playerMoves % teleportMechanic.intervalMoves === 0) {
+              const teleported = teleportAttackingPieces(chess, teleportMechanic.targetPieces, teleportMechanic.excludePieces);
+              if (teleported !== chess) {
+                chess.load(teleported.fen());
+                pushGoldToast('🌀 Ведьма телепортировала своих воинов!');
+              }
+            }
+            setMovesUntilTeleport(teleportMechanic.intervalMoves - (playerMoves % teleportMechanic.intervalMoves));
+          }
+
+          setIsAIThinking(false);
+          checkSurrenderCondition();
+
+          // Уведомление об усилении ELO — не для Королевского Щита (там давление не растёт)
+          const currentMoveNum = playerMovesRef.current;
+          if (!isRoyalShield && (currentMoveNum === 10 || currentMoveNum === 15 || currentMoveNum === 20)) {
+            const totalIncrease = getPressureElo(opponentElo, currentMoveNum) - opponentElo;
+            const eloMsg =
+              currentMoveNum <= 15 ? `⚡ Противник усилился! ELO +${totalIncrease}` :
+              `🔥 Противник опасен! ELO +${totalIncrease}`;
+            setEloBoostText(eloMsg);
+          }
+
+          // Подкрепление противника на ходах 15/20/25 — не для Королевского Щита
+          if (!isRoyalShield && (currentMoveNum === 15 || currentMoveNum === 20 || currentMoveNum === 25)) {
+            const spawned = spawnReinforcement(chess, currentLevel, currentMoveNum);
+            if (spawned.length > 0) {
+              const names = spawned.map(p => PIECE_NAMES_RU[p] ?? p).join(' и ');
+              setReinforcementText(`⚠️ Подкрепление врага! +${names}`);
+            }
+          }
+
+          if (chess.isCheckmate()) {
+            finishBattle('lose', 'Мат!', 0, playerMoves);
+            return;
+          }
+          if (chess.isDraw() || chess.isStalemate()) {
+            finishBattle('draw', 'Ничья — золото не начисляется', 0, playerMoves);
+          }
+        };
+
+        // AI спец. улучшение: дополнительный ход после взятия — пауза 600мс чтобы
+        // игрок видел первый и второй ход по отдельности; isAIThinking остаётся true
+        let triggeredSecondMove = false;
         if (move.captured) {
           const specialConfig = aiSpecialUpgradeConfigsRef.current.find(
             c => c.square === to && !c.usedThisTurn
@@ -921,64 +978,25 @@ export default function ChaosBattleScreen() {
               specialConfig.usedThisTurn = true;
               const extraLegal = chess.moves({ square: to as Square, verbose: true });
               if (extraLegal.length > 0) {
+                triggeredSecondMove = true;
                 const extraMove = extraLegal[Math.floor(Math.random() * extraLegal.length)];
-                const extraChessMove = chess.move({ from: extraMove.from, to: extraMove.to });
-                if (extraChessMove) {
-                  if (pieceUpgrades.length > 0) {
-                    trackUpgradeMove(extraMove.from as Square, extraMove.to as Square);
+                setTimeout(() => {
+                  const extraChessMove = chess.move({ from: extraMove.from, to: extraMove.to });
+                  if (extraChessMove) {
+                    if (pieceUpgrades.length > 0) {
+                      trackUpgradeMove(extraMove.from as Square, extraMove.to as Square);
+                    }
+                    specialConfig.square = extraMove.to;
+                    setLastMoveHighlight({ from: extraMove.from as Square, to: extraMove.to as Square, color: 'opponent' });
                   }
-                  specialConfig.square = extraMove.to;
                   pushGoldToast(specialConfig.type === 'vortex' ? '⚡ Конь-Вихрь!' : '⚡ Слон-Рикошет!');
-                  setLastMoveHighlight({ from: extraMove.from as Square, to: extraMove.to as Square, color: 'opponent' });
-                }
+                  finalizeTurn();
+                }, 600);
               }
             }
           }
         }
-
-        // Уровень 3, Ведьма Диагоналей: раз в teleportMechanic.intervalMoves ходов
-        // атакующие фигуры (слоны-снайперы, конь-берсерк) телепортируются на ряды 5-8
-        if (isBossBattle && levelConfig.bossConfig.teleportMechanic) {
-          const teleportMechanic = levelConfig.bossConfig.teleportMechanic;
-          if (playerMoves > 0 && playerMoves % teleportMechanic.intervalMoves === 0) {
-            const teleported = teleportAttackingPieces(chess, teleportMechanic.targetPieces, teleportMechanic.excludePieces);
-            if (teleported !== chess) {
-              chess.load(teleported.fen());
-              pushGoldToast('🌀 Ведьма телепортировала своих воинов!');
-            }
-          }
-          setMovesUntilTeleport(teleportMechanic.intervalMoves - (playerMoves % teleportMechanic.intervalMoves));
-        }
-
-        setIsAIThinking(false);
-        checkSurrenderCondition();
-
-        // Уведомление об усилении ELO — не для Королевского Щита (там давление не растёт)
-        const currentMoveNum = playerMovesRef.current;
-        if (!isRoyalShield && (currentMoveNum === 10 || currentMoveNum === 15 || currentMoveNum === 20)) {
-          const totalIncrease = getPressureElo(opponentElo, currentMoveNum) - opponentElo;
-          const eloMsg =
-            currentMoveNum <= 15 ? `⚡ Противник усилился! ELO +${totalIncrease}` :
-            `🔥 Противник опасен! ELO +${totalIncrease}`;
-          setEloBoostText(eloMsg);
-        }
-
-        // Подкрепление противника на ходах 15/20/25 — не для Королевского Щита
-        if (!isRoyalShield && (currentMoveNum === 15 || currentMoveNum === 20 || currentMoveNum === 25)) {
-          const spawned = spawnReinforcement(chess, currentLevel, currentMoveNum);
-          if (spawned.length > 0) {
-            const names = spawned.map(p => PIECE_NAMES_RU[p] ?? p).join(' и ');
-            setReinforcementText(`⚠️ Подкрепление врага! +${names}`);
-          }
-        }
-
-        if (chess.isCheckmate()) {
-          finishBattle('lose', 'Мат!', 0, playerMoves);
-          return;
-        }
-        if (chess.isDraw() || chess.isStalemate()) {
-          finishBattle('draw', 'Ничья — золото не начисляется', 0, playerMoves);
-        }
+        if (!triggeredSecondMove) finalizeTurn();
       });
     } catch { setIsAIThinking(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps

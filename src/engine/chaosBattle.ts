@@ -2,6 +2,7 @@ import { Chess } from 'chess.js';
 import type { PieceSymbol, Square } from 'chess.js';
 import type { ChessPiece } from '../store/chaosModeStore';
 import type { AIUpgrade } from './chaosAIUpgrades';
+import type { BattleType } from '../types/mechanics';
 
 // Режим «ХАОС»: бои собранной игроком армией против фиксированных составов ИИ
 export type ChaosBattleNumber = 1 | 2 | 'boss';
@@ -225,6 +226,47 @@ export function buildLevel2BossAiFen(playerPieces: ChessPiece[]): string {
   const merged = mergeBoards(buildPlayerBoard(playerPieces), aiBoard);
   const fen = `${boardToFenRows(merged)} w - - 0 1`;
 
+  try {
+    new Chess(fen);
+    return fen;
+  } catch {
+    return FALLBACK_FEN;
+  }
+}
+
+// Состав ИИ для боёв Act 2+ без кастомных AI-улучшений (mechanics-v3):
+// - standard:              полная задняя линия + 6 пешек (a-f7)
+// - objective_queen_hunt:  К+Ф+2Л+1С+2К + 5 пешек (a-e7)
+// - objective_pawn_march / objective_royal_shield: полный состав + 8 пешек
+// - elite:                 полный состав + 6 пешек (элита — через buildLevel2BossAiFen у босса)
+export function buildLevel2StandardAiFen(
+  playerPieces: ChessPiece[],
+  battleType: BattleType,
+): string {
+  const aiBoard = emptyBoard();
+
+  if (battleType === 'objective_queen_hunt') {
+    // Ферзь есть (цель для охоты), один слон убран, 5 пешек
+    place(aiBoard, 'a8', 'r');
+    place(aiBoard, 'b8', 'n');
+    place(aiBoard, 'c8', 'b');
+    place(aiBoard, 'd8', 'q');
+    place(aiBoard, 'e8', 'k');
+    place(aiBoard, 'f8', 'n');
+    place(aiBoard, 'g8', 'r');
+    ['a', 'b', 'c', 'd', 'e'].forEach(f => place(aiBoard, `${f}7`, 'p'));
+  } else if (battleType === 'objective_pawn_march' || battleType === 'objective_royal_shield') {
+    // Полный состав + 8 пешек — максимальное давление на объективные бои
+    for (const [sq, tp] of STANDARD_BACK_RANK) place(aiBoard, sq, tp);
+    FILES.forEach(f => place(aiBoard, `${f}7`, 'p'));
+  } else {
+    // standard / elite: полная задняя линия + 6 пешек
+    for (const [sq, tp] of STANDARD_BACK_RANK) place(aiBoard, sq, tp);
+    ['a', 'b', 'c', 'd', 'e', 'f'].forEach(f => place(aiBoard, `${f}7`, 'p'));
+  }
+
+  const merged = mergeBoards(buildPlayerBoard(playerPieces), aiBoard);
+  const fen = `${boardToFenRows(merged)} w - - 0 1`;
   try {
     new Chess(fen);
     return fen;
