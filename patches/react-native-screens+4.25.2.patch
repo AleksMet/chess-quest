@@ -1,3 +1,19 @@
+diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreensModule.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreensModule.kt
+index 5a6245c..6e7b153 100644
+--- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreensModule.kt
++++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreensModule.kt
+@@ -55,8 +55,10 @@ class ScreensModule(
+     }
+ 
+     private fun setupFabric() {
++        // UIManagerHelper возвращает null в Legacy Architecture — безопасно пропускаем
+         val fabricUIManager =
+-            UIManagerHelper.getUIManager(reactContext, UIManagerType.FABRIC) as FabricUIManager
++            UIManagerHelper.getUIManager(reactContext, UIManagerType.FABRIC) as? FabricUIManager
++                ?: return
+         proxy?.apply {
+             nativeAddMutationsListener(fabricUIManager)
+         }
 diff --git a/node_modules/react-native-screens/lib/commonjs/components/helpers/DelayedFreeze.js b/node_modules/react-native-screens/lib/commonjs/components/helpers/DelayedFreeze.js
 index 97f26dd..55eeda4 100644
 --- a/node_modules/react-native-screens/lib/commonjs/components/helpers/DelayedFreeze.js

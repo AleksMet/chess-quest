@@ -509,14 +509,14 @@ export default function ChaosBattleScreen() {
     const specialConfigs: AISpecialUpgradeConfig[] = [];
     for (const upgradeType of specialUpgradeTypes) {
       if (upgradeType === 'vortex') {
-        const squares = findAllPieceSquares(chess, 'n', 'b');
-        if (squares.length > 0) {
-          specialConfigs.push({ type: 'vortex', square: squares[0], piece: 'n', usedThisTurn: false });
+        // Каждый конь AI получает Вихрь — создаём отдельный config на каждую клетку
+        for (const sq of findAllPieceSquares(chess, 'n', 'b')) {
+          specialConfigs.push({ type: 'vortex', square: sq, piece: 'n', usedThisTurn: false });
         }
       } else if (upgradeType === 'ricochet') {
-        const squares = findAllPieceSquares(chess, 'b', 'b');
-        if (squares.length > 0) {
-          specialConfigs.push({ type: 'ricochet', square: squares[0], piece: 'b', usedThisTurn: false });
+        // Каждый слон AI получает Рикошет
+        for (const sq of findAllPieceSquares(chess, 'b', 'b')) {
+          specialConfigs.push({ type: 'ricochet', square: sq, piece: 'b', usedThisTurn: false });
         }
       }
     }

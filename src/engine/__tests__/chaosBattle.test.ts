@@ -40,15 +40,15 @@ describe('buildChaosFen', () => {
     expect((board.match(/P/g) ?? []).length).toBe(8);
   });
 
-  it('battle 1 AI army matches GDD spec: king + 6 pawns + knight + bishop + rook', () => {
+  it('battle 1 AI army: full back rank + 6 pawns', () => {
     const fen = buildChaosFen(STARTING_PIECES, 1);
     const board = fen.split(' ')[0];
     expect((board.match(/k/g) ?? []).length).toBe(1);
     expect((board.match(/p/g) ?? []).length).toBe(6);
-    expect((board.match(/n/g) ?? []).length).toBe(1);
-    expect((board.match(/b/g) ?? []).length).toBe(1);
-    expect((board.match(/r/g) ?? []).length).toBe(1);
-    expect((board.match(/q/g) ?? []).length).toBe(0);
+    expect((board.match(/n/g) ?? []).length).toBe(2);
+    expect((board.match(/b/g) ?? []).length).toBe(2);
+    expect((board.match(/r/g) ?? []).length).toBe(2);
+    expect((board.match(/q/g) ?? []).length).toBe(1);
   });
 
   it('battle 2 AI army matches GDD spec: king + 6 pawns + 2 knights + bishop + rook', () => {
